@@ -1,3 +1,14 @@
+2002-08-29  Peter Osterlund  <petero2@telia.com>
+
+	* (p4-next-change-rev-line, p4-prev-change-rev-line): Fix to work
+	  with new format of print-with-rev-history buffers.
+
+	* (p4-moveto-print-rev-column): New function.
+
+	* (p4-print-with-rev-history-int): Removed debug message. Made the
+	  number of added characters a multiple of 8 to avoid messing up
+	  indentation for lines containing tabs.
+
 2002-08-28  Peter Osterlund  <petero2@telia.com>
 
 	* (p4-print-with-rev-history-int): Declare local variable cur-list.

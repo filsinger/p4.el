@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.43 2002/08/28 19:42:36 petero2 Exp $
+;; $Id: p4.el,v 1.44 2002/08/28 22:13:37 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -1327,7 +1327,7 @@ type \\[p4-print-with-rev-history]"
   (kill-buffer p4-output-buffer-name)      ;; to ensure no duplicates
   (let ((file-name file-spec)
 	(buffer (get-buffer-create p4-output-buffer-name))
-	 author change ch-alist date fullname head-rev headseen)
+	author change ch-alist date fullname head-rev headseen)
     (if (string-match "\\(.*\\)@\\([0-9]+\\)" file-spec)
 	(progn
 	  (setq file-name (match-string 1 file-spec))
@@ -1361,7 +1361,6 @@ type \\[p4-print-with-rev-history]"
 		    ((string= op "delete")
 		     (goto-char (point-max)))
 		    (t
-		     (message "%d %s %s" ch date author)
 		     (setq ch-alist (cons (cons rev (list ch date author)) ch-alist))
 		     (if (not head-rev)
 			 (setq head-rev rev))
@@ -1442,10 +1441,11 @@ type \\[p4-print-with-rev-history]"
 	    (setq date (car cur-list))
 	    (setq author (car (cdr cur-list)))
 	    (if (= rev old-rev)
-		(insert (format "%33s : " ""))
-	      (insert (format "  %6d %4d %10s %8s : " ch rev date author))
+		(insert (format "%29s : " ""))
+	      (insert (format "%6d %4d %10s %7s: " ch rev date author))
 	      (move-to-column 0)
-	      (if (looking-at " *\\([0-9]+\\) *\\([0-9]+\\) *\\([0-9]+/[0-9]+/[0-9]+\\) \\s-+\\(.*\\) :")
+	      (if (looking-at (concat " *\\([0-9]+\\) *\\([0-9]+\\) *\\([0-9]+/[0-9]+/[0-9]+\\)"
+				      " \\s-+\\([^:]*\\):"))
 		  (progn
 		    (p4-create-active-link (match-beginning 1)
 					   (match-end 1)
@@ -1703,22 +1703,35 @@ This command will execute the integrate/delete commands automatically.
   (re-search-backward "^\\(@@\\|\\*\\*\\* \\|[0-9]+[,acd]\\)" nil "")
   (set-window-start (selected-window) (point)))
 
+(defun p4-moveto-print-rev-column (old-column)
+  (let ((colon (save-excursion
+		 (move-to-column 0)
+		 (if (looking-at "[^:\n]*:")
+		     (progn
+		       (goto-char (match-end 0))
+		       (current-column))
+		   0))))
+    (move-to-column old-column)
+    (if (and (< (current-column) colon)
+	     (re-search-forward "[^ ][ :]" nil t))
+	(goto-char (match-beginning 0)))))
+
 (defun p4-next-change-rev-line ()
   "Next change/revision line"
   (interactive)
-  (let ((c (if (< (current-column) 8) 7 12)))
-    (move-to-column 2)
-    (re-search-forward "^ +[0-9]+ +[0-9]+ :" nil "")
-    (move-to-column c)))
+  (let ((c (current-column)))
+    (move-to-column 1)
+    (re-search-forward "^ *[0-9]+ +[0-9]+[^:]+:" nil "")
+    (p4-moveto-print-rev-column c)))
 
 (defun p4-prev-change-rev-line ()
   "Previous change/revision line"
   (interactive)
-  (let ((c (if (< (current-column) 8) 7 12)))
+  (let ((c (current-column)))
     (forward-line -1)
-    (move-to-column 16)
-    (re-search-backward "^ +[0-9]+ +[0-9]+ :" nil "")
-    (move-to-column c)))
+    (move-to-column 32)
+    (re-search-backward "^ *[0-9]+ +[0-9]+[^:]*:" nil "")
+    (p4-moveto-print-rev-column c)))
 
 (defun p4-quit-current-buffer (pnt)
   "Quit a buffer"
