@@ -1,7 +1,10 @@
 2002-07-25  Peter Osterlund  <petero2@telia.com>
 
-	* (p4-menu-def) Reordered code blocks to make xemacs work
+	* (p4-menu-def): Reordered code blocks to make xemacs work
 	  correctly.
+	* (p4-activate-diff-buffer): Simplified regexp to avoid regexp
+	  stack overflow when there are a lot of changes in the same
+	  file.
 
 2002-07-23  Rajesh Vaidheeswarran  <rv@dsmit.com>
 
