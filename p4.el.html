@@ -16,7 +16,7 @@
 //    If you have any problems to report, or suggestions, please send them
 //    to p4el-bugs@lists.sourceforge.net
 //
-//	$Id: p4.el.html,v 1.8 2002/10/24 16:27:52 rvgnu Exp $
+//	$Id: p4.el.html,v 1.9 2003/09/12 17:30:45 rvgnu Exp $
 -->
 <html>
     <header>
@@ -76,61 +76,62 @@
 		<td>C-x p -</td><td>p4-<a href=#ediff>ediff</a></td>
 	      </tr>
 	      <tr>
+		<td></td><td>p4-<a href=#ediff2>ediff2</a></td>
 		<td>C-x p X</td><td>p4-<a href=#fix>fix</a></td>
 		<td>C-x p x</td><td>p4-<a href=#delete>delete</a></td>
-		<td>C-x p D</td><td>p4-<a href=#describe>describe</a></td>
 	      </tr>
 	      <tr>
+		<td>C-x p D</td><td>p4-<a href=#describe>describe</a></td>
 		<td>C-x p d</td><td>p4-<a href=#diff2>diff2</a></td>
 		<td>C-x p e</td><td>p4-<a href=#edit>edit</a></td>
-		<td>C-x p v</td><td>p4-<a href=#version>emacs-version</a></td>
 	      </tr>
 	      <tr>
+		<td>C-x p v</td><td>p4-<a href=#version>emacs-version</a></td>
 		<td>C-x p G</td><td>p4-<a href=#get>get</a></td>
 		<td>C-x p g</td><td>p4-<a href=#cname>get-client-name</a></td>
-		<td>C-x p f</td><td>p4-<a href=#filelog>filelog</a></td>
 	      </tr>
 	      <tr>
+		<td>C-x p f</td><td>p4-<a href=#filelog>filelog</a></td>
 		<td>C-x p F</td><td>p4-<a href=#files>files</a></td>
 		<td>C-x p H</td><td>p4-<a href=#have>have</a></td>
-		<td>C-x p h</td><td>p4-<a href=#help>help</a></td>
 	      </tr>
 	      <tr>
+		<td>C-x p h</td><td>p4-<a href=#help>help</a></td>
 		<td>C-x p J</td><td>p4-<a href=#jobs>jobs</a></td>
 		<td>C-x p j</td><td>p4-<a href=#job>job</a></td>
-		<td>C-x p I</td><td>p4-<a href=#integ>integ</a></td>
 	      </tr>
 	      <tr>
+		<td>C-x p I</td><td>p4-<a href=#integ>integ</a></td>
 		<td>C-x p i	</td><td>p4-<a href=#info>info</a></td>
 		<td>C-x p l	</td><td>p4-<a href=#label>label</a></td>
-		<td>C-x p L	</td><td>p4-<a href=#labels>labels</a></td>
 	      </tr>
 	      <tr>
+		<td>C-x p L	</td><td>p4-<a href=#labels>labels</a></td>
 		<td>C-x p C-l</td><td>p4-<a href=#labelsync>labelsync</a></td>
 		<td>C-x p n	</td><td>p4-<a href=#notify>notify</a></td>
-		<td>C-x p o	</td><td>p4-<a href=#opened>opened</a></td>
 	      </tr>
 	      <tr>
+		<td>C-x p o	</td><td>p4-<a href=#opened>opened</a></td>
 		<td>C-x p q</td><td>p4-<a href=#pop>pop-window-config</a></td>
 		<td>C-x p p</td><td>p4-<a href=#print>print</a></td>
-		<td>C-x p V</td><td>p4-<a href=#history>print-with-rev-history</a></td>
 	      </tr>
 	      <tr>
+		<td>C-x p V</td><td>p4-<a href=#history>print-with-rev-history</a></td>
 		<td>C-x p R</td><td>p4-<a href=#refresh>refresh</a></td>
 		<td>C-x p m</td><td>p4-<a href=#rename>rename</a></td>
-		<td>C-x p E</td><td>p4-<a href=#reopen>reopen</a></td>
 	      </tr>
 	      <tr>
+		<td>C-x p E</td><td>p4-<a href=#reopen>reopen</a></td>
 		<td>C-x p r</td><td>p4-<a href=#revert>revert</a></td>
 		<td>C-x p s</td><td>p4-<a href=#cname>set-client-name</a></td>
-		<td>C-x p P</td><td>p4-<a href=#port>set-p4-port</a></td>
 	      </tr>
 	      <tr>
+		<td>C-x p P</td><td>p4-<a href=#port>set-p4-port</a></td>
 		<td>C-x p S</td><td>p4-<a href=#submit>submit</a></td>
 		<td>C-x p t</td><td>p4-<a href=#mode>toggle-vc-mode</a></td>
-		<td>C-x p u</td><td>p4-<a href=#user>user</a></td>
 	      </tr>
 	      <tr>
+		<td>C-x p u</td><td>p4-<a href=#user>user</a></td>
 		<td>C-x p U</td><td>p4-<a href=#users>users</a></td>
 		<td>C-x p w</td><td>p4-<a href=#where>where</a></td>
 	      </tr>
@@ -145,25 +146,32 @@
 		<td>p4-describe-bindings<br>C-x p ?</td>
 		<td>
 		  <pre>A function to list the key bindings for the p4 prefix map</pre>
-		  <a name=ediff></a>
 		</td>
 		<tr>
 		  <td>p4-ediff<br>C-x p -</td>
 		  <td>
+		    <a name=ediff></a>
 		    <pre>Use ediff to compare file with its original client version.</pre>
-		    <a name=diff-head></a>
+		  </td>
+		</tr>
+		<tr>
+		  <td>p4-ediff2</td>
+		  <td>
+		    <a name=ediff2></a>
+		    <pre>Use ediff to compare two different depot files.</pre>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-diff-head<br></td>
 		  <td>
+		    <a name=diff-head></a>
 		    <pre>Use diff-head to compare file (opened or unopened) with the latest revision in the depot.</pre>
-		    <a name=diff></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-diff<br>C-x p =</td>
 		  <td>
+		    <a name=diff></a>
 		    <PRE>
 To diff the current file and topmost depot version, type C-x p =.
 
@@ -193,12 +201,12 @@ satisfying the following criteria:
 	-sr	Opened files that are the same as the revision in the
 		depot.
 		    </PRE>
-		    <a name=fix></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-fix<br>C-x p X</td>
 		  <td>
+		    <a name=fix></a>
 		    <PRE>
 p4-fix is an interactive Lisp function in `p4'.
 
@@ -218,12 +226,12 @@ closed, it is left alone.
 The -d flag causes the specified fixes to be deleted.  This does not
 otherwise affect the named changelist or jobs.
 		    </PRE>
-		    <a name=delete></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-delete<br>C-x p x</td>
 		  <td>
+		    <a name=delete></a>
 		    <PRE>
 p4-delete is an interactive Lisp function in `p4'.
 
@@ -241,12 +249,12 @@ number is given.)
 
 Files that are deleted generally do not appear on the have list.
 		    </PRE>
-		    <a name=where></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-where<br>C-x p w</td>
 		  <td>
+		    <a name=where></a>
 		    <PRE>
 To show how local file names map into depot names, type C-x p w.
 
@@ -256,28 +264,29 @@ Where shows how the named files map through the client map
 into the depot.	 If no file is given, the mapping for '...'
 (all files in the current directory and below) is shown.
 		    </PRE>
-		    <a name=history></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-print-with-rev-history<br>C-x p V</td>
 		  <td>
+		    <a name=history></a>
 		    <PRE>
 To Print a depot file with revision history to a buffer,
 type C-x p V
 		    </PRE>
-		    <a name=version></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-emacs-version<br>C-x p v</td>
-		  <td><pre>Return the current Emacs-P4 Integration version.</pre>
-		    <a name=users></a>
+		  <td>
+		    <a name=version></a>
+		    <pre>Return the current Emacs-P4 Integration version.</pre>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-users<br>C-x p U</td>
 		  <td>
+		    <a name=users></a>
 		    <PRE>
 To display list of known users, type C-x p U.
 
@@ -287,12 +296,12 @@ Reports the list of all users, or those users matching the argument,
 currently known to the system.	The report includes the last time
 each user accessed the system.
 		    </PRE>
-		    <a name=user></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-user<br>C-x p u</td>
 		  <td>
+		    <a name=user></a>
 		    <PRE>
 To create or edit a user specification, type C-x p u.
 
@@ -334,22 +343,22 @@ to the standard output.	 The user's editor is not invoked.
 The -i flag causes a user specification to be read from the
 standard input.	 The user's editor is not invoked.
 		    </PRE>
-		    <a name=mode></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-toggle-vc-mode<br>C-x p t</td>
 		  <td>
+		    <a name=mode></a>
 		    <PRE>
 In case, the P4 server is not available, or when working off-line, toggle
 the VC check on/off when opening files.
 		    </PRE>
-		    <a name=submit></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-submit<br>C-x p S</td>
 		  <td>
+		    <a name=submit></a>
 		    <PRE>
 To submit a pending change to the depot, type C-x p S.
 
@@ -374,12 +383,12 @@ updated in the depot as a unit or none will be.
 The -i flag causes a change specification to be read from the
 standard input.	 The user's editor is not invoked.
 		    </PRE>
-		    <a name=setclient></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-set-client<br>C-x p s</td>
 		  <td>
+		    <a name=setclient></a>
 		    <PRE>
 To set the current value of P4CLIENT, type C-x p s.
 
@@ -395,12 +404,12 @@ variable `p4-strict-complete' (default is t).
 Argument P4-NEW-CLIENT-NAME The new client to set to. The default value is
 the current client.
 		    </PRE>
-		    <a name=refresh></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-refresh<br>C-x p R</td>
 		  <td>
+		    <a name=refresh></a>
 		    <PRE>
 Refresh the contents of an unopened file. C-x p R.
 
@@ -410,32 +419,32 @@ Refresh replaces the files with their contents from the depot.	Refresh only
 refreshes unopened files; opened files must be reverted.  This command
 requires naming files explicitly.
 		    </PRE>
-		    <a name=revert></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-revert<br>C-x p r</td>
 		  <td>
+		    <a name=revert></a>
 		    <PRE>
 Revert all change in the current file.
 
 Argument SHOW-OUTPUT  displays the *P4 Output* buffer on executing the
 command if t.
 		    </PRE>
-		    <a name=pop></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-pop-window-config<br>C-x p q</td>
 		  <td>
+		    <a name=pop></a>
 		    <PRE>
 Pop `num' elements from the `p4-window-config-stack' stack and use
 the last popped element to restore the window configuration.
 		    </PRE>
-		    <a name=port></a>
 		  </td>
 		</tr>
 		<tr>
+		    <a name=port></a>
 		  <td>p4-set-p4-port<br>C-x p P</td>
 		  <td>
 		    <PRE>
@@ -447,12 +456,12 @@ given value.
 Argument P4-NEW-P4-PORT The new server:port to set to. The default value is
 the current value of P4PORT.
 		    </PRE>
-		    <a name=print></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-print<br>C-x p p</td>
 		  <td>
+		    <a name=print></a>
 		    <PRE>
 To print a depot file to a buffer, type C-x p p.
 
@@ -462,12 +471,12 @@ specified as a client file name, the client view is used to
 find the corresponding depot file.  The -q flag suppresses the
 initial line that displays the file name and revision.
 		    </PRE>
-		    <a name=opened></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-opened<br>C-x p o</td>
 		  <td>
+		    <a name=opened></a>
 		    <PRE>
 To display list of files opened for pending change, type C-x p o.
 
@@ -478,12 +487,12 @@ specified individual files whether they are currently opened.
 If no file names are given, all files open on the current client
 are listed.  The -a flag lists opened files in all clients.
 		    </PRE>
-		    <a name=notify></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-notify<br>C-x p n</td>
 		  <td>
+		    <a name=notify></a>
 		    <PRE>
 To notify a list of users of a change submission manually, type
 C-x p n.
@@ -501,12 +510,12 @@ Also, it is mandatory to set the user's email address in the variable
 Argument USERS The users to notify to. The default value is the notification
 list.
 		    </PRE>
-		    <a name=rename></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-rename<br>C-x p m</td>
 		  <td>
+		    <a name=rename></a>
 		    <PRE>
 To rename a file in the depot, type C-x p m.
 
@@ -522,36 +531,40 @@ them requires write access.
 
 For further information, see the help for the individual commands.
 		    </PRE>
-		    <a name=labelsync></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-labelsync<br>C-x p C-l</td>
-		  <td><pre>To synchronize a label with the current client contents, type C-x p C-l.</pre>
-		    <a name=labels></a>
+		  <td>
+		    <a name=labelsync></a>
+		    <pre>
+		      To synchronize a label with the current client contents, type C-x p C-l.
+		    </pre>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-labels<br>C-x p L</td>
 		  <td>
+		    <a name=labels></a>
 		    <PRE>
 To display list of defined labels, type C-x p L.
 
 Reports the list of all labels currently known to the system.
 Labels takes no arguments.
 		    </PRE>
-		    <a name=label></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-label<br>C-x p l</td>
-		  <td><pre>Edit a P4-label specification using C-x p l.</pre>
-		    <a name=jobs></a>
+		  <td>
+		    <a name=label></a>
+		    <pre>Edit a P4-label specification using C-x p l.</pre>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-jobs<br>C-x p J</td>
 		  <td>
+		    <a name=jobs></a>
 		    <PRE>
 To display list of jobs, type C-x p J.
 
@@ -577,12 +590,12 @@ descriptions.
 The -m max flag limits the output to the first 'max' jobs,
 ordered by their job name.
 		    </PRE>
-		    <a name=job></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-job<br>C-x p j</td>
 		  <td>
+		    <a name=job></a>
 		    <PRE>
 To create or edit a job, type C-x p j.
 
@@ -617,12 +630,12 @@ standard input.  The user's editor is not invoked.
 
 The -f flag allows otherwise read-only fields to be set.
 		    </PRE>
-		    <a name=integ></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-integ<br>C-x p I</td>
 		  <td>
+		    <a name=integ></a>
 		    <PRE>
 To schedule integrations between branches, type C-x p I.
 
@@ -648,24 +661,24 @@ in the numbered pending change.
 
 Argument BRANCH is the branch to integrate into.
 		    </PRE>
-		    <a name=info></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-info<br>C-x p i</td>
 		  <td>
+		    <a name=info></a>
 		    <PRE>
 To print out client/server information, type C-x p i.
 
 Info dumps out what the server knows about the client (the user
 name, the client name, and the client directory) and some server
 		    </PRE>
-		    <a name=have></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-have<br>C-x p H</td>
 		  <td>
+		    <a name=have></a>
 		    <PRE>
 To list revisions last gotten, type C-x p H.
 
@@ -674,12 +687,12 @@ Optional args [file ...] are passed as prefix arguments.
 List revisions of named files that were last gotten from the depot.  If no
 file name is given list all files gotten on this client.
 		    </PRE>
-		    <a name=help></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-help<br>C-x p h</td>
 		  <td>
+		    <a name=help></a>
 		    <PRE>
 To print help message , type C-x p h.
 
@@ -689,12 +702,12 @@ commands.
 
 Argument ARG command for which help is needed.
 		    </PRE>
-		    <a name=get></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-get<br>C-x p G</td>
 		  <td>
+		    <a name=get></a>
 		    <PRE>
 To synchronise the local view with the depot, type C-x p G.
 
@@ -721,12 +734,12 @@ If -n is given show what revisions would need to be gotten to synchronize
 the client with the view, but do not actually get the files.  If no files
 are named show the result for the entire client view.
 		    </PRE>
-		    <a name=cname></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-get-client-name<br>C-x p g</td>
 		  <td>
+		    <a name=cname></a>
 		    <PRE>
 To get the current value of the environment variable P4CLIENT,
 type C-x p g.
@@ -734,12 +747,12 @@ type C-x p g.
 This will be the current client that is in use for access through
 Emacs P4.
 		    </PRE>
-		    <a name=files></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-files<br>C-x p F</td>
 		  <td>
+		    <a name=files></a>
 		    <PRE>
 List files in the depot. Type, C-x p F.
 
@@ -750,12 +763,12 @@ file name, revision, file type, change action and change number of the
 current head revision.	If client file names are given as arguments the view
 mapping is used to list the corresponding depot files.
 		    </PRE>
-		    <a name=filelog></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-filelog<br>C-x p f</td>
 		  <td>
+		    <a name=filelog></a>
 		    <PRE>
 To view a history of the change made to the current file, type
 C-x p f.
@@ -766,18 +779,24 @@ If file is given as a client file, the depot file last gotten is
 listed.	 The -l flag produces long output with the full text of the
 change descriptions.
 		    </PRE>
-		    <a name=find></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-depot-find-file<br>C-x p C-f</td>
-		  <td><pre>not documented</pre>
-		    <a name=reopen></a>
+		  <td>
+		    <a name=find></a>
+		    <pre>
+Typically perforce files are on the file system in a client view, but it
+is easy to find a perforce file by perforce paths like
+//depot/some/path/to/file using this command, since it autocomplete the
+server paths.
+		    </pre>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-reopen<br>C-x p E</td>
 		  <td>
+		    <a name=reopen></a>
 		    <PRE>
 To change the type or changelist number of an opened file, type
 C-x p E.
@@ -789,12 +808,12 @@ kxtext, symlink, or resource).
 Argument SHOW-OUTPUT  displays the *P4 Output* buffer on executing the
 command if t.
 		    </PRE>
-		    <a name=edit></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-edit<br>C-x p e</td>
 		  <td>
+		    <a name=edit></a>
 		    <PRE>
 To open the current depot file for edit, type C-x p e.
 
@@ -814,12 +833,12 @@ is specified, the type of the previous revision is reused.
 Argument SHOW-OUTPUT  displays the *P4 Output* buffer on executing the
 command if t.
 		    </PRE>
-		    <a name=describe></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-describe<br>C-x p D</td>
 		  <td>
+		    <a name=describe></a>
 		    <PRE>
 To get a description for a change number, type C-x p D.
 
@@ -835,12 +854,12 @@ modify the output: -dn (RCS), -dc (context), -du (unified).
 The -s flag requests a shortened form of describe that doesn't
 include the diffs of files updated.
 		    </PRE>
-		    <a name=diff2></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-diff2<br>C-x p d</td>
 		  <td>
+		    <a name=diff2></a>
 		    <PRE>
 Display diff of two depot files.
 
@@ -875,12 +894,12 @@ Other diff flags are not supported.
 Argument VERSION1 First Version to use.
 Argument VERSION2 Second Version to use.
 		    </PRE>
-		    <a name=changes></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-changes<br>C-x p C</td>
 		  <td>
+		    <a name=changes></a>
 		    <PRE>
 To list changes, type C-x p C.
 
@@ -889,12 +908,12 @@ Optional args [file ...] are passed as prefix arguments.
 List pending and submitted changes of named files.  If no file name is
 given list all changes affecting the current directory and below.
 		    </PRE>
-		    <a name=client></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-client<br>C-x p c</td>
 		  <td>
+		    <a name=client></a>
 		    <PRE>
 To edit a client specification , type C-x p c.
 
@@ -948,24 +967,28 @@ to the standard output.	 The user's editor is not invoked.
 The -i flag causes a client specification to be read from the
 standard input.	 The user's editor is not invoked.
 		    </PRE>
-		    <a name=branch></a>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-branch<br>C-x p B</td>
-		  <td><pre>Edit a P4-BRANCH specification using C-x p B.</pre>
-		    <a name=report></a>
+		  <td>
+		    <a name=branch></a>
+		    <pre>Edit a P4-BRANCH specification using C-x p B.</pre>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-bug-report<br>C-x p b</td>
-		  <td><pre>not documented</pre>
-		    <a name=add></a>
+		  <td>
+		    <a name=report></a>
+		    <pre>
+To report a bug in the p4.el program.
+		    </pre>
 		  </td>
 		</tr>
 		<tr>
 		  <td>p4-add<br>C-x p a</td>
 		  <td>
+		    <a name=add></a>
 		    <PRE>
 To add the current file to the depot, type C-x p a.
 
@@ -1210,6 +1233,6 @@ by examination of the file's contents and execution permission bits.
 	src="http://sourceforge.net/sflogo.php?group_id=58201&amp;type=5"
 	width="210" height="62" border="0" alt="SourceForge Logo"></A>
 	<hr>
-	Last Updated: $Revision: 1.8 $ on $Date: 2002/10/24 16:27:52 $
+	Last Updated: $Revision: 1.9 $ on $Date: 2003/09/12 17:30:45 $
     </body>
   </html>

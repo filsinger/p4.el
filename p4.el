@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.64 2003/07/07 05:47:11 brotsky Exp $
+;; $Id: p4.el,v 1.65 2003/09/12 17:30:44 rvgnu Exp $
 
 ;;; Commentary:
 ;;
@@ -8,7 +8,7 @@
 
 ;;    Programs for  Emacs <-> Perforce Integration.
 ;;    Copyright (C) 1996, 1997	Eric Promislow
-;;    Copyright (C) 1997-2001	Rajesh Vaidheeswarran
+;;    Copyright (C) 1997-2003	Rajesh Vaidheeswarran
 ;;
 ;;    This program is free software; you can redistribute it and/or modify
 ;;    it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@
 ;; LCD Archive Entry:
 ;; p4|Rajesh Vaidheeswarran|rv@NoSpAm.lOsEtHiS.dsmit.com|
 ;; P4 SCM Integration into Emacs/XEmacs|
-;; 2002/10/24|10.2|not_assigned_yet|
+;; 2003/09/12|10.3|not_assigned_yet|
 
 ;; WARNING:
 ;; --------
@@ -64,7 +64,7 @@
 
 ;;; Code:
 
-(defvar p4-emacs-version "10.2" "The Current P4-Emacs Integration Revision.")
+(defvar p4-emacs-version "10.3" "The Current P4-Emacs Integration Revision.")
 
 ;; Find out what type of emacs we are running in. We will be using this
 ;; quite a few times in this program.
@@ -543,6 +543,7 @@ the last popped element to restore the window configuration."
       ["Diff All Opened Files" p4-diff-all-opened t]
       ["Diff Current with Ediff"   p4-ediff
        (and (p4-buffer-file-name) (not buffer-read-only) p4-mode)]
+      ["Diff 2 Versions with Ediff"   p4-ediff2 (p4-buffer-file-name-2)]
       ["--" nil nil]
       ["Schedule Integrations" p4-integ t]
       ["Resolve Conflicts" p4-resolve t]
@@ -907,21 +908,64 @@ When visiting a depot file, type \\[p4-diff-head].\n"
   "Use ediff to compare file with its original client version."
   (interactive)
   (require 'ediff)
-  (p4-noinput-buffer-action "print" nil nil
-			    (list "-q"
-				  (concat (p4-buffer-file-name) "#have")))
-  (let ((local (current-buffer))
-	(depot (get-buffer-create p4-output-buffer-name)))
-    (ediff-buffers local
-		   depot
-		   `((lambda ()
-		       (make-local-variable 'ediff-cleanup-hook)
-		       (setq ediff-cleanup-hook
-			     (cons (lambda ()
-				     (kill-buffer ,depot)
-				     (p4-menu-add))
-				   ediff-cleanup-hook)))))))
+  (if current-prefix-arg
+      (call-interactively 'p4-ediff2)
+    (progn
+      (p4-noinput-buffer-action "print" nil nil
+				(list "-q"
+				      (concat (p4-buffer-file-name) "#have")))
+      (let ((local (current-buffer))
+	    (depot (get-buffer-create p4-output-buffer-name)))
+	(ediff-buffers local
+		       depot
+		       `((lambda ()
+			   (make-local-variable 'ediff-cleanup-hook)
+			   (setq ediff-cleanup-hook
+				 (cons (lambda ()
+					 (kill-buffer ,depot)
+					 (p4-menu-add))
+				       ediff-cleanup-hook)))))))))
 
+(defp4cmd p4-ediff2 (version1 version2)
+  "ediff2" "Use ediff to display two versions of a depot file.
+
+When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
+  (interactive
+   (let ((rev (get-char-property (point) 'rev)))
+     (if (and (not rev) (p4-buffer-file-name-2))
+	 (let ((rev-num 0))
+	   (setq rev (p4-is-vc nil (p4-buffer-file-name-2)))
+	   (if rev
+	       (setq rev-num (string-to-number rev)))
+	   (if (> rev-num 1)
+	       (setq rev (number-to-string (1- rev-num)))
+	     (setq rev nil))))
+     (list (p4-read-arg-string "First Depot File or Version# to diff: " rev)
+	   (p4-read-arg-string "Second Depot File or Version# to diff: "))))
+  (let* ((file-name (p4-buffer-file-name-2))
+         (basename (file-name-nondirectory file-name))
+         (bufname1 (concat "*P4 ediff " basename "#" version1  "*"))
+         (bufname2 (concat "*P4 ediff " basename "#" version2  "*"))
+         (diff-version1 (p4-get-file-rev file-name version1))
+         (diff-version2 (p4-get-file-rev file-name version2)))
+    (p4-noinput-buffer-action "print" nil nil (list "-q" diff-version1))
+    (set-buffer p4-output-buffer-name)
+    (rename-buffer bufname1 t)
+    (p4-noinput-buffer-action "print" nil nil (list "-q" diff-version2))
+    (set-buffer p4-output-buffer-name)
+    (rename-buffer bufname2 t)
+    (let ((buffer-version-1 (get-buffer-create bufname1))
+          (buffer-version-2 (get-buffer-create bufname2)))
+      (ediff-buffers buffer-version-1
+                     buffer-version-2
+                     `((lambda ()
+                         (make-local-variable 'ediff-cleanup-hook)
+                         (setq ediff-cleanup-hook
+                               (cons (lambda ()
+                                       (kill-buffer ,buffer-version-1)
+                                       (kill-buffer ,buffer-version-2)
+                                       (p4-menu-add))
+                                     ediff-cleanup-hook))))))))
 ;; The p4 add command
 (defp4cmd p4-add ()
   "add" "To add the current file to the depot, type \\[p4-add].\n"
