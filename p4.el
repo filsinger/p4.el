@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.47 2002/09/22 10:20:14 petero2 Exp $
+;; $Id: p4.el,v 1.48 2002/09/22 10:45:50 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -1584,9 +1584,11 @@ it already exists\), set its local map to map, if specified, or
     (if (and (buffer-live-p buffer)
 	     (not (comint-check-proc buffer)))
 	(save-excursion
-	  (set-buffer buffer)
-	  (goto-char (point-max))
-	  (insert "\n--------\n\n")))
+	  (let ((cur-dir default-directory))
+	    (set-buffer buffer)
+	    (cd cur-dir)
+	    (goto-char (point-max))
+	    (insert "\n--------\n\n"))))
     (setq args (cons "resolve" args))
     (setq buffer (apply 'make-comint "p4 resolve" p4-executable nil args))
     (set-buffer buffer)
