@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.19 2002/07/26 00:20:58 petero2 Exp $
+;; $Id: p4.el,v 1.20 2002/07/26 00:32:37 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -2183,7 +2183,7 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
 		      (p4-read-arg-string "p4 client: " nil "client"))))
       (if (p4-cmd-line-flags args)
 	  (p4-noinput-buffer-action "client" nil t args)
-	(p4-async-process-command "client" "Description:\n\t"
+	(p4-async-process-command "client" "\\(Description\\|View\\):\n\t"
 				  client-buf-name nil args)))))
 
 (def-p4-cmd p4-clients ()

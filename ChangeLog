@@ -8,6 +8,10 @@
 	  p4.el couldn't figure out what the default client name was,
 	  which made it fail in subtle ways.
 
+	* (p4-client): When opening a client buffer, if there is no
+	  description field, go to the view field instead. From Andre
+	  Srinivasan.
+
 2002-07-25  Peter Osterlund  <petero2@telia.com>
 
 	* (p4-menu-def): Reordered code blocks to make xemacs work
