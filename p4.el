@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.67 2004/06/11 19:24:13 rvgnu Exp $
+;; $Id: p4.el,v 1.68 2004/06/12 00:46:26 rvgnu Exp $
 
 ;;; Commentary:
 ;;
@@ -30,7 +30,7 @@
 ;; LCD Archive Entry:
 ;; p4|Rajesh Vaidheeswarran|rv@NoSpAm.lOsEtHiS.dsmit.com|
 ;; P4 SCM Integration into Emacs/XEmacs|
-;; 2004/06/11|10.5|not_assigned_yet|
+;; 2004/06/11|10.6|not_assigned_yet|
 
 ;; WARNING:
 ;; --------
@@ -64,7 +64,7 @@
 
 ;;; Code:
 
-(defvar p4-emacs-version "10.5" "The Current P4-Emacs Integration Revision.")
+(defvar p4-emacs-version "10.6" "The Current P4-Emacs Integration Revision.")
 
 ;; Find out what type of emacs we are running in. We will be using this
 ;; quite a few times in this program.
@@ -128,8 +128,12 @@ don't define defcustom"
     "This is the p4 executable.
 To set this, use the function  `p4-set-p4-executable' or `customize'"
     :type 'string
-    :group 'p4))
+    :group 'p4)
 
+  (defcustom p4-cygpath-exec "cygpath" "Path to cygpath binary on cygwin
+systems."
+    :type 'string
+    :group 'p4))
 ;; This is a string with default arguments to pass to "p4 diff",
 ;; "p4 diff2", "p4 describe", etc.
 (defcustom p4-default-diff-options "-du"
@@ -3210,8 +3214,14 @@ making the file writable and write protected."
 	(t nil)))
 
 (defun p4-follow-link-name (name)
+  (p4-cygpath
   (if p4-follow-symlinks
       (file-truename name)
+     name)))
+
+(defun p4-cygpath (name)
+  (if (memq system-type '(cygwin32))
+      (replace-in-string (exec-to-string (format "%s -w %s" p4-cygpath-exec name)) "\n" "")
     name))
 
 (defvar p4-depot-filespec-history nil
