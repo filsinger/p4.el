@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.10 2002/07/25 14:19:22 petero2 Exp $
+;; $Id: p4.el,v 1.11 2002/07/25 14:24:54 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -2141,6 +2141,10 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
 	     (p4-check-p4-executable)
 	     current-command))))
 
+(defun p4-cmd-line-flags (args)
+  (memq t (mapcar (lambda (x) (not (not (string-match "^-" x))))
+		  args)))
+
 ;; The p4 change command
 (def-p4-cmd p4-change ()
   "change" "To edit the change specification, type \\[p4-change].\n"
@@ -2152,8 +2156,7 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
       (if current-prefix-arg
 	  (setq args (p4-make-list-from-string
 		      (p4-read-arg-string "p4 change: " nil))))
-      (if (memq t (mapcar (lambda (x) (not (not (string-match "^-" x))))
-			  args))
+      (if (p4-cmd-line-flags args)
 	  (p4-noinput-buffer-action "change" nil t args)
 	(p4-async-process-command "change" "Description:\n\t"
 				  change-buf-name nil args)))))
@@ -2169,8 +2172,7 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
       (if current-prefix-arg
 	  (setq args (p4-make-list-from-string
 		      (p4-read-arg-string "p4 client: " nil "client"))))
-      (if (memq t (mapcar (lambda (x) (not (not (string-match "^-" x))))
-			  args))
+      (if (p4-cmd-line-flags args)
 	  (p4-noinput-buffer-action "client" nil t args)
 	(p4-async-process-command "client" "Description:\n\t"
 				  client-buf-name nil args)))))
@@ -2189,8 +2191,7 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
 		 (p4-read-arg-string "p4 branch: " nil "branch"))))
   (if (or (null args) (equal args (list "")))
       (error "Branch must be specified!")
-    (if (memq t (mapcar (lambda (x) (not (not (string-match "^-" x))))
-			args))
+    (if (p4-cmd-line-flags args)
 	(p4-noinput-buffer-action "branch" nil t args)
       (p4-async-process-command "branch" "Description:\n\t"
 				(concat "*P4 Branch: "
@@ -2211,8 +2212,7 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
 		 (p4-read-arg-string "p4 label: " nil "label"))))
   (if (or (null args) (equal args (list "")))
       (error "label must be specified!")
-    (if (memq t (mapcar (lambda (x) (not (not (string-match "^-" x))))
-			args))
+    (if (p4-cmd-line-flags args)
 	(p4-noinput-buffer-action "label" nil t args)
       (p4-async-process-command "label" "Description:\n\t"
 				(concat "*P4 label: "
@@ -2248,8 +2248,7 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
 	  (setq args (p4-make-list-from-string
 		      (p4-read-arg-string "p4 submit: " nil))))
       (p4-save-opened-files)
-      (if (memq t (mapcar (lambda (x) (not (not (string-match "^-" x))))
-			  args))
+      (if (p4-cmd-line-flags args)
 	  (progn
 	    (p4-noinput-buffer-action "submit" nil t args)
 	    (p4-refresh-files-in-buffers))
@@ -2269,8 +2268,7 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
     (if current-prefix-arg
 	(setq args (p4-make-list-from-string
 		    (p4-read-arg-string "p4 user: " nil "user"))))
-    (if (memq t (mapcar (lambda (x) (not (not (string-match "^-" x))))
-			args))
+    (if (p4-cmd-line-flags args)
 	(p4-noinput-buffer-action "user" nil t args)
       (p4-async-process-command "user" nil nil nil args))))
 
@@ -2282,8 +2280,7 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
     (if current-prefix-arg
 	(setq args (p4-make-list-from-string
 		    (p4-read-arg-string "p4 job: " nil "job"))))
-    (if (memq t (mapcar (lambda (x) (not (not (string-match "^-" x))))
-			args))
+    (if (p4-cmd-line-flags args)
 	(p4-noinput-buffer-action "job" nil t args)
       (p4-async-process-command "job" "Description:\n\t" nil nil args))))
 

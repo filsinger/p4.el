@@ -31,6 +31,8 @@
 	  buffer position when opening a file for edit or reverting the
 	  file. From Andre Srinivasan.
 
+	* (p4-cmd-line-flags): New helper function.
+
 2002-07-23  Rajesh Vaidheeswarran  <rv@dsmit.com>
 
 	* (p4-version): v9.1
