@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.70 2005/03/26 11:08:41 petero2 Exp $
+;; $Id: p4.el,v 1.71 2005/03/26 22:02:55 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -447,8 +447,12 @@ arguments to p4 commands."
 ;;; All functions start here.
 
 ;; A generic function that we use to execute p4 commands
+;; If executing the p4 command fails with a "password invalid" error
+;; and no-login is false, p4-login will be called to let the user
+;; login. The failed command will then be retried.
 (eval-and-compile
-  (defun p4-exec-p4 (output-buffer args &optional clear-output-buffer)
+  (defun p4-exec-p4 (output-buffer args &optional clear-output-buffer
+				   no-login)
     "Internal function called by various p4 commands.
 Executes p4 in the current buffer's current directory
 with output to a dedicated output buffer.
@@ -472,11 +476,18 @@ Does auto re-highlight management (whatever that is)."
 		    nil			; update display?
 		    "-d" default-directory  ;override "PWD" env var
 		    args)))
-	(p4-menu-add)
-	(if (and p4-running-emacs
-		 (boundp 'hilit-auto-rehighlight))
-	    (setq hilit-auto-rehighlight nil))
-	result)))
+	(goto-char (point-min))
+	(if (and (not no-login)
+		 (looking-at "Perforce password (P4PASSWD) invalid or unset"))
+	    (progn
+	      (setq current-prefix-arg nil)
+	      (p4-login)
+	      (p4-exec-p4 output-buffer args clear-output-buffer t))
+	  (p4-menu-add)
+	  (if (and p4-running-emacs
+		   (boundp 'hilit-auto-rehighlight))
+	      (setq hilit-auto-rehighlight nil))
+	  result))))
   (defun p4-call-p4-here (&rest args)
     "Internal function called by various p4 commands.
 Executes p4 in the current buffer (generally a temp)."
@@ -696,7 +707,7 @@ controlled files."
 (defun p4-noinput-buffer-action (cmd
 				 do-revert
 				 show-output
-				 &optional arguments preserve-buffer)
+				 &optional arguments preserve-buffer no-login)
   "Internal function called by various p4 commands."
   (save-excursion
     (save-excursion
@@ -706,7 +717,7 @@ controlled files."
 	    (kill-buffer p4-output-buffer-name)))    ;; to ensure no duplicates
       (p4-exec-p4 (get-buffer-create p4-output-buffer-name)
 		  (append (list cmd) arguments)
-		  t))
+		  t no-login))
     (p4-partial-cache-cleanup cmd)
     (if show-output
 	(if (and
@@ -3820,7 +3831,7 @@ windows or frames when we think that\'s necessary"
 	(setq args (p4-make-list-from-string
 		    (p4-read-arg-string "p4 login: "))))
     (if (not (member "-s" args))
-	(setq pw (read-passwd "Enter password: ")))
+	(setq pw (read-passwd "Enter perforce password: ")))
     (save-excursion
       (set-buffer (get-buffer-create p4-output-buffer-name))
       (delete-region (point-min) (point-max))
@@ -3838,7 +3849,7 @@ windows or frames when we think that\'s necessary"
   (let (args)
     (if current-prefix-arg
 	(setq args (list (p4-read-arg-string "p4 logout: "))))
-    (p4-noinput-buffer-action "logout" nil 's args)))
+    (p4-noinput-buffer-action "logout" nil 's args nil t)))
 
 (provide 'p4)
 
