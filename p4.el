@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.28 2002/07/26 12:48:45 rvgnu Exp $
+;; $Id: p4.el,v 1.29 2002/07/26 13:03:42 rvgnu Exp $
 
 ;;; Commentary:
 ;;
@@ -30,7 +30,7 @@
 ;; LCD Archive Entry:
 ;; p4|Rajesh Vaidheeswarran|rv@dsmit.com|
 ;; P4 SCM Integration into Emacs/XEmacs|
-;; 2002/07/26|10.0|not_assigned_yet|
+;; 2002/07/26|10.1|not_assigned_yet|
 
 ;; WARNING:
 ;; --------
@@ -69,7 +69,7 @@
 ;; to vc-toggle-read-only.
 (require 'vc)
 
-(defvar p4-emacs-version "10.0" "The Current P4-Emacs Integration Revision.")
+(defvar p4-emacs-version "10.1" "The Current P4-Emacs Integration Revision.")
 
 ;; Find out what type of emacs we are running in. We will be using this
 ;; quite a few times in this program.
