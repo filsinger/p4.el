@@ -1,3 +1,7 @@
+2002-07-27  Peter Osterlund  <petero2@telia.com>
+
+	* Made loading of vc package optional.
+
 2002-07-26  Rajesh Vaidheeswarran <rv@dsmit.com>
 
 	* (p4-diff-head): New command to diff an (un)opened

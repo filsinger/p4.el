@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.30 2002/07/26 22:26:18 rvgnu Exp $
+;; $Id: p4.el,v 1.31 2002/07/26 22:53:21 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -63,11 +63,6 @@
 ;;
 
 ;;; Code:
-
-;; We need to remap C-x C-q to p4-toggle-read-only, so, make sure that we
-;; load vc first.. or else, when vc gets autoloaded, it will remap C-x C-q
-;; to vc-toggle-read-only.
-(require 'vc)
 
 (defvar p4-emacs-version "10.1" "The Current P4-Emacs Integration Revision.")
 
@@ -343,6 +338,23 @@ for saved window configurations."
 arguments to p4 commands."
   :type 'integer
   :group 'p4)
+
+(defcustom p4-require-vc-p t
+  "If nil, disable loading of the vc package."
+  :type 'boolean
+  :group 'p4)
+
+;; We need to remap C-x C-q to p4-toggle-read-only, so, make sure that we
+;; load vc first.. or else, when vc gets autoloaded, it will remap C-x C-q
+;; to vc-toggle-read-only. We do this unless the user explicitly asked us
+;; no to, by setting p4-require-vc-p to nil.
+(if p4-require-vc-p
+    (require 'vc))
+
+(defvar p4-prev-toggle-fkn
+  (if (where-is-internal 'vc-toggle-read-only)
+      'vc-toggle-read-only
+    'toggle-read-only))
 
 (defvar p4-basic-map
   (let ((map (make-sparse-keymap)))
@@ -2833,7 +2845,7 @@ all the parameters to `vc-toggle-read-only'."
       (if buffer-read-only
 	  (p4-edit p4-verbose)
 	(p4-revert p4-verbose))
-    (vc-toggle-read-only verbose)))
+    (apply p4-prev-toggle-fkn verbose)))
 
 (defun p4-browse-web-page ()
   "Browse the p4.el web page."
@@ -4091,9 +4103,8 @@ number of buffers together."
 	  (cdr (assq control-buffer p4-blame-scroll-func)))))
 
 ;;;###autoload
-(if (where-is-internal 'vc-toggle-read-only)
-    (substitute-key-definition 'vc-toggle-read-only 'p4-toggle-read-only
-			       global-map))
+(substitute-key-definition p4-prev-toggle-fkn 'p4-toggle-read-only
+			   global-map)
 
 (provide 'p4)
 
