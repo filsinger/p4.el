@@ -1,5 +1,11 @@
 2002-08-29  Peter Osterlund  <petero2@telia.com>
 
+	* (p4-toggle-read-only): Updated docstring to match new "C-xC-q"
+	  handling from 2002-08-25.
+
+	* (p4-print-with-rev-history-int): Fixed regexp to work with long
+	  user names.
+
 	* (p4-next-change-rev-line, p4-prev-change-rev-line): Fix to work
 	  with new format of print-with-rev-history buffers.
 

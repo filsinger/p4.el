@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.44 2002/08/28 22:13:37 petero2 Exp $
+;; $Id: p4.el,v 1.45 2002/08/29 19:15:31 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -1445,7 +1445,7 @@ type \\[p4-print-with-rev-history]"
 	      (insert (format "%6d %4d %10s %7s: " ch rev date author))
 	      (move-to-column 0)
 	      (if (looking-at (concat " *\\([0-9]+\\) *\\([0-9]+\\) *\\([0-9]+/[0-9]+/[0-9]+\\)"
-				      " \\s-+\\([^:]*\\):"))
+				      "\\s-+\\([^:]*\\):"))
 		  (progn
 		    (p4-create-active-link (match-beginning 1)
 					   (match-end 1)
@@ -2882,12 +2882,9 @@ the VC check on/off when opening files."
 
 (defun p4-toggle-read-only (&optional arg)
   "If p4-mode is non-nil, \\[p4-toggle-read-only] toggles between `p4-edit'
-and `p4-revert'. If ARG is non-nil p4-mode will be disabled for this buffer
-before the toggling takes place.
-
-If the current buffer's file is not under p4, then this function
-passes on all the parameters to `vc-toggle-read-only' (if available)
-or 'toggle-read-only'."
+and `p4-revert'. If ARG is non-nil, p4-offline-mode will be enabled for this
+buffer before the toggling takes place. In p4-offline-mode, toggle between
+making the file writable and write protected."
   (interactive "P")
   (if (and arg p4-mode)
       (setq p4-mode nil
