@@ -1,8 +1,18 @@
+2002-08-25  Peter Osterlund  <petero2@telia.com>
+
+	Handle "C-xC-q" using a minor mode keymap instead of modifying the
+	global map. This lets p4.el coexist happily with "vc" without
+	special hacks.
+	* (p4-minor-map): New keymap.
+	* (p4-async-minor-mode): Renamed from p4-minor-mode.
+	* (p4-require-vc-p, p4-prev-toggle-fkn,
+	  substitute-key-definition): Removed.
+
 2002-08-24  Peter Osterlund  <petero2@telia.com>
 
 	* (p4-prev-toggle-fkn, p4-exec-p4, substitute-key-definition): Do
-	not autoload. Autoloading causes unnecessary overhead for those
-	not using p4.el without really helping those who do use it.
+	  not autoload. Autoloading causes unnecessary overhead for those
+	  not using p4.el without really helping those who do use it.
 
 2002-08-05  Rajesh Vaidheeswarran  <rv@dsmit.com>
 

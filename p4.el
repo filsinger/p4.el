@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.41 2002/08/24 14:53:54 petero2 Exp $
+;; $Id: p4.el,v 1.42 2002/08/28 19:37:07 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -265,23 +265,38 @@ within emacs."
 (make-variable-buffer-local 'p4-offline-mode)
 (put 'p4-offline-mode 'permanent-local t)
 
-(if (not (assoc 'p4-mode minor-mode-alist))
+(defvar p4-minor-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "\C-x\C-q" 'p4-toggle-read-only)
+    map)
+  "Keymap for p4 minor mode")
+(fset 'p4-minor-map p4-minor-map)
+(or (assoc 'p4-mode minor-mode-alist)
     (setq minor-mode-alist (cons '(p4-mode p4-mode)
 				 minor-mode-alist)))
-
-(defvar p4-minor-mode nil
-  "The minor mode for editing p4 asynchronous command buffers.")
-(make-variable-buffer-local 'p4-minor-mode)
-(defvar p4-minor-map (make-keymap) "Keymap for p4 minor mode")
-(fset 'p4-minor-map p4-minor-map)
-
-(or (assoc 'p4-minor-mode minor-mode-alist)
-    (setq minor-mode-alist
-	  (cons '(p4-minor-mode " P4") minor-mode-alist)))
-
-(or (assoc 'p4-minor-mode minor-mode-map-alist)
+(or (assoc 'p4-mode minor-mode-map-alist)
     (setq minor-mode-map-alist
-	  (cons '(p4-minor-mode . p4-minor-map) minor-mode-map-alist)))
+	  (cons '(p4-mode . p4-minor-map) minor-mode-map-alist)))
+(or (assoc 'p4-offline-mode minor-mode-alist)
+    (setq minor-mode-alist (cons '(p4-offline-mode p4-offline-mode)
+				 minor-mode-alist)))
+(or (assoc 'p4-offline-mode minor-mode-map-alist)
+    (setq minor-mode-map-alist
+	  (cons '(p4-offline-mode . p4-minor-map) minor-mode-map-alist)))
+
+(defvar p4-async-minor-mode nil
+  "The minor mode for editing p4 asynchronous command buffers.")
+(make-variable-buffer-local 'p4-async-minor-mode)
+(defvar p4-async-minor-map (make-sparse-keymap) "Keymap for p4 async minor mode")
+(fset 'p4-async-minor-map p4-async-minor-map)
+
+(or (assoc 'p4-async-minor-mode minor-mode-alist)
+    (setq minor-mode-alist
+	  (cons '(p4-async-minor-mode " P4") minor-mode-alist)))
+
+(or (assoc 'p4-async-minor-mode minor-mode-map-alist)
+    (setq minor-mode-map-alist
+	  (cons '(p4-async-minor-mode . p4-async-minor-map) minor-mode-map-alist)))
 
 (defvar p4-current-command nil)
 (make-variable-buffer-local 'p4-current-command)
@@ -348,23 +363,6 @@ for saved window configurations."
 arguments to p4 commands."
   :type 'integer
   :group 'p4)
-
-(defcustom p4-require-vc-p t
-  "If nil, disable loading of the vc package."
-  :type 'boolean
-  :group 'p4)
-
-;; We need to remap C-x C-q to p4-toggle-read-only, so, make sure that we
-;; load vc first.. or else, when vc gets autoloaded, it will remap C-x C-q
-;; to vc-toggle-read-only. We do this unless the user explicitly asked us
-;; not to, by setting p4-require-vc-p to nil.
-(if p4-require-vc-p
-    (require 'vc))
-
-(defvar p4-prev-toggle-fkn
-  (if (where-is-internal 'vc-toggle-read-only)
-      'vc-toggle-read-only
-    'toggle-read-only))
 
 (defvar p4-basic-map
   (let ((map (make-sparse-keymap)))
@@ -2164,7 +2162,7 @@ arguments to P4-OUT-COMMAND."
 			"#\n"))
 	(if p4-regexp (re-search-forward p4-regexp))
 	(indented-text-mode)
-	(setq p4-minor-mode t)
+	(setq p4-async-minor-mode t)
 	(setq fill-column 79)
 	(p4-push-window-config)
 	(switch-to-buffer-other-window (current-buffer))
@@ -2173,7 +2171,7 @@ arguments to P4-OUT-COMMAND."
 	(setq p4-current-args p4-out-args)
 	(setq buffer-offer-save t)
 
-	(define-key p4-minor-map "\C-c\C-c" 'p4-async-call-process)
+	(define-key p4-async-minor-map "\C-c\C-c" 'p4-async-call-process)
 	(run-hooks 'p4-async-command-hook)
 	(set-buffer-modified-p nil)
 	(message "C-c C-c to finish editing and exit buffer."))
@@ -2893,9 +2891,7 @@ or 'toggle-read-only'."
 	  (if buffer-read-only
 	      (setq mode (logand mode (lognot 128)))
 	    (setq mode (logior mode 128)))
-	  (set-file-modes buffer-file-name mode))))
-   (t
-    (apply p4-prev-toggle-fkn (list arg)))))
+	  (set-file-modes buffer-file-name mode))))))
 
 (defun p4-browse-web-page ()
   "Browse the p4.el web page."
@@ -4153,9 +4149,6 @@ number of buffers together."
 		    (cdr (assq target-buffer p4-blame-scroll-func)))))))
     (setq window-scroll-functions
 	  (cdr (assq control-buffer p4-blame-scroll-func)))))
-
-(substitute-key-definition p4-prev-toggle-fkn 'p4-toggle-read-only
-			   global-map)
 
 (provide 'p4)
 
