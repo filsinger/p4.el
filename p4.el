@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.11 2002/07/25 14:24:54 petero2 Exp $
+;; $Id: p4.el,v 1.12 2002/07/25 14:30:03 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -945,7 +945,7 @@ When visiting a depot file, type \\[p4-diff2] and enter the versions.\n"
     (setq buffer-read-only nil)
     (goto-char (point-min))
     (while (re-search-forward (concat
-			       "^\\(\\.\\.\\. #\\([0-9]+\\) \\)?change "
+			       "^\\(\\.\\.\\. #\\([0-9]+\\) \\)?[Cc]hange "
 			       "\\([0-9]+\\) \\([a-z]+\\)?.*on.*by "
 			       "\\([^ @]+\\)@\\([^ \n]+\\).*\n"
 			       "\\(\\(\\([ \t].*\\)?\n\\)*\\)") nil t)

@@ -33,6 +33,9 @@
 
 	* (p4-cmd-line-flags): New helper function.
 
+	* (p4-activate-file-change-log-buffer): Parsing of p4 changelog
+	  buffers failed if case-fold-search was set to nil.
+
 2002-07-23  Rajesh Vaidheeswarran  <rv@dsmit.com>
 
 	* (p4-version): v9.1
