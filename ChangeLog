@@ -1,3 +1,8 @@
+2002-08-05  Rajesh Vaidheeswarran  <rv@dsmit.com>
+
+	* (p4-print-with-rev-history-int): Add Date and Author
+	* (p4-blame): Add Date and Author (but it doesn't seem to work!)
+
 2002-08-02  Peter Osterlund  <petero2@telia.com>
 
 	* (p4-diff2): When invoking p4-diff2 interactively, default to

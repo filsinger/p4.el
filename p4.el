@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.39 2002/08/02 21:33:05 petero2 Exp $
+;; $Id: p4.el,v 1.40 2002/08/05 19:30:04 rvgnu Exp $
 
 ;;; Commentary:
 ;;
@@ -1331,7 +1331,7 @@ type \\[p4-print-with-rev-history]"
   (kill-buffer p4-output-buffer-name)      ;; to ensure no duplicates
   (let ((file-name file-spec)
 	(buffer (get-buffer-create p4-output-buffer-name))
-	change head-rev fullname headseen ch-alist)
+	 author change ch-alist date fullname head-rev headseen)
     (if (string-match "\\(.*\\)@\\([0-9]+\\)" file-spec)
 	(progn
 	  (setq file-name (match-string 1 file-spec))
@@ -1352,10 +1352,12 @@ type \\[p4-print-with-rev-history]"
       (goto-char (point-min))
       (while (< (point) (point-max))
 	(if (looking-at (concat "^\\.\\.\\. #\\([0-9]+\\) change \\([0-9]+\\)"
-				"\\s-+\\(\\w+\\) .* by \\(.*\\)@"))
+				"\\s-+\\(\\w+\\) on \\([0-9]+/[0-9]+/[0-9]+\\) by \\(.*\\)@"))
 	    (let ((rev (string-to-int (match-string 1)))
 		  (ch (string-to-int (match-string 2)))
-		  (op (match-string 3)))
+		  (op (match-string 3))
+		  (date (match-string 4))
+		  (author (match-string 5)))
 	      (cond ((and change (< change ch))
 		     nil)
 		    ((and head-rev (< head-rev rev))
@@ -1363,7 +1365,8 @@ type \\[p4-print-with-rev-history]"
 		    ((string= op "delete")
 		     (goto-char (point-max)))
 		    (t
-		     (setq ch-alist (cons (cons rev ch) ch-alist))
+		     (message "%d %s %s" ch date author)
+		     (setq ch-alist (cons (cons rev (list ch date author)) ch-alist))
 		     (if (not head-rev)
 			 (setq head-rev rev))
 		     (setq headseen t))))
@@ -1434,15 +1437,19 @@ type \\[p4-print-with-rev-history]"
 	  (set-buffer buffer)
 	  (goto-line 2)
 	  (move-to-column 0)
-	  (insert "  Change  Rev\n")
+	  (insert "  Change  Rev       Date   Author\n")
 	  (while (setq line (p4-read-depot-output ch-buffer))
 	    (setq rev (string-to-int line))
-	    (setq ch (cdr (assq rev ch-alist)))
+	    (setq cur-list (cdr (assq rev ch-alist)))
+	    (setq ch (car cur-list))
+	    (setq cur-list (cdr cur-list))
+	    (setq date (car cur-list))
+	    (setq author (car (cdr cur-list)))
 	    (if (= rev old-rev)
-		(insert (format "%13s : " ""))
-	      (insert (format "  %6d %4d : " ch rev))
+		(insert (format "%33s : " ""))
+	      (insert (format "  %6d %4d %10s %8s : " ch rev date author))
 	      (move-to-column 0)
-	      (if (looking-at " *\\([0-9]+\\) *\\([0-9]+\\)")
+	      (if (looking-at " *\\([0-9]+\\) *\\([0-9]+\\) *\\([0-9]+/[0-9]+/[0-9]+\\) \\s-+\\(.*\\) :")
 		  (progn
 		    (p4-create-active-link (match-beginning 1)
 					   (match-end 1)
@@ -1451,7 +1458,11 @@ type \\[p4-print-with-rev-history]"
 		    (p4-create-active-link (match-beginning 2)
 					   (match-end 2)
 					   (list (cons 'rev
-						       (match-string 2)))))))
+						       (match-string 2))))
+		    (p4-create-active-link (match-beginning 4)
+					   (match-end 4)
+					   (list (cons 'user
+						       (match-string 4)))))))
 	    (setq old-rev rev)
 	    (forward-line))))
 
@@ -3832,6 +3843,7 @@ to me to get around this, watch this space..."
 	(history                             nil)
 	(p4-tmp-buffer              "*p4-blame*")
 	(p4-blame-change                     nil)
+	(p4-blame-date                       nil)
 	(p4-blame-author                     nil)
 	(p4-blame-base                       nil)
 	(p4-blame-revs                       nil)
@@ -3852,10 +3864,11 @@ to me to get around this, watch this space..."
 	    (catch 'P4-BLAME-HISTORY-NEXT:
 	      (if (string-match (concat "^\\.\\.\\. #\\([0-9]+\\) "
 					"change \\([0-9]+\\) "
-					".* by \\([^@]*\\)@") line)
+					"on \\([0-9]+/[0-9]+/[0-9]+\\) by \\([^@]*\\)@") line)
 		  (let ((m1 (match-string 1 line))
 			(m2 (match-string 2 line))
-			(m3 (match-string 3 line)))
+			(m3 (match-string 3 line))
+			(m34(match-string 4 line)))
 
 		    (if (and (stringp p4-blame-cnum)
 			     (< (string-to-int p4-blame-cnum)
@@ -3868,7 +3881,8 @@ to me to get around this, watch this space..."
 			(throw 'P4-BLAME-HISTORY-NEXT: nil))
 
 		    (p4-set-assoc p4-blame-change m1 m2)
-		    (p4-set-assoc p4-blame-author m1 m3)
+		    (p4-set-assoc p4-blame-date m1 m3)
+		    (p4-set-assoc p4-blame-author m1 m4)
 		    (if (not p4-blame-head) (setq p4-blame-head m1))
 		    (setq p4-blame-headseen  t)
 		    (setq p4-blame-thisrev  m1))
@@ -4006,30 +4020,30 @@ to me to get around this, watch this space..."
 	    (let* ((rev             (nth idx p4-blame-lines))
 		   (author          (cdr (assoc rev p4-blame-author)))
 		   (change          (cdr (assoc rev p4-blame-change)))
+		   (date            (cdr (assoc rev p4-blame-date)))
 		   (pos             (point))
 		   (p4-src-file     (buffer-file-name  p4-src-buffer))
 		   (line-link-props (list (cons 'line             idx)
 					  (cons 'buffer p4-src-buffer))))
 
 	      (insert (format oformat  idx author change rev)) ;; line
-	      (if (string-equal rev lastrev)
-		  (); noop
-		(p4-create-active-link (+ pos 14) (+ pos 19)
-				       (list (cons 'change change)))
-
-		(p4-create-active-link (+ pos 19) (+ pos 23)
-				       (list (cons 'rev  rev)
-					     (cons 'file p4-src-file)))
-
-		(if (equal "[branch]" author)
-		    () ;; noop
-		  (p4-create-active-link (+ pos  5) (+ pos 13)
-					 (list (cons 'author author))))
-
-		(p4-create-active-link pos (+ pos 5)
-				       (list (cons 'line line-link-props))))
-	      (setq lastrev   rev)
-	      (setq idx (+ 1 idx)))))
+	      (if (not (string-equal rev lastrev))
+		  (progn
+		    (p4-create-active-link (+ pos 24) (+ pos 34)
+					   (list (cons 'date  date)
+						 (cons 'file p4-src-file)))
+		    (p4-create-active-link (+ pos 19) (+ pos 23)
+					   (list (cons 'rev  rev)
+						 (cons 'file p4-src-file)))
+		    (p4-create-active-link (+ pos 14) (+ pos 19)
+					   (list (cons 'change change)))
+		    (if (not (equal "[branch]" author))
+			(p4-create-active-link (+ pos  5) (+ pos 13)
+					       (list (cons 'author author))))
+		    (p4-create-active-link pos (+ pos 5)
+					   (list (cons 'line line-link-props))))
+		(setq lastrev   rev)
+		(setq idx (+ 1 idx))))))
 
 	;;(display-buffer p4-output-buffer-name t t)
 	(delete-other-windows)
