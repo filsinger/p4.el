@@ -1,3 +1,8 @@
+2005-03-26  Peter Osterlund  <petero2@telia.com>
+
+	* (p4-passwd, p4-login, p4-logout): New functions to implement
+	support for the corresponding p4 commands.
+
 2004-06-11  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): Bump to 10.7

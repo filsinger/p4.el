@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.69 2004/06/12 01:15:00 rvgnu Exp $
+;; $Id: p4.el,v 1.70 2005/03/26 11:08:41 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -3800,6 +3800,45 @@ windows or frames when we think that\'s necessary"
      ;; any other mode, nothing special need be done
      (t
       t))))
+
+(defp4cmd p4-passwd ()
+  "passwd" "To set the user's password on the server, type \\[p4-passwd].\n"
+  (interactive)
+  (let* ((old-pw (read-passwd "Enter old password: "))
+	 (new-pw (read-passwd "Enter new password: "))
+	 (new2-pw (read-passwd "Re-enter new password: ")))
+    (if (string= new-pw new2-pw)
+	(p4-noinput-buffer-action "passwd" nil 's 
+				  (list "-O" old-pw "-P" new-pw))
+      (error "Passwords don't match"))))
+
+(defp4cmd p4-login ()
+  "login" "To login by obtaining a session ticket, type \\[p4-login].\n"
+  (interactive)
+  (let (args (pw ""))
+    (if current-prefix-arg
+	(setq args (p4-make-list-from-string
+		    (p4-read-arg-string "p4 login: "))))
+    (if (not (member "-s" args))
+	(setq pw (read-passwd "Enter password: ")))
+    (save-excursion
+      (set-buffer (get-buffer-create p4-output-buffer-name))
+      (delete-region (point-min) (point-max))
+      (insert pw)
+      (apply 'call-process-region (point-min) (point-max) 
+	     (p4-check-p4-executable) t t nil "login" args)
+      (goto-char (point-min))
+      (if (re-search-forward "Enter password:.*\n" nil t)
+	  (replace-match ""))
+      (message "%s" (buffer-substring (point-min) (1- (point-max)))))))
+
+(defp4cmd p4-logout ()
+  "logout" "To logout by removing a session ticket, type \\[p4-logout].\n"
+  (interactive)
+  (let (args)
+    (if current-prefix-arg
+	(setq args (list (p4-read-arg-string "p4 logout: "))))
+    (p4-noinput-buffer-action "logout" nil 's args)))
 
 (provide 'p4)
 
