@@ -27,6 +27,10 @@
 	  to the current submit, ie disregard unsaved files from other
 	  clients and buffers not under revision control.
 
+	* (p4-noinput-buffer-action): Fixed problem with xemacs losing
+	  buffer position when opening a file for edit or reverting the
+	  file. From Andre Srinivasan.
+
 2002-07-23  Rajesh Vaidheeswarran  <rv@dsmit.com>
 
 	* (p4-version): v9.1

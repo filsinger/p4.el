@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.9 2002/07/25 14:06:22 petero2 Exp $
+;; $Id: p4.el,v 1.10 2002/07/25 14:19:22 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -664,8 +664,6 @@ controlled files."
 		  (append (list cmd) arguments)
 		  t))
     (p4-partial-cache-cleanup cmd)
-    (if (and do-revert (p4-buffer-file-name))
-	(revert-buffer t t))
     (if show-output
 	(if (and
 	     (eq show-output 's)
@@ -687,7 +685,9 @@ controlled files."
 	  (p4-push-window-config)
 	  (if (not (one-window-p))
 	      (delete-other-windows))
-	  (display-buffer p4-output-buffer-name t)))))
+	  (display-buffer p4-output-buffer-name t))))
+  (if (and do-revert (p4-buffer-file-name))
+      (revert-buffer t t)))
 
 ;; The p4 edit command
 (def-p4-cmd p4-edit (show-output)
