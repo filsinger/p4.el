@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.46 2002/09/07 17:44:44 petero2 Exp $
+;; $Id: p4.el,v 1.47 2002/09/22 10:20:14 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -1435,13 +1435,13 @@ type \\[p4-print-with-rev-history]"
 	  (insert "  Change  Rev       Date   Author\n")
 	  (while (setq line (p4-read-depot-output ch-buffer))
 	    (setq rev (string-to-int line))
-	    (setq cur-list (cdr (assq rev ch-alist)))
-	    (setq ch (car cur-list))
-	    (setq cur-list (cdr cur-list))
-	    (setq date (car cur-list))
-	    (setq author (car (cdr cur-list)))
 	    (if (= rev old-rev)
 		(insert (format "%29s : " ""))
+	      (setq cur-list (cdr (assq rev ch-alist)))
+	      (setq ch (car cur-list))
+	      (setq cur-list (cdr cur-list))
+	      (setq date (car cur-list))
+	      (setq author (car (cdr cur-list)))
 	      (insert (format "%6d %4d %10s %7s: " ch rev date author))
 	      (move-to-column 0)
 	      (if (looking-at (concat " *\\([0-9]+\\) *\\([0-9]+\\) *\\([0-9]+/[0-9]+/[0-9]+\\)"
