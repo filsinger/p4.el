@@ -71,8 +71,8 @@ Explorer Screen shots (<?php echo $p4explorer_ss_size; ?>KB)</a>
 <p>
 <i><a href="http://sourceforge.net/projects/p4el/">P4.el project page on Sourceforge.net</a></i>
 <p>
-<A href="http://sourceforge.net"> <IMG src="http://sourceforge.net/sflogo.php?group_id=58201&amp;type=5" width="210" height="62" border="0" alt="SourceForge Logo"></A> 
+<A href="http://sourceforge.net"> <IMG src="http://sourceforge.net/sflogo.php?group_id=58201&amp;type=5" width="210" height="62" border="0" alt="SourceForge Logo"></A>
 <hr>
-Last Updated: $Revision: 1.5 $ on $Date: 2002/07/26 20:23:09 $
+Last Updated: $Revision: 1.6 $ on $Date: 2002/07/26 22:26:01 $
 </body>
 </html>
