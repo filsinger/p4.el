@@ -54,6 +54,12 @@
 	  had inserted subdirectories in the dired buffer with the 'i'
 	  command.
 
+	* (p4-activate-file-change-log-buffer): Fixed problem with isearch
+	  in "p4 changes" buffers in XEmacs 21.4. From Andre Srinivasan:
+	  "When displaying a list of changes, incremental search wouldn't
+	  match on text in the description unless the
+	  isearch-open-invisible property is set (in xemacs, anyway)."
+
 2002-07-23  Rajesh Vaidheeswarran  <rv@dsmit.com>
 
 	* (p4-version): v9.1

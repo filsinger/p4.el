@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.17 2002/07/25 20:59:45 petero2 Exp $
+;; $Id: p4.el,v 1.18 2002/07/25 21:05:53 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -985,7 +985,8 @@ When visiting a depot file, type \\[p4-diff2] and enter the versions.\n"
 			       (list (cons 'client p4-cur-client)))
 	(p4-set-extent-properties (match-beginning desc-match)
 				  (match-end desc-match)
-				  (list (cons 'invisible t)))))
+				  (list (cons 'invisible t)
+					(cons 'isearch-open-invisible t)))))
     (p4-find-change-numbers bufname (point-min) (point-max))
     (use-local-map p4-filelog-map)
     (setq buffer-invisibility-spec (list))
