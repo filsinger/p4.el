@@ -1,3 +1,10 @@
+2002-09-23  Peter Osterlund  <petero2@telia.com>
+
+	* (p4-font-lock-buffer): New function. Colorize a buffer using
+	  font-lock mode.
+	* (p4-activate-print-buffer): Use p4-font-lock-buffer.
+	* (p4-print-with-rev-history-int): Use p4-font-lock-buffer.
+
 2002-09-22  Peter Osterlund  <petero2@telia.com>
 
 	* (p4-print-with-rev-history-int): Fixed misaligned header text.

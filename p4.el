@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.51 2002/09/22 21:57:23 petero2 Exp $
+;; $Id: p4.el,v 1.52 2002/09/22 23:10:04 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -1277,7 +1277,38 @@ the corresponding client file."
     (p4-noinput-buffer-action "print" nil t arg-string)
     (p4-activate-print-buffer "*P4 print*" t)))
 
+;; Insert text in a buffer, but make sure that the inserted text doesn't
+;; inherit any properties from surrounding text. This is needed for xemacs
+;; because the insert function makes the inserted text inherit properties.
+(defun p4-insert-no-properties (str)
+  (let ((start (point))
+	end)
+    (insert str)
+    (setq end (point))
+    (set-text-properties start end nil)))
+
+(defun p4-font-lock-buffer (buf-name)
+  (save-excursion
+    (let (file-name (first-line ""))
+      (set-buffer buf-name)
+      (goto-char (point-min))
+      (if (looking-at "^//[^#@]+/\\([^/#@]+\\)")
+	  (progn
+	    (setq file-name (match-string 1))
+	    (forward-line 1)
+	    (setq first-line (buffer-substring (point-min) (point)))
+	    (delete-region (point-min) (point))))
+      (setq buffer-file-name file-name)
+      (set-auto-mode)
+      (setq buffer-file-name nil)
+      (font-lock-fontify-buffer)
+      (fundamental-mode)
+      (goto-char (point-min))
+      (p4-insert-no-properties first-line))))
+
 (defun p4-activate-print-buffer (buffer-name print-buffer)
+  (if print-buffer
+      (p4-font-lock-buffer p4-output-buffer-name))
   (p4-make-depot-list-buffer buffer-name print-buffer)
   (let ((depot-regexp
 	 (if print-buffer
@@ -1322,16 +1353,6 @@ type \\[p4-print-with-rev-history]"
     (if (or current-prefix-arg (not arg-string))
 	(setq arg-string (p4-read-arg-string "p4 print-revs: " arg-string)))
     (p4-print-with-rev-history-int arg-string)))
-
-;; Insert text in a buffer, but make sure that the inserted text doesn't
-;; inherit any properties from surrounding text. This is needed for xemacs
-;; because the insert function makes the inserted text inherit properties.
-(defun p4-insert-no-properties (str)
-  (let ((start (point))
-	end)
-    (insert str)
-    (setq end (point))
-    (set-text-properties start end nil)))
 
 (defun p4-print-with-rev-history-int (file-spec)
   (get-buffer-create p4-output-buffer-name);; We do these two lines
@@ -1438,13 +1459,7 @@ type \\[p4-print-with-rev-history]"
 				(list (concat fullname "#" (int-to-string
 							    head-rev)))
 				t)
-      (save-excursion
-	(set-buffer p4-output-buffer-name)
-	(setq buffer-file-name file-name)
-	(set-auto-mode)
-	(setq buffer-file-name nil)
-	(font-lock-fontify-buffer)
-	(fundamental-mode))
+      (p4-font-lock-buffer p4-output-buffer-name)
       (let (line rev ch (old-rev 0) cur-list)
 	(save-excursion
 	  (set-buffer buffer)
