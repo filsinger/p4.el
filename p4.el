@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.14 2002/07/25 16:16:36 petero2 Exp $
+;; $Id: p4.el,v 1.15 2002/07/25 19:55:14 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -2623,15 +2623,9 @@ list."
 	found))))
 
 (defun p4-detect-p4 ()
-  "Try to recursively go upwards from this directory and see if a file with
-the name of the value of P4CONFIG is present. If so, then this is a P4
-controlled file. Only check if `p4-use-p4config-exclusively' is non-nil."
-  (if (not p4-use-p4config-exclusively)
-      ;; no, always call
-      (p4-check-mode)
-    ;; yes, use it exclusively
-    (if (p4-find-p4-config-file)
-	(p4-check-mode))))
+  (if (or (not p4-use-p4config-exclusively)
+	  (p4-find-p4-config-file))
+      (p4-check-mode)))
 
 (defun p4-get-add-branch-files ()
   (let ((output-buffer (p4-depot-output "opened"))

@@ -43,6 +43,8 @@
 	  to minimize the risk of losing data by accidentally hitting "C-x
 	  C-c".
 
+	* (p4-detect-p4): Simplified and removed obsolete docstring.
+
 2002-07-23  Rajesh Vaidheeswarran  <rv@dsmit.com>
 
 	* (p4-version): v9.1
