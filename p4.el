@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.20 2002/07/26 00:32:37 petero2 Exp $
+;; $Id: p4.el,v 1.21 2002/07/26 00:44:01 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -3407,14 +3407,17 @@ that."
 	  (setq opened (cons (match-string 1 line) opened))))
     (if opened
 	(progn
-	  (p4-exec-p4 buffer (append (list "diff") opened) t)
+	  (p4-exec-p4 buffer (list "diff") t)
 	  (save-excursion
 	    (set-buffer buffer)
 	    (goto-char (point-max))
 	    (insert "====\n")
 	    (goto-char (point-min))
-	    (setq empty-diff (not (null (re-search-forward
-					 "^====.*\n====" nil t)))))
+	    (while (re-search-forward "^==== \\([^#\n]+\\)#.*\n====" nil t)
+	      (if (member (match-string 1) opened)
+		  (progn
+		    (setq empty-diff t)
+		    (goto-char (point-max))))))
 	  (kill-buffer buffer)))
     empty-diff))
 
