@@ -1,3 +1,16 @@
+2003-09-12  Rajesh Vaidheeswarran  <rv@dsmit.com>
+
+	* (p4-version): Bump version to 10.3
+	* p4.el.html: Document `p4-ediff2', `p4-depot-find-file' and
+	`p4-bug-report'
+	* thanks.html: Add P T Withington for p4-ediff2 related changes
+	* TODO: Remove note about documenting `p4-depot-find-file'
+
+2003-09-12  P T Withington <ptw@pobox.com>
+
+	* (p4-ediff2): New. Two ediff any two versions a file. Add to menu map
+	* (p4-ediff): Use `p4-ediff2' if called with prefix-arg
+
 2003-07-06  Daniel Brotsky  <dev@brotsky.com>
 
 	Work around a problem in some emacsen wherein the PWD environment

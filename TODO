@@ -1,3 +1,2 @@
 - Add a new p4-diff-head command that diffs unopened files against file#head
-- Document p4-depot-find-file
 - Document how prefix arguments work
