@@ -19,6 +19,9 @@
 	* (p4-print-with-rev-history-int): Fixed type conversion bug
 	  exposed by emacs 21.2.1.
 
+	* (p4-get-add-branch-files), (p4-get-have-files), (p4-is-vc):
+	  Correctly handle filenames containing spaces.
+
 2002-07-23  Rajesh Vaidheeswarran  <rv@dsmit.com>
 
 	* (p4-version): v9.1

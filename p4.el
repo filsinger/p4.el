@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.7 2002/07/24 23:24:07 petero2 Exp $
+;; $Id: p4.el,v 1.8 2002/07/25 12:40:10 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -2636,10 +2636,10 @@ controlled file. Only check if `p4-use-p4config-exclusively' is non-nil."
   (let ((output-buffer (p4-depot-output "opened"))
 	line files depot-map)
     (while (setq line (p4-read-depot-output output-buffer))
-      (if (string-match "^\\(//[a-zA-Z]+/[^ #\n]*\\)#[0-9]+ - add " line)
+      (if (string-match "^\\(//[a-zA-Z]+/[^#\n]*\\)#[0-9]+ - add " line)
 	  (setq files (cons (cons (match-string 1 line) "Add")
 			    files)))
-      (if (string-match "^\\(//[a-zA-Z]+/[^ #\n]*\\)#[0-9]+ - branch " line)
+      (if (string-match "^\\(//[a-zA-Z]+/[^#\n]*\\)#[0-9]+ - branch " line)
 	  (setq files (cons (cons (match-string 1 line) "Branch")
 			    files))))
     (kill-buffer output-buffer)
@@ -2651,7 +2651,7 @@ controlled file. Only check if `p4-use-p4config-exclusively' is non-nil."
   (let ((output-buffer (p4-depot-output "have" file-list))
 	line files depot-map elt)
     (while (setq line (p4-read-depot-output output-buffer))
-      (if (string-match "^\\(//[a-zA-Z]+/[^ #\n]*\\)#\\([0-9]+\\) - " line)
+      (if (string-match "^\\(//[a-zA-Z]+/[^#\n]*\\)#\\([0-9]+\\) - " line)
 	  (setq files (cons (cons (match-string 1 line)
 				  (match-string 2 line))
 			    files))))
@@ -2678,7 +2678,7 @@ controlled file. Only check if `p4-use-p4config-exclusively' is non-nil."
 	      line)
 	  (setq line (p4-read-depot-output output-buffer))
 	  (kill-buffer output-buffer)
-	  (if (string-match "^//[a-zA-Z]+/[^ #\n]*#\\([0-9]+\\) - " line)
+	  (if (string-match "^//[a-zA-Z]+/[^#\n]*#\\([0-9]+\\) - " line)
 	      (setq version (match-string 1 line)))
 	  (setq done version)))
     (if (and (not done) (not file-mode-cache))
