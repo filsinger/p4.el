@@ -1,5 +1,9 @@
 2002-10-02  Peter Osterlund  <petero2@telia.com>
 
+	* (p4-blame-int): Set the 'link-depot-name character property
+	  instead of 'file. This makes all places that use
+	  p4-buffer-file-name-2 do the right thing automatically.
+
 	* (p4-blame-int): Use change numbers instead of revision numbers
 	  as keys when looking up data in ch-alist. Revision numbers are
 	  not unique when more than one file is involved.

@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.58 2002/10/02 18:28:59 petero2 Exp $
+;; $Id: p4.el,v 1.59 2002/10/02 18:48:53 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -1557,7 +1557,7 @@ type \\[p4-blame]"
 		    (p4-create-active-link (match-beginning 2)
 					   (match-end 2)
 					   (list (cons 'rev  nth-revn)
-						 (cons 'file xth-file)))
+						 (cons 'link-depot-name xth-file)))
 		    (p4-create-active-link (match-beginning 4)
 					   (match-end 4)
 					   (list (cons 'user nth-user)))
@@ -1905,8 +1905,7 @@ character events"
 	(client (get-char-property pnt 'client))
 	(label (get-char-property pnt 'label))
 	(branch (get-char-property pnt 'branch))
-	(filename (or (get-char-property pnt 'file)
-		      (p4-buffer-file-name-2))))
+	(filename (p4-buffer-file-name-2)))
     (cond ((and (not action) rev)
 	   (let ((fn1 (concat filename "#" rev)))
 	     (p4-noinput-buffer-action "print" nil t (list fn1))
