@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.24 2002/07/26 01:16:23 petero2 Exp $
+;; $Id: p4.el,v 1.25 2002/07/26 01:26:32 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -2642,14 +2642,17 @@ list."
 
 (defun p4-get-add-branch-files (&optional name-list)
   (let ((output-buffer (p4-depot-output "opened" name-list))
-	line files depot-map)
-    (while (setq line (p4-read-depot-output output-buffer))
-      (if (string-match "^\\(//[a-zA-Z]+/[^#\n]*\\)#[0-9]+ - add " line)
-	  (setq files (cons (cons (match-string 1 line) "Add")
-			    files)))
-      (if (string-match "^\\(//[a-zA-Z]+/[^#\n]*\\)#[0-9]+ - branch " line)
-	  (setq files (cons (cons (match-string 1 line) "Branch")
-			    files))))
+	files depot-map)
+    (save-excursion
+      (set-buffer output-buffer)
+      (goto-char (point-min))
+      (while (re-search-forward "^\\(//[a-zA-Z]+/[^#\n]*\\)#[0-9]+ - add " nil t)
+	(setq files (cons (cons (match-string 1) "Add")
+			  files)))
+      (goto-char (point-min))
+      (while (re-search-forward "^\\(//[a-zA-Z]+/[^#\n]*\\)#[0-9]+ - branch " nil t)
+	(setq files (cons (cons (match-string 1) "Branch")
+			  files))))
     (kill-buffer output-buffer)
     (setq depot-map (p4-map-depot-files (mapcar 'car files)))
     (mapcar (lambda (x) (cons (cdr (assoc (car x) depot-map))

@@ -25,6 +25,9 @@
 	* (p4-save-opened-files): Optimized by not using the
 	  p4-read-depot-output function.
 
+	* (p4-get-add-branch-files): Optimized by not using the
+	  p4-read-depot-output function.
+
 2002-07-25  Peter Osterlund  <petero2@telia.com>
 
 	* (p4-menu-def): Reordered code blocks to make xemacs work
