@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.48 2002/09/22 10:45:50 petero2 Exp $
+;; $Id: p4.el,v 1.49 2002/09/22 20:53:54 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -1322,6 +1322,16 @@ type \\[p4-print-with-rev-history]"
 	(setq arg-string (p4-read-arg-string "p4 print-revs: " arg-string)))
     (p4-print-with-rev-history-int arg-string)))
 
+;; Insert text in a buffer, but make sure that the inserted text doesn't
+;; inherit any properties from surrounding text. This is needed for xemacs
+;; because the insert function makes the inserted text inherit properties.
+(defun p4-insert-no-properties (str)
+  (let ((start (point))
+	end)
+    (insert str)
+    (setq end (point))
+    (set-text-properties start end nil)))
+
 (defun p4-print-with-rev-history-int (file-spec)
   (get-buffer-create p4-output-buffer-name);; We do these two lines
   (kill-buffer p4-output-buffer-name)      ;; to ensure no duplicates
@@ -1427,22 +1437,29 @@ type \\[p4-print-with-rev-history]"
 				(list (concat fullname "#" (int-to-string
 							    head-rev)))
 				t)
+      (save-excursion
+	(set-buffer p4-output-buffer-name)
+	(setq buffer-file-name file-name)
+	(set-auto-mode)
+	(setq buffer-file-name nil)
+	(font-lock-fontify-buffer)
+	(fundamental-mode))
       (let (line rev ch (old-rev 0) cur-list)
 	(save-excursion
 	  (set-buffer buffer)
 	  (goto-line 2)
 	  (move-to-column 0)
-	  (insert "  Change  Rev       Date   Author\n")
+	  (p4-insert-no-properties "  Change  Rev       Date   Author\n")
 	  (while (setq line (p4-read-depot-output ch-buffer))
 	    (setq rev (string-to-int line))
 	    (if (= rev old-rev)
-		(insert (format "%29s : " ""))
+		(p4-insert-no-properties (format "%29s : " ""))
 	      (setq cur-list (cdr (assq rev ch-alist)))
 	      (setq ch (car cur-list))
 	      (setq cur-list (cdr cur-list))
 	      (setq date (car cur-list))
 	      (setq author (car (cdr cur-list)))
-	      (insert (format "%6d %4d %10s %7s: " ch rev date author))
+	      (p4-insert-no-properties (format "%6d %4d %10s %7s: " ch rev date author))
 	      (move-to-column 0)
 	      (if (looking-at (concat " *\\([0-9]+\\) *\\([0-9]+\\) *\\([0-9]+/[0-9]+/[0-9]+\\)"
 				      "\\s-+\\([^:]*\\):"))
