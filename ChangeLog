@@ -1,5 +1,8 @@
 2002-10-01  Peter Osterlund  <petero2@telia.com>
 
+	* (p4-blame-int): Use correct filename when initializing the
+	  "p4-ch-buf" buffer.
+
 	* (p4-font-lock-buffer): Made fontification more robust. Some
 	  versions of emacs failed if you tricked them to fontify a binary
 	  file.

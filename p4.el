@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.56 2002/10/01 17:03:08 petero2 Exp $
+;; $Id: p4.el,v 1.57 2002/10/01 17:56:55 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -1476,7 +1476,7 @@ type \\[p4-blame]"
 	  (ch-buffer (get-buffer-create "p4-ch-buf"))
 	  (tmp-alst (copy-alist ch-alist)))
       (p4-exec-p4 ch-buffer
-		  (list "print" "-q" (concat fullname "#" base-rev)) t)
+		  (list "print" "-q" (concat cur-file "#" base-rev)) t)
       (save-excursion
 	(set-buffer ch-buffer)
 	(goto-char (point-min))
