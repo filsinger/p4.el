@@ -16,6 +16,9 @@
 	  directories in the standard search path. Searches for p4.exe if
 	  running in windows.
 
+	* (p4-print-with-rev-history-int): Fixed type conversion bug
+	  exposed by emacs 21.2.1.
+
 2002-07-23  Rajesh Vaidheeswarran  <rv@dsmit.com>
 
 	* (p4-version): v9.1

@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.6 2002/07/24 23:13:53 petero2 Exp $
+;; $Id: p4.el,v 1.7 2002/07/24 23:24:07 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -1324,7 +1324,7 @@ type \\[p4-print-with-rev-history]"
 	(let ((rev-1 (caar tmp-alst))
 	      (rev-2 (car (cadr tmp-alst)))
 	      ins-string)
-	  (setq ins-string (concat rev-2 "\n"))
+	  (setq ins-string (concat (int-to-string rev-2) "\n"))
 	  (p4-exec-p4 buffer (list "diff2"
 				   (concat fullname "#"
 					   (int-to-string rev-1))
