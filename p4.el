@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.8 2002/07/25 12:40:10 petero2 Exp $
+;; $Id: p4.el,v 1.9 2002/07/25 14:06:22 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -2247,7 +2247,7 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
       (if current-prefix-arg
 	  (setq args (p4-make-list-from-string
 		      (p4-read-arg-string "p4 submit: " nil))))
-      (save-some-buffers)
+      (p4-save-opened-files)
       (if (memq t (mapcar (lambda (x) (not (not (string-match "^-" x))))
 			  args))
 	  (progn
@@ -3346,14 +3346,40 @@ that."
 	(getenv "P4PORT")
       (p4-get-config-info p4-config-file "P4PORT"))))
 
+(defun p4-save-opened-files ()
+  (get-buffer-create p4-output-buffer-name);; We do these two lines
+  (kill-buffer p4-output-buffer-name)      ;; to ensure no duplicates
+  (let ((output-buffer (p4-depot-output "opened"))
+	line opened)
+    (while (setq line (p4-read-depot-output output-buffer))
+      (if (string-match "\\(.*\\)#[0-9]+ - " line)
+	  (setq opened (cons (match-string 1 line) opened))))
+    (kill-buffer output-buffer)
+    (setq opened (mapcar 'cdr (p4-map-depot-files opened)))
+    (save-window-excursion
+      (map-y-or-n-p
+       (function
+	(lambda (buffer)
+	  (and (buffer-modified-p buffer)
+	       (not (buffer-base-buffer buffer))
+	       (buffer-file-name buffer)
+	       (member (buffer-file-name buffer) opened)
+	       (format "Save file %s? "
+		       (buffer-file-name buffer)))))
+       (function
+	(lambda (buffer)
+	  (set-buffer buffer)
+	  (save-buffer)))
+       (buffer-list)
+       '("buffer" "buffers" "save")))))
+
 (defun p4-empty-diff-p ()
   "Return t if there exists a file opened for edit with an empty diff"
   (interactive)
   (let ((buffer (get-buffer-create "p4-edp-buf"))
 	line opened empty-diff)
     (p4-exec-p4 buffer (list "opened") t)
-    (while (setq line (p4-read-depot-output
-		       buffer))
+    (while (setq line (p4-read-depot-output buffer))
       (if (string-match "\\(.*\\)#[0-9]* - edit.*" line)
 	  (setq opened (cons (match-string 1 line) opened))))
     (if opened

@@ -22,6 +22,11 @@
 	* (p4-get-add-branch-files), (p4-get-have-files), (p4-is-vc):
 	  Correctly handle filenames containing spaces.
 
+	* (p4-submit), (p4-save-opened-files): When preparing for the
+	  p4-submit command, only offer to save buffers that are relevant
+	  to the current submit, ie disregard unsaved files from other
+	  clients and buffers not under revision control.
+
 2002-07-23  Rajesh Vaidheeswarran  <rv@dsmit.com>
 
 	* (p4-version): v9.1
