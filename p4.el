@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.35 2002/07/31 14:16:21 petero2 Exp $
+;; $Id: p4.el,v 1.36 2002/07/31 19:13:26 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -981,7 +981,7 @@ When visiting a depot file, type \\[p4-diff-head].\n"
 (defun p4-activate-file-change-log-buffer (bufname)
   (let (p4-cur-rev p4-cur-change p4-cur-action
 	p4-cur-user p4-cur-client)
-    (p4-activate-print-buffer bufname)
+    (p4-activate-print-buffer bufname nil)
     (set-buffer bufname)
     (setq buffer-read-only nil)
     (goto-char (point-min))
@@ -1181,7 +1181,7 @@ name and a client name."
 (make-face 'p4-depot-branch-op-face)
 (set-face-foreground 'p4-depot-branch-op-face "blue4")
 
-(defun p4-make-depot-list-buffer (bufname)
+(defun p4-make-depot-list-buffer (bufname &optional print-buffer)
   "Take the p4-output-buffer-name buffer, rename it to bufname, and
 make all depot file names active, so that clicking them opens
 the corresponding client file."
@@ -1189,7 +1189,9 @@ the corresponding client file."
     (set-buffer p4-output-buffer-name)
     (goto-char (point-min))
     (setq depot-regexp
-	  "^\\(\\.\\.\\. [^/\n]*\\|==== \\)?\\(//[a-zA-Z]+/[^#\n]*\\)")
+	  (if print-buffer
+	      "\\(^\\)\\(//[^/@# ][^/@#]*/[^@#]+\\)#[0-9]+ - "
+	    "^\\(\\.\\.\\. [^/\n]*\\|==== \\)?\\(//[^/@# ][^/@#]*/[^#\n]*\\)"))
     (while (re-search-forward depot-regexp nil t)
       (setq args (cons (match-string 2) args)))
     (setq files (p4-map-depot-files args))
@@ -1262,33 +1264,37 @@ the corresponding client file."
 			  (p4-read-arg-string "p4 print: " arg-string)))
       (setq arg-string (list arg-string)))
     (p4-noinput-buffer-action "print" nil t arg-string)
-    (p4-activate-print-buffer "*P4 print*")))
+    (p4-activate-print-buffer "*P4 print*" t)))
 
-(defun p4-activate-print-buffer (buffer-name)
-  (p4-make-depot-list-buffer buffer-name)
-  (save-excursion
-    (set-buffer buffer-name)
-    (setq buffer-read-only nil)
-    (goto-char (point-min))
-    (while (re-search-forward "^//[a-zA-Z]+/" nil t)
-      (let ((link-client-name (get-char-property (match-end 0)
-						 'link-client-name))
-	    (link-depot-name (get-char-property (match-end 0)
-						'link-depot-name))
-	    (start (match-beginning 0))
-	    (end (point-max)))
-	(save-excursion
-	  (if (re-search-forward "^//[a-zA-Z]+/" nil t)
-	      (setq end (match-beginning 0))))
-	(if link-client-name
-	    (p4-set-extent-properties start end
-				      (list (cons 'block-client-name
-						  link-client-name))))
-	(if link-depot-name
-	    (p4-set-extent-properties start end
-				      (list (cons 'block-depot-name
-						  link-depot-name))))))
-    (setq buffer-read-only t)))
+(defun p4-activate-print-buffer (buffer-name print-buffer)
+  (p4-make-depot-list-buffer buffer-name print-buffer)
+  (let ((depot-regexp
+	 (if print-buffer
+	     "^\\(//[^/@# ][^/@#]*/\\)[^@#]+#[0-9]+ - "
+	   "^\\(//[^/@# ][^/@#]*/\\)")))
+    (save-excursion
+      (set-buffer buffer-name)
+      (setq buffer-read-only nil)
+      (goto-char (point-min))
+      (while (re-search-forward depot-regexp nil t)
+	(let ((link-client-name (get-char-property (match-end 1)
+						   'link-client-name))
+	      (link-depot-name (get-char-property (match-end 1)
+						  'link-depot-name))
+	      (start (match-beginning 1))
+	      (end (point-max)))
+	  (save-excursion
+	    (if (re-search-forward depot-regexp nil t)
+		(setq end (match-beginning 1))))
+	  (if link-client-name
+	      (p4-set-extent-properties start end
+					(list (cons 'block-client-name
+						    link-client-name))))
+	  (if link-depot-name
+	      (p4-set-extent-properties start end
+					(list (cons 'block-depot-name
+						    link-depot-name))))))
+      (setq buffer-read-only t))))
 
 
 (defun p4-print-with-rev-history ()
@@ -1437,7 +1443,7 @@ type \\[p4-print-with-rev-history]"
 
       (kill-buffer ch-buffer))
     (let ((buffer-name (concat "*P4 print-revs " file-name "*")))
-      (p4-activate-print-buffer buffer-name)
+      (p4-activate-print-buffer buffer-name nil)
       (save-excursion
 	(set-buffer buffer-name)
 	(use-local-map p4-print-rev-map)))))
@@ -1642,7 +1648,7 @@ This command will execute the integrate/delete commands automatically.
   (if (= (point) (point-max))
       (error "At bottom"))
   (forward-line 1)
-  (re-search-forward "^//[a-zA-Z]+/" nil "")
+  (re-search-forward "^//[^/@# ][^/@#]*/[^@#]+#[0-9]+ - " nil "")
   (beginning-of-line)
   (set-window-start (selected-window) (point)))
 
@@ -1652,7 +1658,7 @@ This command will execute the integrate/delete commands automatically.
   (if (= (point) (point-min))
       (error "At top"))
   (goto-char (window-start))
-  (re-search-backward "^//[a-zA-Z]+/" nil "")
+  (re-search-backward "^//[^/@# ][^/@#]*/[^@#]+#[0-9]+ - " nil "")
   (set-window-start (selected-window) (point)))
 
 
@@ -1752,7 +1758,7 @@ character events"
     (cond ((and (not action) rev)
 	   (let ((fn1 (concat filename "#" rev)))
 	     (p4-noinput-buffer-action "print" nil t (list fn1))
-	     (p4-activate-print-buffer "*P4 print*")))
+	     (p4-activate-print-buffer "*P4 print*" t)))
 	  (action
 	   (let* ((rev2 (int-to-string (1- (string-to-int rev))))
 		  (fn1 (concat filename "#" rev))
@@ -1825,7 +1831,7 @@ character events"
       (find-file-other-window client-name)
     (p4-noinput-buffer-action "print" nil t
 			      (list depot-name))
-    (p4-activate-print-buffer depot-name)
+    (p4-activate-print-buffer depot-name t)
     (other-window 1)))
 
 (defun p4-find-file-other-window ()
@@ -2683,11 +2689,11 @@ list."
     (save-excursion
       (set-buffer output-buffer)
       (goto-char (point-min))
-      (while (re-search-forward "^\\(//[a-zA-Z]+/[^#\n]*\\)#[0-9]+ - add " nil t)
+      (while (re-search-forward "^\\(//[^/@#]+/[^#\n]*\\)#[0-9]+ - add " nil t)
 	(setq files (cons (cons (match-string 1) "Add")
 			  files)))
       (goto-char (point-min))
-      (while (re-search-forward "^\\(//[a-zA-Z]+/[^#\n]*\\)#[0-9]+ - branch " nil t)
+      (while (re-search-forward "^\\(//[^/@#]+/[^#\n]*\\)#[0-9]+ - branch " nil t)
 	(setq files (cons (cons (match-string 1) "Branch")
 			  files))))
     (kill-buffer output-buffer)
@@ -2699,7 +2705,7 @@ list."
   (let ((output-buffer (p4-depot-output "have" file-list))
 	line files depot-map elt)
     (while (setq line (p4-read-depot-output output-buffer))
-      (if (string-match "^\\(//[a-zA-Z]+/[^#\n]*\\)#\\([0-9]+\\) - " line)
+      (if (string-match "^\\(//[^/@#]+/[^#\n]*\\)#\\([0-9]+\\) - " line)
 	  (setq files (cons (cons (match-string 1 line)
 				  (match-string 2 line))
 			    files))))
@@ -2726,7 +2732,7 @@ list."
 	      line)
 	  (setq line (p4-read-depot-output output-buffer))
 	  (kill-buffer output-buffer)
-	  (if (string-match "^//[a-zA-Z]+/[^#\n]*#\\([0-9]+\\) - " line)
+	  (if (string-match "^//[^/@#]+/[^#\n]*#\\([0-9]+\\) - " line)
 	      (setq version (match-string 1 line)))
 	  (setq done version)))
     (if (and (not done) (not file-mode-cache))
@@ -3367,7 +3373,7 @@ file name selection.")
 	(get-buffer-create file)
 	(set-buffer file)
 	(p4-noinput-buffer-action "print" nil t (list file))
-	(p4-activate-print-buffer file)))))
+	(p4-activate-print-buffer file t)))))
 
 
 ;; A function to get the current P4 client name
@@ -3765,7 +3771,7 @@ windows or frames when we think that\'s necessary"
 
     (save-excursion
       (p4-noinput-buffer-action "print" nil nil (list cmd-arg))
-      (p4-activate-print-buffer  new-buffer)
+      (p4-activate-print-buffer  new-buffer t)
       (set-buffer                new-buffer)
       (use-local-map       p4-blame-rev-map))))
 

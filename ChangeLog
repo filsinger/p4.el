@@ -1,5 +1,10 @@
 2002-07-31  Peter Osterlund  <petero2@telia.com>
 
+	* (p4-activate-print-buffer), (p4-make-depot-list-buffer): Allow
+	  all characters in depot names, not just a-z and A-Z. Take
+	  special care not to confuse depot path specifications with C++
+	  comments.
+
 	* (defp4cmd): Renamed def-p4-cmd to defp4cmd to make the
 	  find-function function recognize it as a function definition.
 
