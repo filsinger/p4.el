@@ -6,6 +6,8 @@
 	* Removed trailing whitespace.
 	* (p4-blame-kill-blame, p4-blame-secondary-buffer-cleanup):
 	Removed unused code.
+	* (p4-font-lock-buffer): p4-blame and p4-print didn't work for
+	files whose buffers are set to read-only mode by set-auto-mode.
 
 2004-06-11  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
