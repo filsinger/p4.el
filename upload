@@ -1,0 +1,163 @@
+#!/usr/bin/env perl
+#
+# This file uploads releases to the sourceforge web tree.
+#
+# upload - To upload a given set of files to the sourceforge web tree.
+# Copyright (C) 2004  Rajesh Vaidheeswarran
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; see the file COPYING.  If not, write to
+# the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+# Boston, MA 02111-1307, USA.
+#
+use strict;
+use Getopt::Long;
+use Pod::Usage;
+
+my $Debug = 0;
+my $User = undef;
+my $filelist = undef;
+my $Version = 1.0;
+my $remotehost = "p4el.sourceforge.net";
+my $remotedir = "/home/groups/p/p4/p4el/htdocs/";
+my $prog = $0;
+$prog =~ s/.*\///;
+$prog =~ s/\.pl$//;
+
+if (! GetOptions (
+		  "help"=> \&usage,
+		  "debug" => \$Debug,
+		  "user=s" => \$User,
+		  "version" => \&version,
+		  "host=s" => \$remotehost,
+		  "dir=s" => \$remotedir,
+		  )) {
+    usage();
+}
+
+#----------------------------------------------------------------------
+
+sub usage {
+    pod2usage(-verbose=>2, -exitval => 2);
+    exit 1;
+}
+
+sub version {
+    print "$prog v$Version\n";
+}
+
+unless (defined $User) {
+    $User = $1 if (defined $ENV{CVSROOT} && $ENV{CVSROOT} =~ /:?.*?:(.*)?@.*/);
+    $User = $ENV{USER} unless defined $User;
+    die "No user information available" unless defined $User;
+}
+
+
+#print "User is $User. Files are [@ARGV]\n";
+if ($#ARGV < 0) {
+    warn "%Error: No files to process\n";
+    usage();
+}
+
+$filelist = join ' ', @ARGV;
+
+my $ret = system "scp $filelist ${User}\@${remotehost}:${remotedir}";
+
+exit $ret / 256;
+__END__
+
+=head1 NAME
+
+upload - upload given files to the source forge web tree.
+
+=head1 SYNOPSIS
+
+C<upload> [--user <user>] [--host <remotehost>] [--dir <remotedir>] <file> ... <file>
+
+C<upload> --help
+
+C<upload> --version
+
+=head1 DESCRIPTION
+
+upload given files to the source forge web tree.
+
+=head1 ARGUMENTS
+
+upload takes the following arguments:
+
+=over 4
+
+=item --help
+
+Displays this message and program version and exits.
+
+=item --version
+
+Displays the version message
+
+=item --user <user>
+
+This is used to specify the username to login to the remote server as,
+if the default choice is not acceptable. If the CVSROOT variable
+specifies a user, that user will be used. If not, $USER will be used.
+
+=item --host <remotehost>
+
+Specifies the remote host to login to. Default is p4el.sourceforge.net
+
+=item --dir <remotedir>
+
+Specifies the remote directory to copy to. Default is /home/groups/p/p4/p4el/htdocs/
+
+=back
+
+=head1 ENVIROMENT VARIABLES
+
+=over 4
+
+=item CVSROOT
+
+Unless the user is specified, this variable is parsed first to obtain
+any login information that could be used.
+
+=item USER
+
+This variable is used as the default user to login as, if the above
+said variable doesn't produce a usable login, and the user is not
+specified.
+
+=back
+
+=head1 AUTHOR
+
+Rajesh Vaidheeswarran
+
+=head1 COPYING
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; see the file COPYING.  If not, write to
+the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.
+
+=cut
