@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.52 2002/09/22 23:10:04 petero2 Exp $
+;; $Id: p4.el,v 1.53 2002/09/24 16:45:27 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -1303,6 +1303,9 @@ the corresponding client file."
       (setq buffer-file-name nil)
       (font-lock-fontify-buffer)
       (fundamental-mode)
+      (if (and p4-running-emacs
+	       (boundp 'hilit-auto-rehighlight))
+	  (setq hilit-auto-rehighlight nil))
       (goto-char (point-min))
       (p4-insert-no-properties first-line))))
 
