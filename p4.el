@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.16 2002/07/25 20:51:08 petero2 Exp $
+;; $Id: p4.el,v 1.17 2002/07/25 20:59:45 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -425,6 +425,10 @@ arguments to p4 commands."
   (defun p4-exec-p4 (output-buffer args &optional clear-output-buffer)
     "Internal function called by various p4 commands."
     (save-excursion
+      (if (eq major-mode 'dired-mode)
+	  (let ((dir (dired-current-directory)))
+	    (set-buffer output-buffer)
+	    (setq default-directory dir)))
       (if clear-output-buffer
 	  (progn
 	    (set-buffer output-buffer)
@@ -659,7 +663,7 @@ controlled files."
       (if (not preserve-buffer)
 	  (progn
 	    (get-buffer-create p4-output-buffer-name);; We do these two lines
-	    (kill-buffer p4-output-buffer-name)))      ;; to ensure no duplicates
+	    (kill-buffer p4-output-buffer-name)))    ;; to ensure no duplicates
       (p4-exec-p4 (get-buffer-create p4-output-buffer-name)
 		  (append (list cmd) arguments)
 		  t))

@@ -49,6 +49,11 @@
 	  opportunity to preview and edit the change description before
 	  committing.
 
+	* (p4-exec-p4): Set correct current directory when executing p4
+	  commands from a dired buffer. Previously it didn't work if you
+	  had inserted subdirectories in the dired buffer with the 'i'
+	  command.
+
 2002-07-23  Rajesh Vaidheeswarran  <rv@dsmit.com>
 
 	* (p4-version): v9.1
