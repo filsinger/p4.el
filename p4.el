@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.5 2002/07/24 22:49:07 petero2 Exp $
+;; $Id: p4.el,v 1.6 2002/07/24 23:13:53 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -104,17 +104,24 @@ don't define defcustom"
 
 ;; This can be set to wherever 'p4' lies using p4-set-p4-executable
 (eval-and-compile
+  (defun p4-windows-os ()
+    (memq system-type '(ms-dos windows-nt)))
+
   (defcustom p4-executable
-    (let ((lst (list "/usr/local/bin/p4"
-		     "/usr/bin/p4"
-		     "/bin/p4"
-		     (concat (getenv "HOME") "/bin/p4")
-		     "p4"))
+    (let ((lst (append
+		exec-path
+		(list "/usr/local/bin/p4"
+		      (concat (getenv "HOME") "/bin/p4")
+		      "p4")))
+	  (p4-progname (if (p4-windows-os) "p4.exe" "p4"))
 	  p4ex)
       (while (and lst (not p4ex))
-	(if (file-executable-p (car lst))
-	    (setq p4ex (car lst)))
-	(setq lst (cdr lst)))
+	(let ((tmp (concat (file-name-as-directory (car lst))
+			   p4-progname)))
+	  (if (and (file-executable-p tmp)
+		   (not (file-directory-p tmp)))
+	      (setq p4ex tmp))
+	  (setq lst (cdr lst))))
       p4ex)
     "This is the p4 executable.
 To set this, use the function  `p4-set-p4-executable' or `customize'"
@@ -1065,7 +1072,7 @@ When visiting a depot file, type \\[p4-diff2] and enter the versions.\n"
     ;; For Windows, since the client root may be terminated with
     ;; a \ as in c:\ or drive:\foo\bar\, we need to strip the
     ;; trailing \ .
-    (if (and (memq system-type '(ms-dos windows-nt))
+    (if (and (p4-windows-os)
 	     (> len 1)
 	     (equal (substring p4-client-root (1- len) len) "\\"))
 	(setq p4-client-root (substring p4-client-root 0 (1- len))))

@@ -12,6 +12,10 @@
 	  p4-output-buffer was not deleted, which had the effect that some
 	  p4 commands were executed with the wrong current directory.
 
+	* Smarter searching for the p4 executable. Searches all
+	  directories in the standard search path. Searches for p4.exe if
+	  running in windows.
+
 2002-07-23  Rajesh Vaidheeswarran  <rv@dsmit.com>
 
 	* (p4-version): v9.1
