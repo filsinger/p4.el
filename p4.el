@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.59 2002/10/02 18:48:53 petero2 Exp $
+;; $Id: p4.el,v 1.60 2002/10/02 19:55:05 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -1420,7 +1420,7 @@ type \\[p4-blame]"
 	  (error "File pattern maps to more than one file.")))
 
     ;; get the file change history:
-    (p4-exec-p4 buffer (list "filelog" "-i" file-name) t)
+    (p4-exec-p4 buffer (list "filelog" "-i" file-spec) t)
     (setq fullname (p4-read-depot-output buffer)
 	  cur-file  fullname
 	  head-name fullname)

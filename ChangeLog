@@ -1,5 +1,8 @@
 2002-10-02  Peter Osterlund  <petero2@telia.com>
 
+	* (p4-blame-int): Bail out early instead of generating garbage if
+	  invoked with a non-existing file revision.
+
 	* (p4-blame-int): Set the 'link-depot-name character property
 	  instead of 'file. This makes all places that use
 	  p4-buffer-file-name-2 do the right thing automatically.
