@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.38 2002/08/02 21:26:56 petero2 Exp $
+;; $Id: p4.el,v 1.39 2002/08/02 21:33:05 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -361,6 +361,7 @@ arguments to p4 commands."
 (if p4-require-vc-p
     (require 'vc))
 
+;;;###autoload
 (defvar p4-prev-toggle-fkn
   (if (where-is-internal 'vc-toggle-read-only)
       'vc-toggle-read-only

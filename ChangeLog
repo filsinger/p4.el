@@ -4,6 +4,9 @@
 	  showing the differences between the current rev and rev# minus
 	  one.
 
+	* (p4-prev-toggle-fkn): Mark for autoload, to make byte
+	  compilation from the xemacs source code possible.
+
 2002-08-01  Peter Osterlund  <petero2@telia.com>
 
 	* Fixed some warnings during xemacs byte compilation.
