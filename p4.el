@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.34 2002/07/31 07:13:09 petero2 Exp $
+;; $Id: p4.el,v 1.35 2002/07/31 14:16:21 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -661,7 +661,7 @@ controlled files."
       (p4-refresh-refresh-list (p4-buffer-file-name)
 			       (buffer-name))))
 
-(defmacro def-p4-cmd (fkn &rest all-args)
+(defmacro defp4cmd (fkn &rest all-args)
   (let ((args (car all-args))
 	(help-cmd (cadr all-args))
 	(help-txt (eval (cadr (cdr all-args))))
@@ -712,7 +712,7 @@ controlled files."
       (revert-buffer t t)))
 
 ;; The p4 edit command
-(def-p4-cmd p4-edit (show-output)
+(defp4cmd p4-edit (show-output)
   "edit" "To open the current depot file for edit, type \\[p4-edit].\n"
   (interactive (list p4-verbose))
   (let ((args (p4-buffer-file-name))
@@ -733,7 +733,7 @@ controlled files."
   (p4-update-opened-list))
 
 ;; The p4 reopen command
-(def-p4-cmd p4-reopen (show-output)
+(defp4cmd p4-reopen (show-output)
   "reopen"
   "To change the type or changelist number of an opened file, type \\[p4-reopen].
 
@@ -751,7 +751,7 @@ command if t.\n"
   (p4-update-opened-list))
 
 ;; The p4 revert command
-(def-p4-cmd p4-revert (show-output)
+(defp4cmd p4-revert (show-output)
   "revert" "To revert all change in the current file, type \\[p4-revert].\n"
   (interactive (list p4-verbose))
   (let ((args (p4-buffer-file-name))
@@ -776,7 +776,7 @@ command if t.\n"
 	  (p4-update-opened-list)))))
 
 ;; The p4 lock command
-(def-p4-cmd p4-lock ()
+(defp4cmd p4-lock ()
   "lock" "To lock an opened file against changelist submission, type \\[p4-lock].\n"
   (interactive)
   (let ((args (list (p4-buffer-file-name-2))))
@@ -788,7 +788,7 @@ command if t.\n"
     (p4-update-opened-list)))
 
 ;; The p4 unlock command
-(def-p4-cmd p4-unlock ()
+(defp4cmd p4-unlock ()
   "unlock" "To release a locked file but leave open, type \\[p4-unlock].\n"
   (interactive)
   (let ((args (list (p4-buffer-file-name-2))))
@@ -800,7 +800,7 @@ command if t.\n"
     (p4-update-opened-list)))
 
 ;; The p4 diff command
-(def-p4-cmd p4-diff ()
+(defp4cmd p4-diff ()
   "diff" "To diff the current file and topmost depot version, type \\[p4-diff].\n"
   (interactive)
   (let ((args (p4-make-list-from-string p4-default-diff-options)))
@@ -831,7 +831,7 @@ command if t.\n"
 	 rev)))
 
 ;; The p4 diff2 command
-(def-p4-cmd p4-diff2 (version1 version2)
+(defp4cmd p4-diff2 (version1 version2)
   "diff2" "Display diff of two depot files.
 
 When visiting a depot file, type \\[p4-diff2] and enter the versions.\n"
@@ -857,7 +857,7 @@ When visiting a depot file, type \\[p4-diff2] and enter the versions.\n"
 					    diff-version2)))
     (p4-activate-diff-buffer "*P4 diff2*")))
 
-(def-p4-cmd p4-diff-head ()
+(defp4cmd p4-diff-head ()
   "diff-head" "Display diff of file against the head revision in depot.
 
 When visiting a depot file, type \\[p4-diff-head].\n"
@@ -899,7 +899,7 @@ When visiting a depot file, type \\[p4-diff-head].\n"
 				   ediff-cleanup-hook)))))))
 
 ;; The p4 add command
-(def-p4-cmd p4-add ()
+(defp4cmd p4-add ()
   "add" "To add the current file to the depot, type \\[p4-add].\n"
   (interactive)
   (let ((args (p4-buffer-file-name))
@@ -921,7 +921,7 @@ When visiting a depot file, type \\[p4-diff-head].\n"
 
 
 ;; The p4 delete command
-(def-p4-cmd p4-delete ()
+(defp4cmd p4-delete ()
   "delete" "To delete the current file from the depot, type \\[p4-delete].\n"
   (interactive)
   (let ((args (p4-buffer-file-name)))
@@ -936,7 +936,7 @@ When visiting a depot file, type \\[p4-diff-head].\n"
   (p4-update-opened-list))
 
 ;; The p4 filelog command
-(def-p4-cmd p4-filelog ()
+(defp4cmd p4-filelog ()
   "filelog"
   "To view a history of the change made to the current file, type \\[p4-filelog].\n"
   (interactive)
@@ -1050,7 +1050,7 @@ When visiting a depot file, type \\[p4-diff-head].\n"
 	  (goto-char next))))))
 
 ;; The p4 files command
-(def-p4-cmd p4-files ()
+(defp4cmd p4-files ()
   "files" "List files in the depot. Type, \\[p4-files].\n"
   (interactive)
   (let ((args (p4-buffer-file-name-2)))
@@ -1247,7 +1247,7 @@ the corresponding client file."
     (p4-move-buffer-point-to-top bufname)))
 
 ;; The p4 print command
-(def-p4-cmd p4-print ()
+(defp4cmd p4-print ()
   "print" "To print a depot file to a buffer, type \\[p4-print].\n"
   (interactive)
   (let ((arg-string (p4-buffer-file-name-2))
@@ -1443,7 +1443,7 @@ type \\[p4-print-with-rev-history]"
 	(use-local-map p4-print-rev-map)))))
 
 ;; The p4 refresh command
-(def-p4-cmd p4-refresh ()
+(defp4cmd p4-refresh ()
   "sync" "Refresh the contents of an unopened file. \\[p4-refresh].
 
 This is equivalent to \"sync -f\"
@@ -1460,13 +1460,13 @@ This is equivalent to \"sync -f\"
      (concat "*P4 Refresh: (" (p4-current-client) ") " (car args) "*"))))
 
 ;; The p4 get/sync command
-(def-p4-cmd p4-sync ()
+(defp4cmd p4-sync ()
   "sync"
   "To synchronise the local view with the depot, type \\[p4-get].\n"
   (interactive)
   (p4-get))
 
-(def-p4-cmd p4-get ()
+(defp4cmd p4-get ()
   "sync"
   "To synchronise the local view with the depot, type \\[p4-get].\n"
   (interactive)
@@ -1479,7 +1479,7 @@ This is equivalent to \"sync -f\"
      (concat "*P4 Get: (" (p4-current-client) ") " (car args) "*"))))
 
 ;; The p4 have command
-(def-p4-cmd p4-have ()
+(defp4cmd p4-have ()
   "have" "To list revisions last gotten, type \\[p4-have].\n"
   (interactive)
   (let ((args (list "...")))
@@ -1491,7 +1491,7 @@ This is equivalent to \"sync -f\"
      (concat "*P4 Have: (" (p4-current-client) ") " (car args) "*"))))
 
 ;; The p4 changes command
-(def-p4-cmd p4-changes ()
+(defp4cmd p4-changes ()
   "changes" "To list changes, type \\[p4-changes].\n"
   (interactive)
   (let ((arg-list (list "-m" "200" "...")))
@@ -1501,7 +1501,7 @@ This is equivalent to \"sync -f\"
     (p4-file-change-log "changes" arg-list)))
 
 ;; The p4 help command
-(def-p4-cmd p4-help (arg)
+(defp4cmd p4-help (arg)
   "help" "To print help message, type \\[p4-help].
 
 Argument ARG command for which help is needed.
@@ -1526,14 +1526,14 @@ it already exists\), set its local map to map, if specified, or
   (p4-move-buffer-point-to-top buf-name))
 
 ;; The p4 info command
-(def-p4-cmd p4-info ()
+(defp4cmd p4-info ()
   "info" "To print out client/server information, type \\[p4-info].\n"
   (interactive)
   (p4-noinput-buffer-action "info" nil t)
   (p4-make-basic-buffer "*P4 info*"))
 
 ;; The p4 integrate command
-(def-p4-cmd p4-integ ()
+(defp4cmd p4-integ ()
   "integ" "To schedule integrations between branches, type \\[p4-integ].\n"
   (interactive)
   (let ((args (p4-make-list-from-string
@@ -1541,7 +1541,7 @@ it already exists\), set its local map to map, if specified, or
     (p4-noinput-buffer-action "integ" nil t args)
     (p4-make-depot-list-buffer "*P4 integ*")))
 
-(def-p4-cmd p4-resolve ()
+(defp4cmd p4-resolve ()
   "resolve"
   "To merge open files with other revisions or files, type \\[p4-resolve].\n"
   (interactive)
@@ -1564,7 +1564,7 @@ it already exists\), set its local map to map, if specified, or
     (select-window (get-buffer-window buffer))
     (goto-char (point-max))))
 
-(def-p4-cmd p4-rename ()
+(defp4cmd p4-rename ()
   "rename" "To rename a file in the depot, type \\[p4-rename].
 
 This command will execute the integrate/delete commands automatically.
@@ -1991,7 +1991,7 @@ character events"
 
 
 ;; The p4 describe command
-(def-p4-cmd p4-describe ()
+(defp4cmd p4-describe ()
   "describe" "To get a description for a change number, type \\[p4-describe].\n"
   (interactive)
   (let ((arg-string (p4-make-list-from-string
@@ -2007,7 +2007,7 @@ character events"
    (concat "*P4 describe: " (p4-list-to-string arg-string) "*")))
 
 ;; The p4 opened command
-(def-p4-cmd p4-opened ()
+(defp4cmd p4-opened ()
   "opened"
   "To display list of files opened for pending change, type \\[p4-opened].\n"
   (interactive)
@@ -2042,7 +2042,7 @@ character events"
     (setq buffer-read-only t)))
 
 ;; The p4 users command
-(def-p4-cmd p4-users ()
+(defp4cmd p4-users ()
   "users" "To display list of known users, type \\[p4-users].\n"
   (interactive)
   (let (args)
@@ -2054,7 +2054,7 @@ character events"
   (p4-regexp-create-links "*P4 users*" "^\\([^ ]+\\).*\n" 'user))
 
 ;; The p4 jobs command
-(def-p4-cmd p4-jobs ()
+(defp4cmd p4-jobs ()
   "jobs" "To display list of jobs, type \\[p4-jobs].\n"
   (interactive)
   (let (args)
@@ -2064,7 +2064,7 @@ character events"
   (p4-make-basic-buffer "*P4 jobs*"))
 
 ;; The p4 fix command
-(def-p4-cmd p4-fix ()
+(defp4cmd p4-fix ()
   "fix" "To mark jobs as being fixed by a changelist number, type \\[p4-fix].\n"
   (interactive)
   (let ((args (p4-make-list-from-string (p4-read-arg-string "p4 fix: "
@@ -2072,7 +2072,7 @@ character events"
     (p4-noinput-buffer-action "fix" nil t args)))
 
 ;; The p4 fixes command
-(def-p4-cmd p4-fixes ()
+(defp4cmd p4-fixes ()
   "fixes" "To list what changelists fix what jobs, type \\[p4-fixes].\n"
   (interactive)
   (let (args)
@@ -2082,7 +2082,7 @@ character events"
     (p4-make-basic-buffer "*P4 fixes*")))
 
 ;; The p4 where command
-(def-p4-cmd p4-where ()
+(defp4cmd p4-where ()
   "where"
   "To show how local file names map into depot names, type \\[p4-where].\n"
   (interactive)
@@ -2192,7 +2192,7 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
 		  args)))
 
 ;; The p4 change command
-(def-p4-cmd p4-change ()
+(defp4cmd p4-change ()
   "change" "To edit the change specification, type \\[p4-change].\n"
   (interactive)
   (let (args
@@ -2208,7 +2208,7 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
 				  change-buf-name nil args)))))
 
 ;; The p4 client command
-(def-p4-cmd p4-client ()
+(defp4cmd p4-client ()
   "client" "To edit a client specification, type \\[p4-client].\n"
   (interactive)
   (let (args
@@ -2223,14 +2223,14 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
 	(p4-async-process-command "client" "\\(Description\\|View\\):\n\t"
 				  client-buf-name nil args)))))
 
-(def-p4-cmd p4-clients ()
+(defp4cmd p4-clients ()
   "clients" "To list all clients, type \\[p4-clients].\n"
   (interactive)
   (p4-noinput-buffer-action "clients" nil t nil)
   (p4-make-basic-buffer "*P4 clients*")
   (p4-regexp-create-links "*P4 clients*" "^Client \\([^ ]+\\).*\n" 'client))
 
-(def-p4-cmd p4-branch (args)
+(defp4cmd p4-branch (args)
   "branch" "Edit a P4-BRANCH specification using \\[p4-branch]."
   (interactive (list
 		(p4-make-list-from-string
@@ -2244,14 +2244,14 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
 					(car (reverse args)) "*")
 				"branch" args))))
 
-(def-p4-cmd p4-branches ()
+(defp4cmd p4-branches ()
   "branches" "To list all branches, type \\[p4-branches].\n"
   (interactive)
   (p4-noinput-buffer-action "branches" nil t nil)
   (p4-make-basic-buffer "*P4 branches*")
   (p4-regexp-create-links "*P4 branches*" "^Branch \\([^ ]+\\).*\n" 'branch))
 
-(def-p4-cmd p4-label (args)
+(defp4cmd p4-label (args)
   "label" "Edit a P4-label specification using \\[p4-label].\n"
   (interactive (list
 		(p4-make-list-from-string
@@ -2265,7 +2265,7 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
 					(car (reverse args)) "*")
 				"label" args))))
 
-(def-p4-cmd p4-labels ()
+(defp4cmd p4-labels ()
   "labels" "To display list of defined labels, type \\[p4-labels].\n"
   (interactive)
   (p4-noinput-buffer-action "labels" nil t nil)
@@ -2273,7 +2273,7 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
   (p4-regexp-create-links "*P4 labels*" "^Label \\([^ ]+\\).*\n" 'label))
 
 ;; The p4 labelsync command
-(def-p4-cmd p4-labelsync ()
+(defp4cmd p4-labelsync ()
   "labelsync"
   "To synchronize a label with the current client contents, type \\[p4-labelsync].\n"
   (interactive)
@@ -2291,7 +2291,7 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
     (reverse res)))
 
 ;; The p4 submit command
-(def-p4-cmd p4-submit (&optional arg)
+(defp4cmd p4-submit (&optional arg)
   "submit" "To submit a pending change to the depot, type \\[p4-submit].\n"
   (interactive "P")
   (let (args
@@ -2315,7 +2315,7 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
 				    submit-buf-name "submit" args)))))
 
 ;; The p4 user command
-(def-p4-cmd p4-user ()
+(defp4cmd p4-user ()
   "user" "To create or edit a user specification, type \\[p4-user].\n"
   (interactive)
   (let (args)
@@ -2327,7 +2327,7 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
       (p4-async-process-command "user" nil nil nil args))))
 
 ;; The p4 job command
-(def-p4-cmd p4-job ()
+(defp4cmd p4-job ()
   "job" "To create or edit a job, type \\[p4-job].\n"
   (interactive)
   (let (args)
@@ -2339,7 +2339,7 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
       (p4-async-process-command "job" "Description:\n\t" nil nil args))))
 
 ;; The p4 jobspec command
-(def-p4-cmd p4-jobspec ()
+(defp4cmd p4-jobspec ()
   "jobspec" "To edit the job template, type \\[p4-jobspec].\n"
   (interactive)
   (p4-async-process-command "jobspec"))

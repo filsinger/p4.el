@@ -1,5 +1,8 @@
 2002-07-31  Peter Osterlund  <petero2@telia.com>
 
+	* (defp4cmd): Renamed def-p4-cmd to defp4cmd to make the
+	  find-function function recognize it as a function definition.
+
 	* (p4-is-vc): Removed unused variable 'max'.
 
 2002-07-27  Peter Osterlund  <petero2@telia.com>
