@@ -1,3 +1,11 @@
+2004-06-11  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
+
+	* (p4-version): Bump to 10.5
+	* (p4-group, p4-groups): New defuns. Appropriate adds to existing
+	defuns to incorporate the new features
+	* (p4-make-face): Use the simpler facep and lose distro-specific issues
+	* miscellaneous doc fixes
+
 2004-05-18  Rajesh Vaidheeswarran  <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): Bump to 10.4

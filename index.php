@@ -16,7 +16,7 @@
 //    If you have any problems to report, or suggestions, please send them
 //    to p4el-bugs@lists.sourceforge.net
 //
-//	$Id: index.php,v 1.8 2002/10/24 16:27:52 rvgnu Exp $
+//	$Id: index.php,v 1.9 2004/06/11 19:24:13 rvgnu Exp $
 
 function fstats($file, &$kbsize)
 {
@@ -85,12 +85,12 @@ Explorer Screen shots (<?php echo $p4explorer_ss_size; ?>KB)</a>
 
 </ul>
 <p>
-<hr><i>Maintainer: <a href="mailto:rv@no.spam.dsmit.com">Rajesh Vaidheeswarran (remove the no.spam from my address to email me)</a></i>
+<hr><i>Maintainer: <a href="mailto:rv+p4el at no.spam.dsmit.com">Rajesh Vaidheeswarran (remove the no.spam from my address to email me)</a></i>
 <p>
 <i><a href="http://sourceforge.net/projects/p4el/">P4.el project page on Sourceforge.net</a></i>
 <p>
 <A href="http://sourceforge.net"> <IMG src="http://sourceforge.net/sflogo.php?group_id=58201&amp;type=5" width="210" height="62" border="0" alt="SourceForge Logo"></A>
 <hr>
-Last Updated: $Revision: 1.8 $ on $Date: 2002/10/24 16:27:52 $
+Last Updated: $Revision: 1.9 $ on $Date: 2004/06/11 19:24:13 $
 </body>
 </html>

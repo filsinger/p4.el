@@ -16,7 +16,7 @@
 //    If you have any problems to report, or suggestions, please send them
 //    to p4el-bugs@lists.sourceforge.net
 //
-//	$Id: p4.el.html,v 1.9 2003/09/12 17:30:45 rvgnu Exp $
+//	$Id: p4.el.html,v 1.10 2004/06/11 19:24:13 rvgnu Exp $
 -->
 <html>
     <header>
@@ -89,6 +89,10 @@
 		<td>C-x p v</td><td>p4-<a href=#version>emacs-version</a></td>
 		<td>C-x p G</td><td>p4-<a href=#get>get</a></td>
 		<td>C-x p g</td><td>p4-<a href=#cname>get-client-name</a></td>
+	      </tr>
+	      <tr>
+		<td></td><td>p4-<a href=#group>group</a></td>
+		<td></td><td>p4-<a href=#groups>groups</a></td>
 	      </tr>
 	      <tr>
 		<td>C-x p f</td><td>p4-<a href=#filelog>filelog</a></td>
@@ -750,6 +754,68 @@ Emacs P4.
 		  </td>
 		</tr>
 		<tr>
+		  <td>p4-group<br></td>
+		  <td>
+		    <a name=group></a>
+		    <PRE>
+
+    group -- Change members of user group
+
+    p4 group name
+    p4 group -d name
+    p4 group -o name
+    p4 group -i
+
+	Create a new user group or add/delete members from an existing
+	group.  A group's members can be users and/or other groups.
+	The group specification form is put into a temporary file and
+	the editor (given by the environment variable $P4EDITOR) is invoked.
+
+	A group exists when it has any users or other groups in it, and
+	ceases to exist if all users and groups in it are removed.
+
+	Each group has MaxResults and MaxScanRows fields, which limit
+	the data size for operations that the users in that group can
+	perform.  For either field, 'unlimited' means no limit for that
+	group.  A individual user's limit is the highest of any group
+	with a limit to which he belongs, or unlimited if he belongs to
+	no group with a limit.  See 'p4 help maxresults' for more
+	information on MaxResults and MaxScanRows.
+
+	The -d flag deletes all users and groups from the named group, thus
+	deleting the whole group.
+
+	The -o flag causes the named group specification to be written
+	to the standard output.  The user's editor is not invoked.
+
+	The -i flag causes a group specification to be read from the
+	standard input.  The user's editor is not invoked.  The new
+	group specification entirely replaces the previous.
+
+	All commands that require access granted by 'p4 protect' consider
+	a user's groups when calculating access levels.  Groups are also
+	used to calculate a user's MaxResults and MaxScanRows.
+
+	'p4 group' requires 'super' access granted by 'p4 protect'.
+		    </PRE>
+		  </td>
+		</tr>
+		<tr>
+		  <td>p4-groups<br></td>
+		  <td>
+		    <a name=groups></a>
+		    <PRE>
+    groups -- List groups (of users)
+
+    p4 groups [ user ]
+
+	Displays the list of all groups of users created by the
+	'p4 group' command.  If a user argument is given, only groups
+	with that user are displayed.
+		    </PRE>
+		  </td>
+		</tr>
+		<tr>
 		  <td>p4-files<br>C-x p F</td>
 		  <td>
 		    <a name=files></a>
@@ -1233,6 +1299,6 @@ by examination of the file's contents and execution permission bits.
 	src="http://sourceforge.net/sflogo.php?group_id=58201&amp;type=5"
 	width="210" height="62" border="0" alt="SourceForge Logo"></A>
 	<hr>
-	Last Updated: $Revision: 1.9 $ on $Date: 2003/09/12 17:30:45 $
+	Last Updated: $Revision: 1.10 $ on $Date: 2004/06/11 19:24:13 $
     </body>
   </html>
