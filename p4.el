@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.54 2002/09/29 19:48:52 petero2 Exp $
+;; $Id: p4.el,v 1.55 2002/10/01 00:00:02 vivek Exp $
 
 ;;; Commentary:
 ;;
@@ -535,7 +535,7 @@ the last popped element to restore the window configuration."
       ["Resolve Conflicts" p4-resolve t]
       ["--" nil nil]
       ["Print" p4-print (p4-buffer-file-name-2)]
-      ["Print with Revision History" p4-print-with-rev-history
+      ["Print with Revision History" p4-blame
        (p4-buffer-file-name-2)]
       ["Find File using Depot Spec" p4-depot-find-file
        p4-do-find-file]
@@ -1341,10 +1341,39 @@ the corresponding client file."
 						    link-depot-name))))))
       (setq buffer-read-only t))))
 
+(defconst p4-blame-change-regex
+  (concat "^\\.\\.\\. #"     "\\([0-9]+\\)"   ;; revision
+	  "\\s-+change\\s-+" "\\([0-9]+\\)"   ;; change
+	  "\\s-+"            "\\([^ \t]+\\)"  ;; type
+	  "\\s-+on\\s-+"     "\\([^ \t]+\\)"  ;; date	   
+	  "\\s-+by\\s-+"     "\\([^ \t]+\\)"  ;; author
+	  "@"))
 
-(defun p4-print-with-rev-history ()
+(defconst p4-blame-branch-regex
+  "^\\.\\.\\. \\.\\.\\. branch from \\(//[^#]*\\)#")
+
+(defconst p4-blame-revision-regex
+  (concat "^\\([0-9]+\\),?"
+	  "\\([0-9]*\\)"
+	  "\\([acd]\\)"
+	  "\\([0-9]+\\),?"
+	  "\\([0-9]*\\)"))
+
+(defconst p4-blame-index-regex
+  (concat " *\\([0-9]+\\)"               ;; change
+	  " *\\([0-9]+\\)"               ;; revision
+	  " *\\([0-9]+/[0-9]+/[0-9]+\\)" ;; date
+	  "\\s-+\\([^:]*\\)"             ;; author
+	  ":"))          
+
+(defconst P4-CNUM 0)
+(defconst P4-DATE 1)
+(defconst P4-AUTH 2)
+(defconst P4-FILE 3)
+
+(defun p4-blame ()
   "To Print a depot file with revision history to a buffer,
-type \\[p4-print-with-rev-history]"
+type \\[p4-blame]"
   (interactive)
   (let ((arg-string (p4-buffer-file-name-2))
 	(rev (get-char-property (point) 'rev))
@@ -1355,86 +1384,116 @@ type \\[p4-print-with-rev-history]"
 	   (setq arg-string (concat arg-string "@" change))))
     (if (or current-prefix-arg (not arg-string))
 	(setq arg-string (p4-read-arg-string "p4 print-revs: " arg-string)))
-    (p4-print-with-rev-history-int arg-string)))
+    (p4-blame-int arg-string)))
 
-(defun p4-print-with-rev-history-int (file-spec)
+(defalias 'p4-print-with-rev-history 'p4-blame)
+
+(defun p4-blame-int (file-spec)
   (get-buffer-create p4-output-buffer-name);; We do these two lines
   (kill-buffer p4-output-buffer-name)      ;; to ensure no duplicates
   (let ((file-name file-spec)
 	(buffer (get-buffer-create p4-output-buffer-name))
+	head-name  ;; file spec of the head revision for this blame assignment
+	branch-p   ;; have we tracked into a branch?
+	cur-file   ;; file name of the current branch during blame assignment
+	last-rev   ;; last revision we diff'd
 	author change ch-alist date fullname head-rev headseen)
+
+    ;; we asked for blame constrained by a change number
     (if (string-match "\\(.*\\)@\\([0-9]+\\)" file-spec)
 	(progn
 	  (setq file-name (match-string 1 file-spec))
 	  (setq change (string-to-int (match-string 2 file-spec)))))
+
+    ;; we asked for blame constrained by a revision
     (if (string-match "\\(.*\\)#\\([0-9]+\\)" file-spec)
 	(progn
 	  (setq file-name (match-string 1 file-spec))
 	  (setq head-rev (string-to-int (match-string 2 file-spec)))))
+
+    ;; make sure the filespec is unambiguous
     (p4-exec-p4 buffer (list "files" file-name) t)
     (save-excursion
       (set-buffer buffer)
       (if (> (count-lines (point-min) (point-max)) 1)
 	  (error "File pattern maps to more than one file.")))
-    (p4-exec-p4 buffer (list "filelog" file-name) t)
-    (setq fullname (p4-read-depot-output buffer))
+
+    ;; get the file change history:
+    (p4-exec-p4 buffer (list "filelog" "-i" file-name) t)
+    (setq fullname (p4-read-depot-output buffer)
+	  cur-file  fullname
+	  head-name fullname)
+
+    ;; parse the history:
     (save-excursion
       (set-buffer buffer)
       (goto-char (point-min))
       (while (< (point) (point-max))
-	(if (looking-at (concat "^\\.\\.\\. #\\([0-9]+\\) change \\([0-9]+\\)"
-				"\\s-+\\(\\w+\\) on \\([0-9]+/[0-9]+/[0-9]+\\) by \\(.*\\)@"))
+
+	;; record the current file name (and the head file name,
+	;; if we have not yet seen one):
+	(if (looking-at "^\\(//.*\\)$")
+	    (setq cur-file (match-string 1)))
+
+	;; a non-branch change:
+	(if (looking-at p4-blame-change-regex)
 	    (let ((rev (string-to-int (match-string 1)))
 		  (ch (string-to-int (match-string 2)))
 		  (op (match-string 3))
 		  (date (match-string 4))
 		  (author (match-string 5)))
-	      (cond ((and change (< change ch))
-		     nil)
-		    ((and head-rev (< head-rev rev))
-		     nil)
-		    ((string= op "delete")
-		     (goto-char (point-max)))
-		    (t
-		     (setq ch-alist (cons (cons rev (list ch date author)) ch-alist))
-		     (if (not head-rev)
-			 (setq head-rev rev))
-		     (setq headseen t))))
-	  (if headseen
-	      (if (looking-at "^\\.\\.\\. \\.\\.\\. branch from")
-		  (goto-char (point-max)))))
+	      (cond
+	       ;; after the change constraint, OR
+	       ;; after the revision constraint _for this file_
+	       ;;   [remember, branches complicate this]:
+	       ((or (and change   (< change ch))
+		    (and head-rev (< head-rev rev)
+			 (string= head-name cur-file))) nil)
+	       
+	       ;; file has been deleted, can't assign blame:
+	       ((string= op "delete") (goto-char (point-max)))
+
+	       ;; OK, we actually want to look at this one:
+	       (t
+		(setq ch-alist
+		      (cons
+		       (cons rev (list ch date author cur-file)) ch-alist))
+		(if (not head-rev) (setq head-rev rev))
+		(setq headseen t)) ))
+
+	  ;; not if we have entered a branch (this used to be used, isn't
+	  ;; right now - maybe again later:
+	  (if (and headseen (looking-at p4-blame-branch-regex))
+	      (setq branch-p t)) )
 	(forward-line)))
+    
     (if (< (length ch-alist) 1)
 	(error "Head revision not available"))
+  
     (let ((base-rev (int-to-string (caar ch-alist)))
 	  (ch-buffer (get-buffer-create "p4-ch-buf"))
 	  (tmp-alst (copy-alist ch-alist)))
-      (p4-exec-p4 ch-buffer (list "print" "-q"
-				  (concat fullname "#" base-rev))
-		  t)
+      (p4-exec-p4 ch-buffer
+		  (list "print" "-q" (concat fullname "#" base-rev)) t)
       (save-excursion
 	(set-buffer ch-buffer)
 	(goto-char (point-min))
 	(while (re-search-forward ".*\n" nil t)
 	  (replace-match (concat base-rev "\n"))))
       (while (> (length tmp-alst) 1)
-	(let ((rev-1 (caar tmp-alst))
+	(let ((rev-1 (car (car  tmp-alst)))
 	      (rev-2 (car (cadr tmp-alst)))
+	      (file1 (nth P4-FILE (cdr (car  tmp-alst))))
+	      (file2 (nth P4-FILE (cdr (cadr tmp-alst))))
 	      ins-string)
 	  (setq ins-string (concat (int-to-string rev-2) "\n"))
 	  (p4-exec-p4 buffer (list "diff2"
-				   (concat fullname "#"
-					   (int-to-string rev-1))
-				   (concat fullname "#"
-					   (int-to-string rev-2)))
-		      t)
+				   (format "%s#%d" file1 rev-1)
+				   (format "%s#%d" file2 rev-2)) t)
 	  (save-excursion
 	    (set-buffer buffer)
 	    (goto-char (point-max))
-	    (while (re-search-backward
-		    (concat "^\\([0-9]+\\),?\\([0-9]*\\)\\([acd]\\)"
-			    "\\([0-9]+\\),?\\([0-9]*\\)")
-		    nil t)
+	    (while (re-search-backward p4-blame-revision-regex nil t)
 	      (let ((la (string-to-int (match-string 1)))
 		    (lb (string-to-int (match-string 2)))
 		    (op (match-string 3))
@@ -1463,7 +1522,8 @@ type \\[p4-print-with-rev-history]"
 							    head-rev)))
 				t)
       (p4-font-lock-buffer p4-output-buffer-name)
-      (let (line rev ch (old-rev 0) cur-list)
+      (let (line rev (old-rev 0) change-data
+	    xth-cnum xth-date xth-auth xth-file)
 	(save-excursion
 	  (set-buffer buffer)
 	  (goto-line 2)
@@ -1473,28 +1533,35 @@ type \\[p4-print-with-rev-history]"
 	    (setq rev (string-to-int line))
 	    (if (= rev old-rev)
 		(p4-insert-no-properties (format "%29s : " ""))
-	      (setq cur-list (cdr (assq rev ch-alist)))
-	      (setq ch (car cur-list))
-	      (setq cur-list (cdr cur-list))
-	      (setq date (car cur-list))
-	      (setq author (car (cdr cur-list)))
-	      (p4-insert-no-properties (format "%6d %4d %10s %7s: " ch rev date author))
+
+	      ;; extract the change data from our alist: remember,
+	      ;; `eq' works for integers so we can use assq here:
+	      (setq change-data (cdr (assq rev ch-alist))
+		    xth-cnum    (nth P4-CNUM change-data)
+		    xth-date    (nth P4-DATE change-data)
+		    xth-auth    (nth P4-AUTH change-data)
+		    xth-file    (nth P4-FILE change-data))
+	      
+	      (p4-insert-no-properties
+	       (format "%6d %4d %10s %7s: " xth-cnum rev xth-date xth-auth))
 	      (move-to-column 0)
-	      (if (looking-at (concat " *\\([0-9]+\\) *\\([0-9]+\\) *\\([0-9]+/[0-9]+/[0-9]+\\)"
-				      "\\s-+\\([^:]*\\):"))
-		  (progn
+	      (if (looking-at p4-blame-index-regex)
+		  (let ((nth-cnum (match-string 1))
+			(nth-revn (match-string 2))
+			(nth-user (match-string 4)))
 		    (p4-create-active-link (match-beginning 1)
 					   (match-end 1)
-					   (list (cons 'change
-						       (match-string 1))))
+					   (list (cons 'change nth-cnum)))
+		    ;; revision needs to be linked to a file now that we
+		    ;; follow integrations (branches):
 		    (p4-create-active-link (match-beginning 2)
 					   (match-end 2)
-					   (list (cons 'rev
-						       (match-string 2))))
+					   (list (cons 'rev  nth-revn)
+						 (cons 'file xth-file)))
 		    (p4-create-active-link (match-beginning 4)
 					   (match-end 4)
-					   (list (cons 'user
-						       (match-string 4))))
+					   (list (cons 'user nth-user)))
+		    ;; truncate the user name:
 		    (let ((start (+ (match-beginning 4) 7))
 			  (end (match-end 4)))
 		      (if (> end start)
@@ -1838,7 +1905,8 @@ character events"
 	(client (get-char-property pnt 'client))
 	(label (get-char-property pnt 'label))
 	(branch (get-char-property pnt 'branch))
-	(filename (p4-buffer-file-name-2)))
+	(filename (or (get-char-property pnt 'file)
+		      (p4-buffer-file-name-2))))
     (cond ((and (not action) rev)
 	   (let ((fn1 (concat filename "#" rev)))
 	     (p4-noinput-buffer-action "print" nil t (list fn1))
@@ -2613,7 +2681,7 @@ the current value of P4PORT."
     (define-key map "u" 'p4-user)
     (define-key map "U" 'p4-users)
     (define-key map "v" 'p4-emacs-version)
-    (define-key map "V" 'p4-print-with-rev-history)
+    (define-key map "V" 'p4-blame)
     (define-key map "w" 'p4-where)
     (define-key map "x" 'p4-delete)
     (define-key map "X" 'p4-fix)
@@ -3568,245 +3636,26 @@ that."
     (kill-buffer buffer)
     empty-diff))
 
-(defcustom p4-blame-2ary-disp-method 'default
-  "Method to use when displaying p4-blame secondary buffers
-   (currently change and rev buffers)
+;; this next chunk is not currently used, but my plan is to
+;; reintroduce it as configurable bury-or-kill-on-q behaviour:
 
-   new-frame   --  pop a new frame for the buffer
-   new-window  --  create a new window for the buffer
-   default     --  just do what `display-buffer' would do
+;; (defcustom p4-blame-2ary-disp-method 'default
+;;   "Method to use when displaying p4-blame secondary buffers
+;;    (currently change and rev buffers)
 
-   Any other value is equivalent to default."
-  :type '(radio (const default) (const  new-frame) (const new-window))
-  :group 'p4)
+;;    new-frame   --  pop a new frame for the buffer
+;;    new-window  --  create a new window for the buffer
+;;    default     --  just do what `display-buffer' would do
 
-(defvar p4-blame-map
-  (let ((map (make-sparse-keymap)))
-    (cond (p4-running-xemacs (define-key map [button2] 'p4-blame-mouse-click))
-	  (p4-running-emacs  (define-key map [mouse-2] 'p4-blame-mouse-click)))
-
-    (define-key map "q"      'p4-blame-kill-blame )
-    (define-key map "n"      'p4-blame-next-linked)
-    (define-key map "p"      'p4-blame-prev-linked)
-    (define-key map [return] 'p4-blame-commands   )
-
-    (set-keymap-parent map p4-basic-map)
-
-    map)
-  "key map for the blame index buffer \[`p4-blame'\]")
-
-(defvar p4-blame-rev-map
-  (let ((map (make-sparse-keymap)))
-    (cond (p4-running-xemacs (define-key map [button2] 'p4-blame-mouse-click))
-	  (p4-running-emacs  (define-key map [mouse-2] 'p4-blame-mouse-click)))
-    (define-key map "n"	'p4-next-depot-file )
-    (define-key map "p"	'p4-prev-depot-file )
-    (define-key map "q" 'p4-blame-kill-blame)
-    (define-key map "N" (lookup-key map "p"))
-    (set-keymap-parent map p4-basic-map)
-    map)
-  "key map for p4-blame revision buffers")
-
-(defvar p4-blame-change-map
-  (let ((map (make-sparse-keymap)))
-    (cond (p4-running-xemacs (define-key map [button2] 'p4-blame-mouse-click))
-	  (p4-running-emacs  (define-key map [mouse-2] 'p4-blame-mouse-click)))
-    (define-key map "n"	'p4-goto-next-diff  )
-    (define-key map "p"	'p4-goto-prev-diff  )
-    (define-key map "d"	'p4-next-depot-diff )
-    (define-key map "u"	'p4-prev-depot-diff )
-    (define-key map "q" 'p4-blame-kill-blame)
-    (define-key map "N" (lookup-key map "p"))
-    (set-keymap-parent map p4-basic-map)
-    map)
-  "key map for p4-blame change buffers")
-
-(defvar p4-blame-scroll-func nil
-  "Association list:
-keys should be buffer objects,
-values should be the p4 blame scroll hook functions for said windows")
-
-(defvar p4-tied-buffer nil
-  "Buffer to which we have tied scrolling [used to implement `p4-blame']
-See also: `p4-blame-tied-scroll-fn'")
-
-(defvar p4-tmp-buffer "*p4-tmp*"
-  "temporary buffer for p4 commands to use - maybe a buffer, or
-the name of a buffer, which may or may not exist")
-
-(defun p4-blame-next-linked ()
-  "Next interesting line in the blame index"
-  (interactive)
-  (let ((ccol   (current-column))
-	(prev  (- (point-min) 1))
-	(this            (point))
-	(continue              t))
-    (save-excursion
-      (while (and (> this prev) continue)
-	(forward-line    1)
-	(setq prev    this)
-	(setq this (point))
-	(if (get-char-property this 'line) (setq continue nil))))
-    (goto-char        this)
-    (move-to-column   ccol)
-    (set-window-start (selected-window) this)))
-
-(defun p4-blame-prev-linked ()
-  "Last interesting line in the blame index"
-  (interactive)
-  (let ((ccol   (current-column))
-	(this        (point-min))
-	(continue             t))
-    (save-excursion
-      (while (and (not (bobp)) continue)
-	(forward-line   -1)
-	(setq this (point))
-	(if (get-char-property this 'line) (setq continue nil))))
-    (goto-char        this)
-    (move-to-column   ccol)
-    (set-window-start (selected-window) this)))
+;;    Any other value is equivalent to default."
+;;   :type '(radio (const default) (const  new-frame) (const new-window))
+;;   :group 'p4)
 
 (defun p4-blame-kill-blame ()
   "Don\'t ask any questions, just kill the current buffer"
   (interactive)
   (set-buffer-modified-p nil)
   (kill-buffer (current-buffer)))
-
-(defun p4-blame-mouse-click (event)
-  "Function to translate the mouse clicks in a P4 blame buffer to
-character events"
-  (interactive "e")
-  (cond
-   (p4-running-xemacs (select-window     (event-window event))
-		      (p4-blame-commands (event-point  event)))
-   (p4-running-emacs  (select-window     (posn-window (event-end   event)))
-		      (p4-blame-commands (posn-point  (event-start event))))))
-
-(defun p4-blame-commands (pt)
-  "Function to fetch properties from point pt in the blame index \(`p4-blame'\)
-and perform the appropriate action. cf `p4-buffer-commands'."
-  (interactive "d")
-  (let ((b-rev     (get-char-property pt 'rev   ))
-	(b-change  (get-char-property pt 'change))
-	(b-author  (get-char-property pt 'author))
-	(b-line    (get-char-property pt 'line  ))
-	(b-file    (get-char-property pt 'file  )))
-
-    (cond
-
-     (b-author (p4-blame-user   b-author    ))
-     (b-change (p4-blame-change b-change    ))
-     (b-rev    (p4-blame-rev    b-rev b-file))
-
-     ;; line link [jump to line # in p4-blame source buffer]
-     (b-line (let ((blame-line   (cdr (assq 'line   b-line)))
-		   (blame-buffer (cdr (assq 'buffer b-line)))
-		   (blame-point  nil))
-	       (save-excursion
-		 (set-buffer blame-buffer)
-		 (goto-line  blame-line)
-		 (setq blame-point (line-beginning-position)))
-	       (set-window-start (get-buffer-window blame-buffer)
-				 blame-point)))
-     (t (message "no link at point %S" pt)))))
-
-(defun p4-buffer-lines (buf)
-  "Split the buffer in, or named in, buf into a list of lines and return it"
-  (save-excursion (set-buffer buf)
-		  (split-string (buffer-string) "\r?\n")))
-
-(defmacro p4-splice-list (LIST OFFS LEN NEW)
-  "(p4-splice-list LIST OFFSET LENGTH REPLACEMENT) cf perl
-This macro should be called on 'real' lists - ie LIST should
-be a symbol whose variable cell contains a list, and not a function
-call that returns a list."
-  `(let ((offs ,OFFS)
-	 (len   ,LEN))
-     (if (/= offs 0)
-	 (setcdr (nthcdr (- offs 1) ,LIST)
-		 (nconc ,NEW (nthcdr (+ offs len) ,LIST)))
-       (setq ,LIST (nconc ,NEW (nthcdr (+ offs len) ,LIST))))))
-
-(defmacro p4-set-assoc (ASSOC KEY VALUE)
-  "Set the value associated with association list ASSOC to VALUE
-creating an entry if neccessary. ASSOC should be a 'real' association
-list, ie a symbol whose variable cell contains an assoc list, and not a
-function call returning an assoc list."
-  `(let* ((key   ,KEY)
-	  (val ,VALUE)
-	  (this-cons (assoc key ,ASSOC)))
-     (if this-cons (setcdr this-cons val)
-       (if ,ASSOC (nconc ,ASSOC (list (cons key val)))
-	 (setq ,ASSOC (list (cons key val)))))
-     val))
-
-(defun p4-command-to-list (cmd arg-string)
-  "Take a p4 command and an argument string and run it, returning the lines of
-output as a list, with \n characters stripped.
-
-See also: `p4-buffer-lines'
-	  `p4-noinput-buffer-action'
-	  `p4-make-basic-buffer'"
-  (let ((p4-cmd-buffer  (if p4-tmp-buffer p4-tmp-buffer "*p4-tmp*"))
-	(command-output nil))
-    (p4-noinput-buffer-action cmd nil nil
-			      (p4-make-list-from-string arg-string))
-    (p4-make-basic-buffer  p4-cmd-buffer)
-    (setq command-output  (p4-buffer-lines p4-cmd-buffer))
-    (kill-buffer           p4-cmd-buffer)
-    command-output))
-
-(defun p4-blame-user (user)
-  "Show a `message-box' [or message] with the p4 details of the named user"
-  (message-box "%s" (apply 'concat (p4-command-to-list "users" user))))
-
-(defun p4-blame-init-secondary-buffer (buffer-or-name)
-  "Prepare and return a buffer for display of secondary details while
-`p4-blame' is in effect, hopefully without trashing the p4 blame display"
-  (let ((prepared-buffer nil)
-	(prepared-window nil))
-    ;; If we wre passed a buffer, and not just a name:
-    (if (bufferp buffer-or-name)
-	;; select and clear it:
-	(progn (set-buffer                buffer-or-name)
-	       (delete-region    (point-min) (point-max))
-	       (setq prepared-buffer      buffer-or-name))
-      ;; passed a name only. create or fetch the buffer with said name
-      ;; and make sure it has a visible window:
-      (setq prepared-buffer (get-buffer-create buffer-or-name))
-      (setq prepared-window (get-buffer-window prepared-buffer 'visible))
-
-      (if (not prepared-window)
-	  (cond
-
-	   ;; make a new frame to display the buffer in:
-	   ((and (eq p4-blame-2ary-disp-method 'new-frame) window-system)
-	    (progn (set-buffer prepared-buffer) (new-frame)))
-
-	   ;; make a new window to diplay the buffer in:
-	   ((eq p4-blame-2ary-disp-method 'new-window)
-	    (let ((target-window (get-buffer-window p4-tied-buffer 'visible))
-		  (origin-window (selected-window)))
-	      (if target-window
-		  (progn
-		    (select-window target-window)
-		    (set-window-buffer (split-window-vertically)
-				       prepared-buffer))
-		;; Waah... can't find a visible copy of the source buffer:
-		(display-buffer prepared-buffer t))
-	      (select-window origin-window)))
-
-	   ;; make a buffer the normal way. Follow the user's hints.
-	   (t (display-buffer prepared-buffer nil 'visible)))))
-
-    ;; set the buffer cleanup on death thingy:
-    (save-excursion (set-buffer       prepared-buffer)
-		    (make-local-hook 'kill-buffer-hook)
-		    (add-hook        'kill-buffer-hook
-				     'p4-blame-secondary-buffer-cleanup
-				     'append
-				     'local))
-    prepared-buffer))
 
 (defun p4-blame-secondary-buffer-cleanup ()
   "Attempt to clean up a` p4-blame' secondary buffer neatly, deleting
@@ -3827,388 +3676,6 @@ windows or frames when we think that\'s necessary"
      ;; any other mode, nothing special need be done
      (t
       t))))
-
-(defun p4-blame-change (change)
-  "Display the details of change number change [actually a string] while
-`p4-blame' is in effect."
-  (let* ((p4-s-buffer (concat (buffer-name p4-tied-buffer) ":change#" change))
-	 (p4-output-buffer-name  (p4-blame-init-secondary-buffer p4-s-buffer))
-	 (arg-string (concat p4-default-diff-options " " change))
-	 (arg-list   (p4-make-list-from-string arg-string))
-	 (new-buffer (concat "*P4 describe: " arg-string "*"))
-	 )
-    (save-excursion
-      (p4-noinput-buffer-action "describe" nil nil arg-list)
-      (p4-activate-diff-buffer    new-buffer)
-      (set-buffer                 new-buffer)
-      (use-local-map     p4-blame-change-map))))
-
-(defun p4-blame-rev (revision file)
-  "Display a particular revision of the file being examined by `p4-blame'"
-  (let* ((cmd-arg     (concat file "#" revision))
-	 (p4-s-buffer (concat (buffer-name p4-tied-buffer) "#" revision))
-	 (p4-output-buffer-name  (p4-blame-init-secondary-buffer p4-s-buffer))
-	 (new-buffer  (concat "*P4 print: " cmd-arg "*")))
-
-    (save-excursion
-      (p4-noinput-buffer-action "print" nil nil (list cmd-arg))
-      (p4-activate-print-buffer  new-buffer t)
-      (set-buffer                new-buffer)
-      (use-local-map       p4-blame-rev-map))))
-
-(defun p4-blame ()
-  "p4-blame: Who is responsible for this mess?
-
-Shows the p4 line/author/branch/revision breakdown of the current buffer,
-assuming, of course, that it is p4 controlled.
-
-The left hand buffer will contain a line number, author [or branch label]
-change number and revision number for/in which the corresponding line first
-appeared.
-
-   p4-blame index buffer        p4-blame src buffer\n
-  +-------------------------+------------------------------------
-  | line author change# rev |                                   |
-  | |    |      |       |   |                                   |
-    |    |      |       +- shows the listed revision number (`p4-blame-rev')
-    |    |      +--------- shows the listed change spec     (`p4-blame-change')
-    |    +---------------- shows p4 user info for said user (`p4-blame-user')
-    +--------------------- \(unused - functionality to follow\)
-
-The index buffer is scroll-linked to the src buffer - scrolling it will
-cause the src buffer to scroll to the same line. note that this does not
-interact well with the mouse, but kbd/elisp scrolling works fine. p4-blame
-does not deal with branches, it just notes that a given line originated in a
-branch. These will be hyperlinked later, when I decide how I can/should deal
-with them.
-
-By default, p4-blame examines the head revision, but if you use
-`universal-argument' (usually bound to C-u) first, you may specify
-a change or revision number with the usual file@XX or file#XX syntax
-
-In the interests of speed, only those lines where there is an author/change/rev
-transition get hyperlinked, the rest are just labeled. A way may have occurred
-to me to get around this, watch this space..."
-
-  (interactive)
-  (let ((p4-blame-file   (p4-buffer-file-name-2))
-	(tmpbuf                              nil)
-	(fullname                            nil)
-	(history                             nil)
-	(p4-tmp-buffer              "*p4-blame*")
-	(p4-blame-change                     nil)
-	(p4-blame-date                       nil)
-	(p4-blame-author                     nil)
-	(p4-blame-base                       nil)
-	(p4-blame-revs                       nil)
-	(p4-blame-text                       nil)
-	(p4-blame-head                       nil)
-	(p4-blame-cnum                       nil)
-	(p4-blame-lines                      nil)
-	(p4-blame-munge-history              nil)
-	(p4-blame-munge-revs                 nil)
-	(p4-blame-thisrev                    nil)
-	(p4-blame-headseen                   nil)
-	(p4-src-buffer          (current-buffer))
-	(lt (lambda (x y) (< (if (stringp x) (string-to-int x) x)
-			     (if (stringp y) (string-to-int y) y)))))
-
-    (setq p4-blame-munge-history
-	  (lambda (line)
-	    (catch 'P4-BLAME-HISTORY-NEXT:
-	      (if (string-match (concat "^\\.\\.\\. #\\([0-9]+\\) "
-					"change \\([0-9]+\\) "
-					"on \\([0-9]+/[0-9]+/[0-9]+\\) by \\([^@]*\\)@") line)
-		  (let ((m1 (match-string 1 line))
-			(m2 (match-string 2 line))
-			(m3 (match-string 3 line))
-			(m4 (match-string 4 line)))
-
-		    (if (and (stringp p4-blame-cnum)
-			     (< (string-to-int p4-blame-cnum)
-				(string-to-int m2)))
-			(throw 'P4-BLAME-HISTORY-NEXT: nil))
-
-		    (if (and (stringp p4-blame-head)
-			     (< (string-to-int p4-blame-head)
-				(string-to-int m1)))
-			(throw 'P4-BLAME-HISTORY-NEXT: nil))
-
-		    (p4-set-assoc p4-blame-change m1 m2)
-		    (p4-set-assoc p4-blame-date m1 m3)
-		    (p4-set-assoc p4-blame-author m1 m4)
-		    (if (not p4-blame-head) (setq p4-blame-head m1))
-		    (setq p4-blame-headseen  t)
-		    (setq p4-blame-thisrev  m1))
-
-		(if (and p4-blame-headseen
-			 (string-match (concat "^\\.\\.\\. \\.\\.\\. "
-					       "\\(copy\\|branch\\|merge\\) "
-					       "from \\(//.*\\)#") line))
-		    (let* ((m1   (match-string 1 line))
-			   (m2   (match-string 2 line))
-			   (from (split-string m2 "/"))
-			   (type                    m1)
-			   (i                        0)
-			   (I            (length from)))
-		      (while (< i I)
-			(if (not (equal (nth i from) (nth i fullname)))
-			    (if (> (length (nth i from)) 0)
-				(progn
-				  (p4-set-assoc p4-blame-author
-						p4-blame-thisrev
-						(concat "[branch]"))
-				  (throw 'P4-BLAME-HISTORY: nil))))
-			(setq i (+ 1 i)))
-		      (if (equal "branch" type)
-			  (throw 'P4-BLAME-HISTORY: nil))))))))
-
-    (setq p4-blame-munge-revs
-	  (lambda (rev)
-	    (let ((r1 (format "%d" (- (string-to-int rev) 1)))
-		  (re (concat "^\\([0-9]+\\),?"
-			      "\\([0-9]*\\)"
-			      "\\([acd]\\)"
-			      "\\([0-9]+\\),?"
-			      "\\([0-9]*\\)")))
-	      (mapcar
-	       (lambda (line)
-		 (if (string-match re line)
-		     (let ((la (string-to-int (match-string 1 line)))
-			   (lb (string-to-int (match-string 2 line)))
-			   (op                (match-string 3 line ))
-			   (ra (string-to-int (match-string 4 line)))
-			   (rb (string-to-int (match-string 5 line))))
-
-		       (if (=     lb   0) (setq lb      la ) )
-		       (if (equal op "a") (setq la (+ 1 la)) )
-		       (if (=     rb   0) (setq rb      ra ) )
-		       (if (equal op "d") (setq ra (+ 1 ra)) )
-
-		       (let ((offset (- la 1))
-			     (size   (+ (- lb la) 1))
-			     (subst  (make-list (+ (- rb ra) 1) rev)))
-			 (p4-splice-list p4-blame-lines offset size subst)))))
-	       (reverse
-		(p4-command-to-list "diff2" (concat
-					     p4-blame-file "#" r1
-					     " "
-					     p4-blame-file "#" rev)))))))
-
-    (if (or current-prefix-arg (not p4-blame-file))
-	  (setq p4-blame-file (p4-read-arg-string "p4 blame: " p4-blame-file)))
-
-    (setq tmpbuf       (p4-command-to-list "filelog" p4-blame-file))
-    (setq fullname     (car tmpbuf))
-    (setq history      (cdr tmpbuf))
-
-    (let ((file-ident nil))
-      (cond  ((string-match "#" p4-blame-file)
-	      (setq file-ident    (split-string p4-blame-file "#"))
-	      (setq fullname      (car  file-ident))
-	      (setq p4-blame-file (car  file-ident))
-	      (setq p4-blame-head (cadr file-ident))
-	      (message "file-ident: %S" file-ident))
-
-	     ((string-match "@" p4-blame-file)
-	      (setq file-ident (split-string p4-blame-file "@"))
-	      (setq fullname      (car  file-ident))
-	      (setq p4-blame-file (car  file-ident))
-	      (setq p4-blame-cnum (cadr file-ident))
-	      (message "file-ident: %S" file-ident))
-	     ))
-
-    (setq fullname (split-string fullname "/"))
-
-    (catch 'P4-BLAME-HISTORY:
-      (mapcar p4-blame-munge-history history))
-
-    (setq tmpbuf (sort (mapcar (lambda (x) (car x)) p4-blame-change) lt))
-    (setq p4-blame-base (car tmpbuf))
-    (setq p4-blame-revs (cdr tmpbuf))
-
-    (setq p4-blame-text
-	  (p4-command-to-list "print"
-			      (concat "-q"
-				      " " p4-blame-file
-				      "#" p4-blame-base)))
-
-    (setq p4-blame-lines (make-list (length p4-blame-text) p4-blame-base))
-
-    (mapcar p4-blame-munge-revs p4-blame-revs)
-
-    (setq tmpbuf (p4-command-to-list "print"
-				     (concat p4-blame-file "#" p4-blame-head)))
-
-    (let* ((header (car tmpbuf))
-	   (text   (cdr tmpbuf))
-	   (p4-blame-src    nil)
-	   (oformat "%5s%8s %5s%4s\n"))
-
-      (if (/= (length text) (length p4-blame-lines))
-	  (error "P4 blame: text size [%d] != diff size [%d] : bork bork bork"
-		 (length text)
-		 (length p4-blame-lines))
-
-	(get-buffer-create p4-output-buffer-name)
-	(set-buffer        p4-output-buffer-name)
-	(delete-region (point-min) (point-max))
-
-	;; can't recurse this deeply. Bah.
-	(let ((idx                 0)
-	      (len     (length text))
-	      (lastrev           nil)
-	      (last-line           0))
-	  ;; create the buffer+window for the blame source
-	  (save-excursion
-	    (setq p4-blame-src (get-buffer-create
-				(concat "*P4 source: " p4-blame-file "*")))
-	    (set-buffer p4-blame-src)
-	    (delete-region (point-min) (point-max))
-	    (while (< idx len)
-	      (let ((line (nth idx text))) (insert (format "%s\n" line)))
-	      (setq idx (+ idx 1))))
-
-	  (setq idx 0)
-	  (while (< idx len)
-	    (let* ((rev             (nth idx p4-blame-lines))
-		   (author          (cdr (assoc rev p4-blame-author)))
-		   (change          (cdr (assoc rev p4-blame-change)))
-		   (date            (cdr (assoc rev p4-blame-date)))
-		   (pos             (point))
-		   (p4-src-file     (buffer-file-name  p4-src-buffer))
-		   (line-link-props (list (cons 'line             idx)
-					  (cons 'buffer p4-src-buffer))))
-
-	      (insert (format oformat  idx author change rev)) ;; line
-	      (if (not (string-equal rev lastrev))
-		  (progn
-		    (p4-create-active-link (+ pos 24) (+ pos 34)
-					   (list (cons 'date  date)
-						 (cons 'file p4-src-file)))
-		    (p4-create-active-link (+ pos 19) (+ pos 23)
-					   (list (cons 'rev  rev)
-						 (cons 'file p4-src-file)))
-		    (p4-create-active-link (+ pos 14) (+ pos 19)
-					   (list (cons 'change change)))
-		    (if (not (equal "[branch]" author))
-			(p4-create-active-link (+ pos  5) (+ pos 13)
-					       (list (cons 'author author))))
-		    (p4-create-active-link pos (+ pos 5)
-					   (list (cons 'line line-link-props))))
-		(setq lastrev   rev)
-		(setq idx (+ 1 idx))))))
-
-	;;(display-buffer p4-output-buffer-name t t)
-	(delete-other-windows)
-
-	(let ((p4-blame-buffer (current-buffer)))
-
-	  ;; create the buffer+window for the blame index
-	  ;; and bring the blame-src buffer foreard into the other window:
-	  (set-window-buffer (split-window-horizontally 26) p4-blame-src)
-	  (set-window-buffer (selected-window) p4-blame-buffer)
-	  (hscroll-mode 1)
-	  (p4-make-basic-buffer (concat "*P4 blame: " p4-blame-file "*")
-				p4-blame-map)
-
-	  ;; prepare to set up the tied scrolling hooks:         ;;
-	  ;; window-scroll-functions is an abormal hook, and cannot be
-	  ;; subject to make-local-hook
-	  ;;(make-variable-buffer-local 'window-scroll-functions)
-	  ;;(make-variable-buffer-local 'p4-tied-buffer)
-
-	  ;; set up the tied-scrolling hooks for blame buffer:
-	  (save-excursion
-	    (set-buffer p4-blame-buffer)
-	    (make-local-variable          'window-scroll-functions)
-	    (setq window-scroll-functions 'p4-blame-tied-scroll-fn)
-
-	    (make-local-variable 'p4-tied-buffer)
-	    (setq p4-tied-buffer  p4-blame-src)
-	    (make-local-hook     'kill-buffer-hook)
-	    (add-hook 'kill-buffer-hook
-		      (lambda ()
-			(if p4-tied-buffer
-			    (progn (save-excursion
-				     (set-buffer p4-tied-buffer)
-				     (setq  p4-tied-buffer  nil))
-				   (kill-buffer p4-tied-buffer)))
-			(if (not (one-window-p 'ignore-mini 'this-frame))
-			    (delete-window)))
-		      'append
-		      'local))
-	  ;; set up the tied-scrolling hooks for the src buffer:
-	  (save-excursion
-	    (set-buffer p4-blame-src)
-	    ;; set the major mode for the source buffer display:
-	    (save-excursion
-	      (let ((default-major-mode nil))
-		(set-buffer p4-src-buffer)
-		(set-buffer-major-mode p4-blame-src)))
-
-	    (make-local-variable          'window-scroll-functions)
-	    (setq window-scroll-functions 'p4-blame-tied-scroll-fn)
-	    (make-local-variable 'p4-tied-buffer)
-	    (setq p4-tied-buffer  p4-blame-buffer)
-
-	    (make-local-hook     'kill-buffer-hook)
-	    (setq buffer-read-only    t)
-	    (use-local-map p4-blame-map)
-
-	    (add-hook 'kill-buffer-hook
-		      (lambda ()
-			(if p4-tied-buffer
-			    (progn (save-excursion
-				     (set-buffer p4-tied-buffer)
-				     (setq  p4-tied-buffer  nil))
-			      (kill-buffer p4-tied-buffer))))
-		      'append
-		      'local))
-	  ;; woohoo - all done. Put the focus into the blame buffer:
-	  (set-buffer p4-blame-buffer))))))
-
-(defun p4-blame-tied-scroll-fn (wdw dsp)
-  "Function to store in `window-scroll-functions'. Ties the scrolling
-of any buffer in which it is active to the value of `p4-tied-buffer'
-\(which should probably be a buffer local variable\)
-
-Since this function masks the value of `window-scroll-functions'
-in both the calling and called-upon buffers while it is in effect
-\(to avoid infinite recursion\) you cannot usefully tie an arbitrary
-number of buffers together."
-  (let ((control-buffer (window-buffer wdw)))
-    ;; stash the tied scroll function and mask it:
-    (p4-set-assoc p4-blame-scroll-func control-buffer window-scroll-functions)
-    (setq window-scroll-functions nil)
-    ;; what line are we on?
-    (save-excursion
-      (let ((target-line   (+ 1 (count-lines (point-min) dsp)))
-	    (target-buffer  p4-tied-buffer)
-	    (target-window  nil))
-	;; is the tied buffer both alive and visible?
-	(if (and
-	     (get-buffer target-buffer)
-	     (setq target-window (get-buffer-window target-buffer 'visible)))
-	    (progn
-	      (set-buffer target-buffer)
-	      ;; stash the tied scroll function and mask it:
-	      (p4-set-assoc p4-blame-scroll-func
-			    target-buffer
-			    window-scroll-functions)
-	      (setq window-scroll-functions nil)
-	      ;; jump to the right buffer line, manipulate the window as well:
-	      (goto-line  target-line)
-	      (goto-char (line-beginning-position))
-	      (set-window-start  target-window (line-beginning-position) nil)
-	      ;; make 2 attempts to refresh the display, then give up:
-	      ;; Ther must be a better way - any help?
-	      (or (sit-for 0) (sit-for 0))
-	      ;; restore the scroll function
-	      (setq window-scroll-functions
-		    (cdr (assq target-buffer p4-blame-scroll-func)))))))
-    (setq window-scroll-functions
-	  (cdr (assq control-buffer p4-blame-scroll-func)))))
 
 (provide 'p4)
 
