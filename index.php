@@ -38,88 +38,8 @@ We would like to <a href="thanks.html">thank</a> the many people who have
 been involved in creating and improving <b>p4.el</b>. Without their help,
 this package would not be what it is today.
 <p>
-<center>
-<table width=50%>
-<th width=50%><img src="released.gif" alt="Released Versions"></th>
-<th width=50%><img src="beta.gif" alt="Beta Versions"></th>
-<tr>
-<td>
-<?php
-    $released = file("RELEASED");
-    $released[0] = chop($released[0]);
-    $released[1] = chop($released[1]);
-    $beta = file("BETA");
-    $beta[0] = chop($beta[0]);
-    $beta[1] = chop($beta[1]);
-?>
-
-<!-- Release Versions Table -->
-<table border=1 align=center>
-<th width=50% align=center><font size=-1>Status</font></th>
-<th width=50% align=center><font size=-1>Version</font></th>
-
-<tr align=center>
-<?php
-$released_chlog_0 = "ChangeLog-$released[0]";
-fstats($released_chlog_0, $released_chlog_0_size);
-$released_chlog_1 = "ChangeLog-$released[1]";
-fstats($released_chlog_1, $released_chlog_1_size);
-
-$released_p4el_0 = "p4.el-$released[0]";
-fstats($released_p4el_0, $released_p4el_0_size);
-$released_p4el_1 = "p4.el-$released[1]";
-fstats($released_p4el_1, $released_p4el_1_size);
-?>
-
-<td><a href="<?php echo $released_chlog_0; ?>">Current (<?php echo $released_chlog_0_size; ?>KB)</a></td>
-<td><a href="<?php echo $released_p4el_0; ?>"><?php echo $released[0]; ?>(<?php echo $released_p4el_0_size; ?>KB)</a><td>
-</tr>
-<tr align=center>
-<td><a href="<?php echo $released_chlog_1; ?>">Previous (<?php echo $released_chlog_1_size; ?>KB)</a></td>
-<td><a href="<?php echo $released_p4el_1; ?>"><?php echo $released[1]; ?>(<?php echo $released_p4el_1_size; ?>KB)</a><td>
-</tr>
-</table>
-</td>
-
-<td>
-<!-- Beta Versions Table -->
-<table border=1 align=center>
-<th width=50% align=center><font size=-1>Status</font></th>
-<th width=50% align=center><font size=-1>Version</font></th>
-
-<?php
-$beta_chlog_0 = "ChangeLog-$beta[0]";
-fstats($beta_chlog_0, $beta_chlog_0_size);
-$beta_chlog_1 = "ChangeLog-$beta[1]";
-fstats($beta_chlog_1, $beta_chlog_1_size);
-
-$beta_p4el_0 = "p4.el-$beta[0]";
-fstats($beta_p4el_0, $beta_p4el_0_size);
-$beta_p4el_1 = "p4.el-$beta[1]";
-fstats($beta_p4el_1, $beta_p4el_1_size);
-?>
-
-<tr align=center>
-<td><a href="<?php echo $beta_chlog_0; ?>">Current (<?php echo $beta_chlog_0_size; ?>KB)</a></td>
-<td><a href="<?php echo $beta_p4el_0; ?>"><?php echo $beta[0]; ?>(<?php echo $beta_p4el_0_size; ?>KB)</a><td>
-</tr>
-<tr align=center>
-<td><a href="<?php echo $beta_chlog_1; ?>">Previous (<?php echo $beta_chlog_1_size; ?>KB)</a></td>
-<td><a href="<?php echo $beta_p4el_1; ?>"><?php echo $beta[1]; ?>(<?php echo $beta_p4el_1_size; ?>KB)</a><td>
-</tr>
-</table>
-</td>
-
-</tr>
-</table>
-</center>
+<B>The files are now released under the <a href="http://sourceforge.net/project/showfiles.php?group_id=58201">Sourceforge Release System</a></B>
 <p>
-<!--
-<i>Please Note that 7.0 and 7.1 <b>will not</b> work with <b>GNU Emacs
-19.34</b> since a lot of `customize' related changes have been done to be
-compliant with 20.x and above. If you are using GNU Emacs 19.34, then your
-release is <i>7.2 or above</i></a></i>
--->
 <p>
 <b>Other Interesting Links</b>
 <ul>
@@ -148,5 +68,7 @@ Explorer Screen shots (<?php echo $p4explorer_ss_size; ?>KB)</a>
 <hr><i>Maintainer: <a href="mailto:rv@dsmit.com">Rajesh Vaidheeswarran</a></i>
 <p>
 <i><a href="http://sourceforge.net/projects/p4el/">P4.el project page Sourceforge.net</a></i>
+<p>
+<A href="http://sourceforge.net"> <IMG src="http://sourceforge.net/sflogo.php?group_id=58201&amp;type=5" width="210" height="62" border="0" alt="SourceForge Logo"></A> 
 </body>
 </html>
