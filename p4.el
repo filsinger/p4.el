@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.25 2002/07/26 01:26:32 petero2 Exp $
+;; $Id: p4.el,v 1.26 2002/07/26 02:49:31 rvgnu Exp $
 
 ;;; Commentary:
 ;;
@@ -25,12 +25,12 @@
 ;;    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 ;;
 ;;    If you have any problems to report, or suggestions, please send them
-;;    to rv@dsmit.com
+;;    to p4el-bugs@lists.sourceforge.net
 
 ;; LCD Archive Entry:
 ;; p4|Rajesh Vaidheeswarran|rv@dsmit.com|
 ;; P4 SCM Integration into Emacs/XEmacs|
-;; 2001/07/07|9.1|not_assigned_yet|
+;; 2002/07/26|10.0|not_assigned_yet|
 
 ;; WARNING:
 ;; --------
@@ -69,7 +69,7 @@
 ;; to vc-toggle-read-only.
 (require 'vc)
 
-(defvar p4-emacs-version "9.1" "The Current P4-Emacs Integration Revision.")
+(defvar p4-emacs-version "10.0" "The Current P4-Emacs Integration Revision.")
 
 ;; Find out what type of emacs we are running in. We will be using this
 ;; quite a few times in this program.
@@ -82,10 +82,10 @@
       (setq p4-running-xemacs t)
     (setq p4-running-emacs t)))
 
-(defvar p4-emacs-maintainer "Rajesh Vaidheeswarran <rv@dsmit.com>"
-  "The maintainer of the emacs-p4 integration. Used for bug reports.")
+(defvar p4-emacs-maintainer "p4.el maintainers <p4el-bugs@lists.sourceforge.net"
+  "The maintainer(s) of the emacs-p4 integration. Used for bug reports.")
 
-(defvar p4-web-page "http://www.dsmit.com/p4/" "The home of p4.el.")
+(defvar p4-web-page "http://p4el.sourceforge.net/" "The home of p4.el.")
 
 ;; For flavors of Emacs which don't define `defgroup' and `defcustom'.
 (eval-when-compile
