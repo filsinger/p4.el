@@ -1,3 +1,13 @@
+2002-07-26  Peter Osterlund  <petero2@telia.com>
+
+	* (p4-current-client): If the p4-current-client function can't get
+	  the current client name from the environment or the $P4CONFIG
+	  file, use "p4 info" to retrieve the information. This is slower
+	  but more robust, because p4 makes up a default client name from
+	  the host name if not defined in the environment. Previously,
+	  p4.el couldn't figure out what the default client name was,
+	  which made it fail in subtle ways.
+
 2002-07-25  Peter Osterlund  <petero2@telia.com>
 
 	* (p4-menu-def): Reordered code blocks to make xemacs work

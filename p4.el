@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.18 2002/07/25 21:05:53 petero2 Exp $
+;; $Id: p4.el,v 1.19 2002/07/26 00:20:58 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -3341,10 +3341,25 @@ Emacs P4."
 
 (defun p4-current-client ()
   "Get the current local client, or the global client, if that."
-  (let ((p4-config-file (p4-find-p4-config-file)))
+  (let ((p4-config-file (p4-find-p4-config-file))
+	cur-client pmin)
     (if (not p4-config-file)
-	(getenv "P4CLIENT")
-      (p4-get-config-info p4-config-file "P4CLIENT"))))
+	(setq cur-client (getenv "P4CLIENT"))
+      (setq cur-client (p4-get-config-info p4-config-file "P4CLIENT")))
+    (if (not cur-client)
+	(save-excursion
+	  (get-buffer-create p4-output-buffer-name)
+	  (set-buffer p4-output-buffer-name)
+	  (goto-char (point-max))
+	  (setq pmin (point))
+	  (if (zerop (call-process
+		      (p4-check-p4-executable) nil t nil "info"))
+	      (progn
+		(goto-char pmin)
+		(if (re-search-forward "^Client name:[ \t]+\\(.*\\)$" nil t)
+		    (setq cur-client (match-string 1)))
+		(delete-region pmin (point-max))))))
+    cur-client))
 
 (defun p4-current-server-port ()
   "Get the current local server:port address, or the global server:port, if
