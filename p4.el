@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.23 2002/07/26 01:07:58 petero2 Exp $
+;; $Id: p4.el,v 1.24 2002/07/26 01:16:23 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -3374,10 +3374,12 @@ that."
   (get-buffer-create p4-output-buffer-name);; We do these two lines
   (kill-buffer p4-output-buffer-name)      ;; to ensure no duplicates
   (let ((output-buffer (p4-depot-output "opened"))
-	line opened)
-    (while (setq line (p4-read-depot-output output-buffer))
-      (if (string-match "\\(.*\\)#[0-9]+ - " line)
-	  (setq opened (cons (match-string 1 line) opened))))
+	opened)
+    (save-excursion
+      (set-buffer output-buffer)
+      (goto-char (point-min))
+      (while (re-search-forward "^\\(.*\\)#[0-9]+ - " nil t)
+	(setq opened (cons (match-string 1) opened))))
     (kill-buffer output-buffer)
     (setq opened (mapcar 'cdr (p4-map-depot-files opened)))
     (save-window-excursion
