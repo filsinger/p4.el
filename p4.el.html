@@ -975,6 +975,197 @@ by examination of the file's contents and execution permission bits.
 		  </td>
 		</tr>
 	    </table>
+
+	    <p>
+	      Most p4.el commands display information in a specialized
+	      buffer.  These buffers have special key mappings
+	      designed to help browsing the information and to run
+	      related p4.el commands.  The keys defined by the "basic"
+	      key map are active in all p4.el buffers unless
+	      overridden by more specialized key maps. Many of the
+	      navigation key bindings are inspired by vi and less.
+	    </p>
+
+	    <table BORDER="2">
+	      <caption align="top"><em>p4.el Basic Key Map</em></caption>
+	      <tr>
+		<th>Key</th><th>Mapping</th>
+	      </tr>
+	      <tr>
+	        <td>q</td><td>Quit current buffer.</td>
+	      </tr>
+	      <tr>
+	        <td>k</td><td>Scroll down one line.</td>
+	      </tr>
+	      <tr>
+	        <td>j</td><td>Scroll up one line.</td>
+	      </tr>
+	      <tr>
+	        <td>b<br>[backspace]</td><td>Scroll down one window.</td>
+	      </tr>
+	      <tr>
+	        <td>space</td><td>Scroll up one window.</td>
+	      </tr>
+	      <tr>
+	        <td>&lt</td><td>Move to the beginning of the buffer.</td>
+	      </tr>
+	      <tr>
+	        <td>&gt</td><td>Move to the end of the buffer.</td>
+	      </tr>
+	      <tr>
+	        <td>=</td><td>Delete other windows, making the current
+		buffer as large as possible.</td>
+	      </tr>
+	      <tr>
+	        <td>[button2]<br>[return]</td>
+		<td>
+		  Activate the item at the cursor location.  Different
+	          things happen depending on what is under the
+	          cursor.  Clicking on a change number invokes
+	          p4-describe.  Clicking on a file revision number
+	          invokes p4-print for that file revision.  Clicking
+	          somewhere in a unified diff jumps to the
+	          corresponding file and location.
+		</td>
+	      </tr>
+	      <tr>
+	        <td>[button3]</td>
+		<td>
+		  Invoke p4-<a href=#diff>diff</a> or p4-<a
+	          href=#diff2>diff2</a> on the item under the
+	          cursor.  Clicking on a depot file name invokes
+	          p4-diff on the corresponding file.  Clicking on a
+	          file revision number in a filelog listing diffs that
+	          file revision against the head revision of the same
+	          file.
+		</td>
+	      </tr>
+	    </table>
+
+	    <p>
+	      The "filelog" key map is used for 
+	      p4-<a href=#filelog>filelog</a> and
+	      p4-<a href=#changes>changes</a> buffers.  This key map
+	      overrides many of the keys defined in the basic key
+	      map.  The intent is to make it easy to browse a set of
+	      change descriptions related to a filelog or a changes
+	      buffer.
+	    </p>
+
+	    <table BORDER="2">
+	      <caption align="top"><em>p4.el Filelog Key Map</em></caption>
+	      <tr>
+		<th>Key</th><th>Mapping</th>
+	      </tr>
+	      <tr>
+	        <td>d</td><td>Invoke p4-<a href=#diff2>diff2</a>.</td>
+	      </tr>
+	      <tr>
+	        <td>f</td><td>Open the corresponding file in another
+	        window.  This key has no effect in p4-<a
+	        href=#changes>changes</a> buffers.</td>
+	      </tr>
+	      <tr>
+	        <td>s</td><td>Switch to short format, ie hide the
+	        change description texts.</td>
+	      </tr>
+	      <tr>
+	        <td>l</td><td>Switch to long format, ie show the
+	        change description texts.</td>
+	      </tr>
+	      <tr>
+	        <td>k</td><td>Scroll other window down one line.</td>
+	      </tr>
+	      <tr>
+	        <td>j</td><td>Scroll other window up one line.</td>
+	      </tr>
+	      <tr>
+	        <td>b<br>[backspace]</td><td>Scroll other window down
+	        one window.</td>
+	      </tr>
+	      <tr>
+	        <td>[space]</td><td>Scroll other window up one
+	        window.</td>
+	      </tr>
+	      <tr>
+	        <td>&lt</td><td>Move to the beginning of the buffer in
+	        the other window.</td>
+	      </tr>
+	      <tr>
+	        <td>&gt</td><td>Move to the end of the buffer in the
+	        other window.</td>
+	      </tr>
+	      <tr>
+	        <td>n</td><td>Move cursor to next change.</td>
+	      </tr>
+	      <tr>
+	        <td>p<br>N</td><td>Move cursor to previous change.</td>
+	      </tr>
+	    </table>
+
+	    <p>
+	      The "opened" key map is used for buffers displaying a
+	      list of depot file names, such as 
+	      p4-<a href=#opened>opened</a> and
+	      p4-<a href=#files>files</a>.
+	    </p>
+	    <table BORDER="2">
+	      <caption align="top"><em>p4.el Opened Key Map</em></caption>
+	      <tr>
+		<th>Key</th><th>Mapping</th>
+	      </tr>
+	      <tr>
+	        <td>n</td><td>Move to the next file name.</td>
+	      </tr>
+	      <tr>
+	        <td>p<br>N</td><td>Move to the previous file name.</td>
+	      </tr>
+	    </table>
+
+	    <p>
+	      The "diff" key map is used for buffers that display diff
+	      output, such as p4-<a href=#diff>diff</a> and
+	      p4-<a href=#describe>describe</a>.
+	    </p>
+	    <table BORDER="2">
+	      <caption align="top"><em>p4.el Diff Key Map</em></caption>
+	      <tr>
+		<th>Key</th><th>Mapping</th>
+	      </tr>
+	      <tr>
+	        <td>n</td><td>Move to next file diff.</td>
+	      </tr>
+	      <tr>
+	        <td>p<br>N</td><td>Move to previous file diff.</td>
+	      </tr>
+	      <tr>
+	        <td>d</td><td>Move to next diff hunk.</td>
+	      </tr>
+	      <tr>
+	        <td>u</td><td>Move to previous diff hunk.</td>
+	      </tr>
+	    </table>
+
+	    <p>
+	      The "blame" key map is used for the
+	      p4-print-with-rev-history buffer.
+	    </p>
+	    <table BORDER="2">
+	      <caption align="top"><em>p4.el Blame Key Map</em></caption>
+	      <tr>
+		<th>Key</th><th>Mapping</th>
+	      </tr>
+	      <tr>
+	        <td>n</td><td>Move to next "interesting" line.</td>
+	      </tr>
+	      <tr>
+	        <td>p<br>N</td><td>Move to previous "interesting" line.</td>
+	      </tr>
+	      <tr>
+	        <td>l</td><td>Toggle line wrap mode on/off.</td>
+	      </tr>
+	    </table>
+
 	    <li><h2>Hacking it</h2></li>
 	    <p>
 	      To hack p4.el, copy it from
@@ -999,6 +1190,6 @@ by examination of the file's contents and execution permission bits.
 	src="http://sourceforge.net/sflogo.php?group_id=58201&amp;type=5"
 	width="210" height="62" border="0" alt="SourceForge Logo"></A>
 	<hr>
-	Last Updated: $Revision: 1.5 $ on $Date: 2002/07/26 22:26:18 $
+	Last Updated: $Revision: 1.6 $ on $Date: 2002/09/24 19:20:12 $
     </body>
   </html>
