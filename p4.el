@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.1 2002/07/23 03:15:19 rvgnu Exp $
+;; $Id: p4.el,v 1.2 2002/07/23 22:41:51 rvgnu Exp $
 
 ;;; Commentary:
 ;;
@@ -152,14 +152,6 @@ This provides for a much faster `p4-find-file-hook'."
   :type 'boolean
   :group 'p4)
 
-;; Set the null device
-(eval-and-compile
-  (defcustom p4-null-device
-    (if (memq system-type '(ms-dos windows-nt)) "NUL" "/dev/null")
-    "Filesystem null device."
-    :type 'string
-    :group 'p4))
-
 ;; Auto-refresh?
 (defcustom p4-auto-refresh t
   "Set this to automatically refresh p4 submitted files in buffers."
@@ -188,7 +180,6 @@ command."
   "Hook run by `p4-mode'."
   :type 'sexp
   :group 'p4)
-
 
 (eval-and-compile
   (defvar p4-output-buffer-name "*P4 Output*" "P4 Output Buffer."))
@@ -219,7 +210,7 @@ the completion behavior of `p4-set-client-name'.
   :group 'p4)
 
 (if (not (getenv "P4PORT"))
-    (setenv "P4PORT" "p4:1666"))
+    (setenv "P4PORT" "perforce:1666"))
 
 (defvar p4-notify-list (getenv "P4NOTIFY") "The P4 Notify List.")
 
@@ -432,7 +423,10 @@ arguments to p4 commands."
 	    (set-buffer output-buffer)
 	    (delete-region (point-min) (point-max))))
       (let ((result
-	     (apply 'call-process (p4-check-p4-executable) p4-null-device
+	     ;; XXX - call-process has changed from using
+	     ;; p4-null-device to nil as its second argument
+	     ;; in emacs version 21.1.1?? - rv 1/25/2002
+	     (apply 'call-process (p4-check-p4-executable) nil
 		    output-buffer
 		    nil			; update display?
 		    args)))

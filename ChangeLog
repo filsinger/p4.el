@@ -1,3 +1,10 @@
+2002-07-23  Rajesh Vaidheeswarran  <rv@dsmit.com>
+
+	* (p4-version): v9.1
+	* Lose the null device. New emacs requires nil to be
+	  passed into call-process.
+	* Set the default port to perforce:1666 per Perforce's docs.
+
 2000-08-02  Rajesh Vaidheeswarran  <rv@dsmit.com>
 
 	* (p4-version): v8.5
