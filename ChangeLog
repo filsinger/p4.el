@@ -1,3 +1,14 @@
+2002-07-26  Rajesh Vaidheeswarran <rv@dsmit.com>
+
+	* (p4-emacs-version): Minor Release - 10.1
+
+	* (p4-maintainer): Fix email address
+
+	* Patch from  "Paul Krause" <pkrause@soundbite.com>
+	    Update all buffers after a check-in without prompting the
+	    user yes-or-no for each buffer (a very nice thing when you're
+	    checking in 50 files at once).
+
 2002-07-26  Peter Osterlund  <petero2@telia.com>
 
 	* (p4-check-mode): Made it possible to disable the periodic file
@@ -10,7 +21,7 @@
 
 2002-07-26  Rajesh Vaidheeswarran <rv@dsmit.com>
 
-	* (p4-version): First Sourceforge release - 10.0
+	* (p4-emacs-version): First Sourceforge release - 10.0
 
 	* (p4-maintainer): Change to New sourceforge mailing address
 

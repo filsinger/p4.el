@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.27 2002/07/26 11:57:12 petero2 Exp $
+;; $Id: p4.el,v 1.28 2002/07/26 12:48:45 rvgnu Exp $
 
 ;;; Commentary:
 ;;
@@ -82,7 +82,8 @@
       (setq p4-running-xemacs t)
     (setq p4-running-emacs t)))
 
-(defvar p4-emacs-maintainer "p4.el maintainers <p4el-bugs@lists.sourceforge.net"
+(defvar p4-emacs-maintainer
+  "p4.el maintainers <p4el-bugs@lists.sourceforge.net>"
   "The maintainer(s) of the emacs-p4 integration. Used for bug reports.")
 
 (defvar p4-web-page "http://p4el.sourceforge.net/" "The home of p4.el.")
@@ -2753,7 +2754,7 @@ actually up-to-date, if in buffers, or need refreshing."
 			      (revert-buffer t t)
 			    (p4-check-mode))))
 		(if (file-readable-p buffile)
-		    (find-file-noselect buffile)
+		    (find-file-noselect buffile t)
 		  (p4-check-mode)))
 	      (setq buffer-read-only (not (file-writable-p
 					   (p4-buffer-file-name))))))
