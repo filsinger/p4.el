@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.60 2002/10/02 19:55:05 petero2 Exp $
+;; $Id: p4.el,v 1.61 2002/10/03 18:47:48 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -1452,7 +1452,8 @@ type \\[p4-blame]"
 			 (string= head-name cur-file))) nil)
 	       
 	       ;; file has been deleted, can't assign blame:
-	       ((string= op "delete") (goto-char (point-max)))
+	       ((string= op "delete") 
+		(if (not headseen) (goto-char (point-max))))
 
 	       ;; OK, we actually want to look at this one:
 	       (t
