@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.22 2002/07/26 00:55:48 petero2 Exp $
+;; $Id: p4.el,v 1.23 2002/07/26 01:07:58 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -3401,11 +3401,13 @@ that."
   "Return t if there exists a file opened for edit with an empty diff"
   (interactive)
   (let ((buffer (get-buffer-create "p4-edp-buf"))
-	line opened empty-diff)
+	opened empty-diff)
     (p4-exec-p4 buffer (list "opened") t)
-    (while (setq line (p4-read-depot-output buffer))
-      (if (string-match "\\(.*\\)#[0-9]* - edit.*" line)
-	  (setq opened (cons (match-string 1 line) opened))))
+    (save-excursion
+      (set-buffer buffer)
+      (goto-char (point-min))
+      (while (re-search-forward "^\\(.*\\)#[0-9]* - edit.*" nil t)
+	(setq opened (cons (match-string 1) opened))))
     (if opened
 	(progn
 	  (p4-exec-p4 buffer (list "diff") t)
@@ -3418,8 +3420,8 @@ that."
 	      (if (member (match-string 1) opened)
 		  (progn
 		    (setq empty-diff t)
-		    (goto-char (point-max))))))
-	  (kill-buffer buffer)))
+		    (goto-char (point-max))))))))
+    (kill-buffer buffer)
     empty-diff))
 
 (defcustom p4-blame-2ary-disp-method 'default

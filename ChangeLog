@@ -18,6 +18,10 @@
 	* (p4-is-vc): Speeded up significantly when there are many (>3000)
 	  opened files.
 
+	* (p4-empty-diff-p): Optimized for speed. The p4-read-depot-output
+	  function is much slower than a more direct "(while
+	  (re-search-forward " approach.
+
 2002-07-25  Peter Osterlund  <petero2@telia.com>
 
 	* (p4-menu-def): Reordered code blocks to make xemacs work
