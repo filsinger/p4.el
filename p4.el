@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.31 2002/07/26 22:53:21 petero2 Exp $
+;; $Id: p4.el,v 1.32 2002/07/26 23:32:40 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -254,6 +254,10 @@ within emacs."
 (defvar p4-mode nil "Is this file under p4?")
 (make-variable-buffer-local 'p4-mode)
 (put 'p4-mode 'permanent-local t)
+
+(defvar p4-offline-mode nil "Is this file under p4 but handled in offline mode?")
+(make-variable-buffer-local 'p4-offline-mode)
+(put 'p4-offline-mode 'permanent-local t)
 
 (if (not (assoc 'p4-mode minor-mode-alist))
     (setq minor-mode-alist (cons '(p4-mode p4-mode)
@@ -2737,14 +2741,14 @@ list."
 
 Turning on P4 mode calls the hooks in the variable `p4-mode-hook' with
 no args."
+  (setq p4-mode nil)
   (if p4-do-find-file
       (progn
 	(setq p4-vc-check (p4-is-vc file-mode-cache))
 	(if p4-vc-check
 	    (progn
 	      (p4-menu-add)
-	      (setq p4-mode (concat " P4:" p4-vc-check)))
-	  (setq p4-mode nil))
+	      (setq p4-mode (concat " P4:" p4-vc-check))))
 	(p4-force-mode-line-update)
 	(let ((buffile (p4-buffer-file-name))
 	      (bufname (buffer-name)))
@@ -2834,18 +2838,33 @@ the VC check on/off when opening files."
 ;; Wrap C-x C-q to allow p4-edit/revert and also to ensure that
 ;; we don't stomp on vc-toggle-read-only.
 
-(defun p4-toggle-read-only (&optional verbose)
+(defun p4-toggle-read-only (&optional arg)
   "If p4-mode is non-nil, \\[p4-toggle-read-only] toggles between `p4-edit'
-and `p4-revert'.
+and `p4-revert'. If ARG is non-nil p4-mode will be disabled for this buffer
+before the toggling takes place.
 
-If the current buffer's file is not under p4, then this function passes on
-all the parameters to `vc-toggle-read-only'."
+If the current buffer's file is not under p4, then this function
+passes on all the parameters to `vc-toggle-read-only' (if available)
+or 'toggle-read-only'."
   (interactive "P")
-  (if (and (boundp 'p4-mode) p4-mode)
-      (if buffer-read-only
-	  (p4-edit p4-verbose)
-	(p4-revert p4-verbose))
-    (apply p4-prev-toggle-fkn verbose)))
+  (if (and arg p4-mode)
+      (setq p4-mode nil
+	    p4-offline-mode t))
+  (cond
+   (p4-mode
+    (if buffer-read-only
+	(p4-edit p4-verbose)
+      (p4-revert p4-verbose)))
+   (p4-offline-mode
+    (toggle-read-only)
+    (if buffer-file-name
+	(let ((mode (file-modes buffer-file-name)))
+	  (if buffer-read-only
+	      (setq mode (logand mode (lognot 128)))
+	    (setq mode (logior mode 128)))
+	  (set-file-modes buffer-file-name mode))))
+   (t
+    (apply p4-prev-toggle-fkn (list arg)))))
 
 (defun p4-browse-web-page ()
   "Browse the p4.el web page."

@@ -1,5 +1,9 @@
 2002-07-27  Peter Osterlund  <petero2@telia.com>
 
+	* (p4-toggle-read-only): Added support for off-line mode, useful
+	  when you lose connection to the p4 server or if you want to
+	  change a file without letting p4 know.
+
 	* Made loading of vc package optional.
 
 2002-07-26  Rajesh Vaidheeswarran <rv@dsmit.com>
