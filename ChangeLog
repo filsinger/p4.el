@@ -15,6 +15,9 @@
 	* (p4-empty-diff-p): Optimized so that it doesn't produce so much
 	   p4 server load.
 
+	* (p4-is-vc): Speeded up significantly when there are many (>3000)
+	  opened files.
+
 2002-07-25  Peter Osterlund  <petero2@telia.com>
 
 	* (p4-menu-def): Reordered code blocks to make xemacs work

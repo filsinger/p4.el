@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.21 2002/07/26 00:44:01 petero2 Exp $
+;; $Id: p4.el,v 1.22 2002/07/26 00:55:48 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -2640,8 +2640,8 @@ list."
 	  (p4-find-p4-config-file))
       (p4-check-mode)))
 
-(defun p4-get-add-branch-files ()
-  (let ((output-buffer (p4-depot-output "opened"))
+(defun p4-get-add-branch-files (&optional name-list)
+  (let ((output-buffer (p4-depot-output "opened" name-list))
 	line files depot-map)
     (while (setq line (p4-read-depot-output output-buffer))
       (if (string-match "^\\(//[a-zA-Z]+/[^#\n]*\\)#[0-9]+ - add " line)
@@ -2691,7 +2691,8 @@ list."
 	  (setq done version)))
     (if (and (not done) (not file-mode-cache))
 	(progn
-	  (setq file-mode-cache (p4-get-add-branch-files))
+	  (setq file-mode-cache
+		(p4-get-add-branch-files (and filename (list filename))))
 	  (setq version (cdr (assoc filename file-mode-cache)))))
     version))
 
