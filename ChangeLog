@@ -1,3 +1,9 @@
+2002-08-02  Peter Osterlund  <petero2@telia.com>
+
+	* (p4-diff2): When invoking p4-diff2 interactively, default to
+	  showing the differences between the current rev and rev# minus
+	  one.
+
 2002-08-01  Peter Osterlund  <petero2@telia.com>
 
 	* Fixed some warnings during xemacs byte compilation.

@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.37 2002/07/31 23:24:44 petero2 Exp $
+;; $Id: p4.el,v 1.38 2002/08/02 21:26:56 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -841,9 +841,16 @@ command if t.\n"
   "diff2" "Display diff of two depot files.
 
 When visiting a depot file, type \\[p4-diff2] and enter the versions.\n"
-
   (interactive
    (let ((rev (get-char-property (point) 'rev)))
+     (if (and (not rev) (p4-buffer-file-name-2))
+	 (let ((rev-num 0))
+	   (setq rev (p4-is-vc nil (p4-buffer-file-name-2)))
+	   (if rev
+	       (setq rev-num (string-to-number rev)))
+	   (if (> rev-num 1)
+	       (setq rev (number-to-string (1- rev-num)))
+	     (setq rev nil))))
      (list (p4-read-arg-string "First Depot File or Version# to diff: " rev)
 	   (p4-read-arg-string "Second Depot File or Version# to diff: "))))
   (let (diff-version1
@@ -2727,9 +2734,11 @@ list."
     files))
 
 ;; A function to check if the file being opened is version controlled by p4.
-(defun p4-is-vc (&optional file-mode-cache)
+(defun p4-is-vc (&optional file-mode-cache filename)
   "If a file is controlled by P4 then return version else return nil."
-  (let ((filename (p4-buffer-file-name)) version done)
+  (if (not filename)
+      (setq filename (p4-buffer-file-name)))
+  (let (version done)
     (let ((el (assoc filename file-mode-cache)))
       (setq done el)
       (setq version (cdr el)))
