@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.50 2002/09/22 21:10:13 petero2 Exp $
+;; $Id: p4.el,v 1.51 2002/09/22 21:57:23 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -1450,7 +1450,7 @@ type \\[p4-print-with-rev-history]"
 	  (set-buffer buffer)
 	  (goto-line 2)
 	  (move-to-column 0)
-	  (p4-insert-no-properties "  Change  Rev       Date   Author\n")
+	  (p4-insert-no-properties "Change  Rev       Date  Author\n")
 	  (while (setq line (p4-read-depot-output ch-buffer))
 	    (setq rev (string-to-int line))
 	    (if (= rev old-rev)

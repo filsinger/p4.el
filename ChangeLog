@@ -1,5 +1,7 @@
 2002-09-22  Peter Osterlund  <petero2@telia.com>
 
+	* (p4-print-with-rev-history-int): Fixed misaligned header text.
+
 	* (p4-print-rev-map): Add 'l' key to toggle line wrap mode.
 	* (p4-print-with-rev-history-int): Default to line wrap mode off.
 	* (p4-toggle-line-wrap): New function to toggle line wrap mode.
