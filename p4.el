@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.74 2005/03/26 22:12:28 petero2 Exp $
+;; $Id: p4.el,v 1.75 2005/03/26 22:15:09 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -1415,7 +1415,11 @@ the corresponding client file."
 	  (if link-depot-name
 	      (p4-set-extent-properties start end
 					(list (cons 'block-depot-name
-						    link-depot-name))))))
+						    link-depot-name))))
+	  (p4-find-change-numbers buffer-name start
+				  (save-excursion
+				    (goto-char start)
+				    (line-end-position)))))
       (setq buffer-read-only t))))
 
 (defconst p4-blame-change-regex

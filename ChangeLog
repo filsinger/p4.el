@@ -8,6 +8,8 @@
 	Removed unused code.
 	* (p4-font-lock-buffer): p4-blame and p4-print didn't work for
 	files whose buffers are set to read-only mode by set-auto-mode.
+	* (p4-activate-print-buffer): In the header line in p4-blame and
+	p4-print buffers, make the change number clickable.
 
 2004-06-11  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
