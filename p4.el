@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.26 2002/07/26 02:49:31 rvgnu Exp $
+;; $Id: p4.el,v 1.27 2002/07/26 11:57:12 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -321,7 +321,8 @@ p4 submitted files being visited by the buffer.")
 the files in Emacs buffers that have been modified by a `p4-submit'.")
 
 (defcustom p4-file-refresh-timer-time 60 "seconds after which
-`p4-file-refresh' will check for modified files in Emacs buffers."
+`p4-file-refresh' will check for modified files in Emacs buffers. Set this
+variable to 0 to disable periodic refreshing."
   :type 'integer
   :group 'p4)
 
@@ -2718,7 +2719,7 @@ no args."
 	  (if (and p4-vc-check (not (member (list buffile bufname)
 					    p4-all-buffer-files)))
 	      (add-to-list 'p4-all-buffer-files (list buffile bufname))))
-	(if (not p4-file-refresh-timer)
+	(if (and (not p4-file-refresh-timer) (not (= p4-file-refresh-timer-time 0)))
 	    (setq p4-file-refresh-timer
 		  (cond (p4-running-emacs
 			 (run-at-time nil p4-file-refresh-timer-time
@@ -2734,6 +2735,7 @@ no args."
 (defun p4-refresh-files-in-buffers (&optional arg)
   "Check to see if all the files that are under P4 version control are
 actually up-to-date, if in buffers, or need refreshing."
+  (interactive)
   (let ((p4-all-my-files p4-all-buffer-files) buffile bufname thiselt)
     (while p4-all-my-files
       (setq thiselt (car p4-all-my-files))

@@ -1,3 +1,13 @@
+2002-07-26  Peter Osterlund  <petero2@telia.com>
+
+	* (p4-check-mode): Made it possible to disable the periodic file
+	  modification check by setting p4-file-refresh-timer-time to 0.
+	  Suggestion from Guenter Radestock.
+
+	* (p4-refresh-files-in-buffers): Made interactive, so that it can
+	  be bound to a key sequence, which can be handy if you have
+	  disabled the periodic file modification check.
+
 2002-07-26  Rajesh Vaidheeswarran <rv@dsmit.com>
 
 	* (p4-version): First Sourceforge release - 10.0
