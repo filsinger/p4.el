@@ -45,6 +45,10 @@
 
 	* (p4-detect-p4): Simplified and removed obsolete docstring.
 
+	* (p4-submit): "p4 submit -c changeNo" now gives the user an
+	  opportunity to preview and edit the change description before
+	  committing.
+
 2002-07-23  Rajesh Vaidheeswarran  <rv@dsmit.com>
 
 	* (p4-version): v9.1

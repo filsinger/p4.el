@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.15 2002/07/25 19:55:14 petero2 Exp $
+;; $Id: p4.el,v 1.16 2002/07/25 20:51:08 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -2240,29 +2240,37 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
     (p4-noinput-buffer-action "labelsync" nil t args))
   (p4-make-depot-list-buffer "*P4 labelsync*"))
 
+(defun p4-filter-out (pred lst)
+  (let (res)
+    (while lst
+      (if (not (funcall pred (car lst)))
+	  (setq res (cons (car lst) res)))
+      (setq lst (cdr lst)))
+    (reverse res)))
+
 ;; The p4 submit command
-(def-p4-cmd p4-submit ()
+(def-p4-cmd p4-submit (&optional arg)
   "submit" "To submit a pending change to the depot, type \\[p4-submit].\n"
-  (interactive)
+  (interactive "P")
   (let (args
-	(submit-buf-name "*P4 Submit*"))
+	(submit-buf-name "*P4 Submit*")
+	(change-list (if (integerp arg) arg)))
     (if (buffer-live-p (get-buffer submit-buf-name))
 	(switch-to-buffer-other-window (get-buffer submit-buf-name))
-      (if current-prefix-arg
-	  (setq args (p4-make-list-from-string
-		      (p4-read-arg-string "p4 submit: " nil))))
+      (if change-list
+	  (setq args (list "-c" (int-to-string change-list)))
+	(if current-prefix-arg
+	    (setq args (p4-make-list-from-string
+			(p4-read-arg-string "p4 submit: " nil)))))
+      (setq args (p4-filter-out (lambda (x) (string= x "-c")) args))
       (p4-save-opened-files)
-      (if (p4-cmd-line-flags args)
-	  (progn
-	    (p4-noinput-buffer-action "submit" nil t args)
-	    (p4-refresh-files-in-buffers))
-	(if (or (not (and p4-check-empty-diffs (p4-empty-diff-p)))
-		(progn
-		  (ding t)
-		  (yes-or-no-p
-		   "File with empty diff opened for edit. Submit anyway? ")))
-	    (p4-async-process-command "change" "Description:\n\t"
-				      submit-buf-name "submit" args))))))
+      (if (or (not (and p4-check-empty-diffs (p4-empty-diff-p)))
+	      (progn
+		(ding t)
+		(yes-or-no-p
+		 "File with empty diff opened for edit. Submit anyway? ")))
+	  (p4-async-process-command "change" "Description:\n\t"
+				    submit-buf-name "submit" args)))))
 
 ;; The p4 user command
 (def-p4-cmd p4-user ()
