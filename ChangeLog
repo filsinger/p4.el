@@ -1,3 +1,7 @@
+2002-08-01  Peter Osterlund  <petero2@telia.com>
+
+	* Fixed some warnings during xemacs byte compilation.
+
 2002-07-31  Peter Osterlund  <petero2@telia.com>
 
 	* (p4-activate-print-buffer), (p4-make-depot-list-buffer): Allow

@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.36 2002/07/31 19:13:26 petero2 Exp $
+;; $Id: p4.el,v 1.37 2002/07/31 23:24:44 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -76,6 +76,12 @@
   (if (string-match "XEmacs\\|Lucid" emacs-version)
       (setq p4-running-xemacs t)
     (setq p4-running-emacs t)))
+
+;; Pick up a couple of missing function defs
+(if p4-running-xemacs
+    (eval-when-compile
+      (require 'timer)
+      (require 'dired)))
 
 (defvar p4-emacs-maintainer
   "p4.el maintainers <p4el-bugs@lists.sourceforge.net>"
