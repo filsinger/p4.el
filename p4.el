@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.33 2002/07/26 23:45:00 petero2 Exp $
+;; $Id: p4.el,v 1.34 2002/07/31 07:13:09 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -2717,7 +2717,7 @@ list."
 ;; A function to check if the file being opened is version controlled by p4.
 (defun p4-is-vc (&optional file-mode-cache)
   "If a file is controlled by P4 then return version else return nil."
-  (let ((filename (p4-buffer-file-name)) max version done)
+  (let ((filename (p4-buffer-file-name)) version done)
     (let ((el (assoc filename file-mode-cache)))
       (setq done el)
       (setq version (cdr el)))
