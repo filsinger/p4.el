@@ -1,5 +1,7 @@
 2002-07-27  Peter Osterlund  <petero2@telia.com>
 
+	* (p4-empty-diff-p): Made non-interactive.
+
 	* (p4-toggle-read-only): Added support for off-line mode, useful
 	  when you lose connection to the p4 server or if you want to
 	  change a file without letting p4 know.

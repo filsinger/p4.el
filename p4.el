@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.32 2002/07/26 23:32:40 petero2 Exp $
+;; $Id: p4.el,v 1.33 2002/07/26 23:45:00 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -3457,7 +3457,6 @@ that."
 
 (defun p4-empty-diff-p ()
   "Return t if there exists a file opened for edit with an empty diff"
-  (interactive)
   (let ((buffer (get-buffer-create "p4-edp-buf"))
 	opened empty-diff)
     (p4-exec-p4 buffer (list "opened") t)
