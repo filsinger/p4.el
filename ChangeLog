@@ -1,5 +1,10 @@
 2002-07-26  Rajesh Vaidheeswarran <rv@dsmit.com>
 
+	* (p4-diff-head): New command to diff an (un)opened
+	  file against the head revision in the depot.
+
+2002-07-26  Rajesh Vaidheeswarran <rv@dsmit.com>
+
 	* (p4-emacs-version): Minor Release - 10.1
 
 	* (p4-maintainer): Fix email address
