@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.71 2005/03/26 22:02:55 petero2 Exp $
+;; $Id: p4.el,v 1.72 2005/03/26 22:06:13 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -1421,7 +1421,7 @@ the corresponding client file."
   (concat "^\\.\\.\\. #"     "\\([0-9]+\\)"   ;; revision
 	  "\\s-+change\\s-+" "\\([0-9]+\\)"   ;; change
 	  "\\s-+"            "\\([^ \t]+\\)"  ;; type
-	  "\\s-+on\\s-+"     "\\([^ \t]+\\)"  ;; date	   
+	  "\\s-+on\\s-+"     "\\([^ \t]+\\)"  ;; date
 	  "\\s-+by\\s-+"     "\\([^ \t]+\\)"  ;; author
 	  "@"))
 
@@ -1440,7 +1440,7 @@ the corresponding client file."
 	  " *\\([0-9]+\\)"               ;; revision
 	  " *\\([0-9]+/[0-9]+/[0-9]+\\)" ;; date
 	  "\\s-+\\([^:]*\\)"             ;; author
-	  ":"))          
+	  ":"))
 
 (defconst P4-REV  0)
 (defconst P4-DATE 1)
@@ -1524,9 +1524,9 @@ type \\[p4-blame]"
 	       ((or (and change   (< change ch))
 		    (and head-rev (< head-rev rev)
 			 (string= head-name cur-file))) nil)
-	       
+
 	       ;; file has been deleted, can't assign blame:
-	       ((string= op "delete") 
+	       ((string= op "delete")
 		(if (not headseen) (goto-char (point-max))))
 
 	       ;; OK, we actually want to look at this one:
@@ -1542,10 +1542,10 @@ type \\[p4-blame]"
 	  (if (and headseen (looking-at p4-blame-branch-regex))
 	      (setq branch-p t)) )
 	(forward-line)))
-    
+
     (if (< (length ch-alist) 1)
 	(error "Head revision not available"))
-  
+
     (let ((base-ch (int-to-string (caar ch-alist)))
 	  (ch-buffer (get-buffer-create "p4-ch-buf"))
 	  (tmp-alst (copy-alist ch-alist)))
@@ -1616,7 +1616,7 @@ type \\[p4-blame]"
 		    xth-date    (nth P4-DATE change-data)
 		    xth-auth    (nth P4-AUTH change-data)
 		    xth-file    (nth P4-FILE change-data))
-	      
+
 	      (p4-insert-no-properties
 	       (format "%6d %4d %10s %7s: " cnum xth-rev xth-date xth-auth))
 	      (move-to-column 0)
@@ -3819,7 +3819,7 @@ windows or frames when we think that\'s necessary"
 	 (new-pw (read-passwd "Enter new password: "))
 	 (new2-pw (read-passwd "Re-enter new password: ")))
     (if (string= new-pw new2-pw)
-	(p4-noinput-buffer-action "passwd" nil 's 
+	(p4-noinput-buffer-action "passwd" nil 's
 				  (list "-O" old-pw "-P" new-pw))
       (error "Passwords don't match"))))
 
@@ -3836,7 +3836,7 @@ windows or frames when we think that\'s necessary"
       (set-buffer (get-buffer-create p4-output-buffer-name))
       (delete-region (point-min) (point-max))
       (insert pw)
-      (apply 'call-process-region (point-min) (point-max) 
+      (apply 'call-process-region (point-min) (point-max)
 	     (p4-check-p4-executable) t t nil "login" args)
       (goto-char (point-min))
       (if (re-search-forward "Enter password:.*\n" nil t)

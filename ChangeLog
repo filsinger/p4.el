@@ -3,6 +3,7 @@
 	* (p4-passwd, p4-login, p4-logout): New functions to implement
 	support for the corresponding p4 commands.
 	* (p4-exec-p4): Added support for automatic login when needed.
+	* Removed trailing whitespace.
 
 2004-06-11  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
