@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.75 2005/03/26 22:15:09 petero2 Exp $
+;; $Id: p4.el,v 1.76 2005/03/27 16:41:29 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -478,7 +478,8 @@ Does auto re-highlight management (whatever that is)."
 		    args)))
 	(goto-char (point-min))
 	(if (and (not no-login)
-		 (looking-at "Perforce password (P4PASSWD) invalid or unset"))
+		 (or (looking-at "Perforce password (P4PASSWD) invalid or unset")
+		     (looking-at "Your session has expired, please login again.")))
 	    (progn
 	      (setq current-prefix-arg nil)
 	      (p4-login)
