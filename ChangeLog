@@ -1,3 +1,9 @@
+2002-08-24  Peter Osterlund  <petero2@telia.com>
+
+	* (p4-prev-toggle-fkn, p4-exec-p4, substitute-key-definition): Do
+	not autoload. Autoloading causes unnecessary overhead for those
+	not using p4.el without really helping those who do use it.
+
 2002-08-05  Rajesh Vaidheeswarran  <rv@dsmit.com>
 
 	* (p4-print-with-rev-history-int): Add Date and Author

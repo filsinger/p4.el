@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.40 2002/08/05 19:30:04 rvgnu Exp $
+;; $Id: p4.el,v 1.41 2002/08/24 14:53:54 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -357,11 +357,10 @@ arguments to p4 commands."
 ;; We need to remap C-x C-q to p4-toggle-read-only, so, make sure that we
 ;; load vc first.. or else, when vc gets autoloaded, it will remap C-x C-q
 ;; to vc-toggle-read-only. We do this unless the user explicitly asked us
-;; no to, by setting p4-require-vc-p to nil.
+;; not to, by setting p4-require-vc-p to nil.
 (if p4-require-vc-p
     (require 'vc))
 
-;;;###autoload
 (defvar p4-prev-toggle-fkn
   (if (where-is-internal 'vc-toggle-read-only)
       'vc-toggle-read-only
@@ -445,7 +444,6 @@ arguments to p4 commands."
 ;;; All functions start here.
 
 ;; A generic function that we use to execute p4 commands
-;;;###autoload
 (eval-and-compile
   (defun p4-exec-p4 (output-buffer args &optional clear-output-buffer)
     "Internal function called by various p4 commands."
@@ -4156,7 +4154,6 @@ number of buffers together."
     (setq window-scroll-functions
 	  (cdr (assq control-buffer p4-blame-scroll-func)))))
 
-;;;###autoload
 (substitute-key-definition p4-prev-toggle-fkn 'p4-toggle-read-only
 			   global-map)
 
