@@ -1,3 +1,9 @@
+2002-10-02  Peter Osterlund  <petero2@telia.com>
+
+	* (p4-blame-int): Use change numbers instead of revision numbers
+	  as keys when looking up data in ch-alist. Revision numbers are
+	  not unique when more than one file is involved.
+
 2002-10-01  Peter Osterlund  <petero2@telia.com>
 
 	* (p4-blame-int): Use correct filename when initializing the

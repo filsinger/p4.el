@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.57 2002/10/01 17:56:55 petero2 Exp $
+;; $Id: p4.el,v 1.58 2002/10/02 18:28:59 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -1368,7 +1368,7 @@ the corresponding client file."
 	  "\\s-+\\([^:]*\\)"             ;; author
 	  ":"))          
 
-(defconst P4-CNUM 0)
+(defconst P4-REV  0)
 (defconst P4-DATE 1)
 (defconst P4-AUTH 2)
 (defconst P4-FILE 3)
@@ -1398,8 +1398,7 @@ type \\[p4-blame]"
 	head-name  ;; file spec of the head revision for this blame assignment
 	branch-p   ;; have we tracked into a branch?
 	cur-file   ;; file name of the current branch during blame assignment
-	last-rev   ;; last revision we diff'd
-	author change ch-alist date fullname head-rev headseen)
+	change ch-alist fullname head-rev headseen)
 
     ;; we asked for blame constrained by a change number
     (if (string-match "\\(.*\\)@\\([0-9]+\\)" file-spec)
@@ -1459,7 +1458,7 @@ type \\[p4-blame]"
 	       (t
 		(setq ch-alist
 		      (cons
-		       (cons rev (list ch date author cur-file)) ch-alist))
+		       (cons ch (list rev date author cur-file)) ch-alist))
 		(if (not head-rev) (setq head-rev rev))
 		(setq headseen t)) ))
 
@@ -1472,26 +1471,26 @@ type \\[p4-blame]"
     (if (< (length ch-alist) 1)
 	(error "Head revision not available"))
   
-    (let ((base-rev (int-to-string (caar ch-alist)))
+    (let ((base-ch (int-to-string (caar ch-alist)))
 	  (ch-buffer (get-buffer-create "p4-ch-buf"))
 	  (tmp-alst (copy-alist ch-alist)))
       (p4-exec-p4 ch-buffer
-		  (list "print" "-q" (concat cur-file "#" base-rev)) t)
+		  (list "print" "-q" (concat cur-file "@" base-ch)) t)
       (save-excursion
 	(set-buffer ch-buffer)
 	(goto-char (point-min))
 	(while (re-search-forward ".*\n" nil t)
-	  (replace-match (concat base-rev "\n"))))
+	  (replace-match (concat base-ch "\n"))))
       (while (> (length tmp-alst) 1)
-	(let ((rev-1 (car (car  tmp-alst)))
-	      (rev-2 (car (cadr tmp-alst)))
+	(let ((ch-1 (car (car  tmp-alst)))
+	      (ch-2 (car (cadr tmp-alst)))
 	      (file1 (nth P4-FILE (cdr (car  tmp-alst))))
 	      (file2 (nth P4-FILE (cdr (cadr tmp-alst))))
 	      ins-string)
-	  (setq ins-string (concat (int-to-string rev-2) "\n"))
+	  (setq ins-string (format "%d\n" ch-2))
 	  (p4-exec-p4 buffer (list "diff2"
-				   (format "%s#%d" file1 rev-1)
-				   (format "%s#%d" file2 rev-2)) t)
+				   (format "%s@%d" file1 ch-1)
+				   (format "%s@%d" file2 ch-2)) t)
 	  (save-excursion
 	    (set-buffer buffer)
 	    (goto-char (point-max))
@@ -1520,32 +1519,31 @@ type \\[p4-blame]"
 		    (setq ra (1+ ra)))))))
 	  (setq tmp-alst (cdr tmp-alst))))
       (p4-noinput-buffer-action "print" nil t
-				(list (concat fullname "#" (int-to-string
-							    head-rev)))
+				(list (format "%s#%d" fullname head-rev))
 				t)
       (p4-font-lock-buffer p4-output-buffer-name)
-      (let (line rev (old-rev 0) change-data
-	    xth-cnum xth-date xth-auth xth-file)
+      (let (line cnum (old-cnum 0) change-data
+	    xth-rev xth-date xth-auth xth-file)
 	(save-excursion
 	  (set-buffer buffer)
 	  (goto-line 2)
 	  (move-to-column 0)
 	  (p4-insert-no-properties "Change  Rev       Date  Author\n")
 	  (while (setq line (p4-read-depot-output ch-buffer))
-	    (setq rev (string-to-int line))
-	    (if (= rev old-rev)
+	    (setq cnum (string-to-int line))
+	    (if (= cnum old-cnum)
 		(p4-insert-no-properties (format "%29s : " ""))
 
 	      ;; extract the change data from our alist: remember,
 	      ;; `eq' works for integers so we can use assq here:
-	      (setq change-data (cdr (assq rev ch-alist))
-		    xth-cnum    (nth P4-CNUM change-data)
+	      (setq change-data (cdr (assq cnum ch-alist))
+		    xth-rev     (nth P4-REV  change-data)
 		    xth-date    (nth P4-DATE change-data)
 		    xth-auth    (nth P4-AUTH change-data)
 		    xth-file    (nth P4-FILE change-data))
 	      
 	      (p4-insert-no-properties
-	       (format "%6d %4d %10s %7s: " xth-cnum rev xth-date xth-auth))
+	       (format "%6d %4d %10s %7s: " cnum xth-rev xth-date xth-auth))
 	      (move-to-column 0)
 	      (if (looking-at p4-blame-index-regex)
 		  (let ((nth-cnum (match-string 1))
@@ -1568,7 +1566,7 @@ type \\[p4-blame]"
 			  (end (match-end 4)))
 		      (if (> end start)
 			  (delete-region start end))))))
-	    (setq old-rev rev)
+	    (setq old-cnum cnum)
 	    (forward-line))))
 
       (kill-buffer ch-buffer))
