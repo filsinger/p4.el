@@ -1,3 +1,25 @@
+2003-07-06  Daniel Brotsky  <dev@brotsky.com>
+
+	Work around a problem in some emacsen wherein the PWD environment
+	variable is not updated on a per-buffer basis, thus confusing p4
+	which prefers the PWD value to the actual directory of invocation.
+	The result would be that p4 config files (P4CONFIG) would be found
+	by emacs but not respected by p4.  The workaround is always to use
+	the -d argument when invoking p4, passing the current directory
+	explicitly.  This involved adding a new wrapper for simple
+	in-place p4 invocations and making several functions call it
+	instead of calling p4 directly.
+	* (p4-exec-p4): changed to use the -d argument when invoking p4
+	* (p4-call-p4-here): added as a new invocation bottleneck that
+	uses the -d argument; several fns changed to call it.
+	* (p4-async-process-command): save the directory of the
+	calling buffer and transfer it to the async-edit buffer, so that
+	it can be used both in the buffer setup command and in the final
+	p4 command invoked.
+	* (p4-get-p4-port): add local as well as global port reporting,
+	so that this function correctly respects P4CONFIG.
+	* (p4-do-notify): changed to use the -d argument
+	
 2003-05-02  Peter Osterlund  <petero2@telia.com>
 
 	* (p4-activate-diff-buffer): Create links for client and user

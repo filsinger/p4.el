@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.63 2003/05/02 20:29:34 petero2 Exp $
+;; $Id: p4.el,v 1.64 2003/07/07 05:47:11 brotsky Exp $
 
 ;;; Commentary:
 ;;
@@ -445,7 +445,11 @@ arguments to p4 commands."
 ;; A generic function that we use to execute p4 commands
 (eval-and-compile
   (defun p4-exec-p4 (output-buffer args &optional clear-output-buffer)
-    "Internal function called by various p4 commands."
+    "Internal function called by various p4 commands.
+Executes p4 in the current buffer's current directory
+with output to a dedicated output buffer.
+If successful, adds the P4 menu to the current buffer.
+Does auto re-highlight management (whatever that is)."
     (save-excursion
       (if (eq major-mode 'dired-mode)
 	  (let ((dir (dired-current-directory)))
@@ -462,12 +466,21 @@ arguments to p4 commands."
 	     (apply 'call-process (p4-check-p4-executable) nil
 		    output-buffer
 		    nil			; update display?
+		    "-d" default-directory  ;override "PWD" env var
 		    args)))
 	(p4-menu-add)
 	(if (and p4-running-emacs
 		 (boundp 'hilit-auto-rehighlight))
 	    (setq hilit-auto-rehighlight nil))
-	result))))
+	result)))
+  (defun p4-call-p4-here (&rest args)
+    "Internal function called by various p4 commands.
+Executes p4 in the current buffer (generally a temp)."
+    (apply 'call-process (p4-check-p4-executable) nil
+	   t
+	   nil			; update display?
+	   "-d" default-directory  ;override "PWD" env var
+	   args)))
 
 (defun p4-push-window-config ()
   "Push the current window configuration on the `p4-window-config-stack'
@@ -1090,7 +1103,7 @@ When visiting a depot file, type \\[p4-diff-head].\n"
 	  (set-buffer p4-output-buffer-name)
 	  (goto-char (point-max))
 	  (setq pmin (point))
-	  (if (zerop (call-process (p4-check-p4-executable) nil t nil "info"))
+	  (if (zerop (p4-call-p4-here "info"))
 	      (progn
 		(goto-char pmin)
 		(re-search-forward
@@ -1110,8 +1123,7 @@ When visiting a depot file, type \\[p4-diff-head].\n"
       (set-buffer p4-output-buffer-name)
       (goto-char (point-max))
       (setq pmin (point))
-      (if (zerop (call-process
-		  (p4-check-p4-executable) nil t nil "client" "-o" client-name))
+      (if (zerop (p4-call-p4-here "client" "-o" client-name))
 	  (progn
 	    (goto-char pmin)
 	    (re-search-forward "^Root:[ \t]+\\(.*\\)$")
@@ -1159,8 +1171,7 @@ name and a client name."
       (goto-char (point-max))
       (setq pmin (point))
       (insert "\n")
-      (apply 'call-process
-	     (p4-check-p4-executable) nil t nil "where" file-list)
+      (apply 'p4-call-p4-here "where" file-list)
       (goto-char pmin)
       (if (< (p4-get-server-version) 98)
 	  (while (re-search-forward
@@ -1695,7 +1706,7 @@ it already exists\), set its local map to map, if specified, or
 	    (goto-char (point-max))
 	    (insert "\n--------\n\n"))))
     (setq args (cons "resolve" args))
-    (setq buffer (apply 'make-comint "p4 resolve" p4-executable nil args))
+    (setq buffer (apply 'make-comint "p4 resolve" p4-executable nil "-d" default-directory args))
     (set-buffer buffer)
     (comint-mode)
     (display-buffer buffer)
@@ -2291,12 +2302,15 @@ arguments to the P4-THIS-COMMAND.
 
 P4-OUT-ARGS is the optional argument passed that will be used as the list of
 arguments to P4-OUT-COMMAND."
-  (if p4-this-buffer
-      (set-buffer (get-buffer-create p4-this-buffer))
-    (set-buffer (get-buffer-create (concat "*P4 " p4-this-command "*"))))
-  (setq p4-current-command p4-this-command)
+  (let ((dir default-directory))
+    (if p4-this-buffer
+	(set-buffer (get-buffer-create p4-this-buffer))
+      (set-buffer (get-buffer-create (concat "*P4 " p4-this-command "*"))))
+    (setq p4-current-command p4-this-command)
+    (cd dir))
   (if (zerop (apply 'call-process-region (point-min) (point-max)
 		    (p4-check-p4-executable) t t nil
+		    "-d" default-directory
 		    p4-current-command "-o"
 		    p4-in-args))
       (progn
@@ -2335,6 +2349,7 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
     (if (zerop (apply 'call-process-region (point-min)
 		      max (p4-check-p4-executable)
 		      nil '(t t) nil
+		      "-d" default-directory
 		      current-command "-i"
 		      current-args))
 	(progn
@@ -2610,7 +2625,9 @@ To set your clients using your .emacs, use the following:
 This will be the current server/port that is in use for access through Emacs
 P4."
   (interactive)
-  (message "P4PORT is %s" (getenv "P4PORT")))
+  (let ((port (p4-current-server-port)))
+    (message "P4PORT is [local: %s], [global: %s]" port (getenv "P4PORT"))
+    port))
 
 ;; A function to set the current P4PORT
 (defun p4-set-p4-port (p4-new-p4-port)
@@ -2789,7 +2806,9 @@ list."
 		(delete-region (point-min) (point-max))
 		(call-process-region (point-min) (point-max)
 				     (p4-check-p4-executable)
-				     t t nil "describe" "-s"
+				     t t nil
+				     "-d" default-directory
+				     "describe" "-s"
 				     p4-matched-change)
 		(switch-to-buffer "*P4 Notify*")
 		(goto-char (point-min))
@@ -3578,8 +3597,7 @@ Emacs P4."
 	  (set-buffer p4-output-buffer-name)
 	  (goto-char (point-max))
 	  (setq pmin (point))
-	  (if (zerop (call-process
-		      (p4-check-p4-executable) nil t nil "info"))
+	  (if (zerop (p4-call-p4-here "info"))
 	      (progn
 		(goto-char pmin)
 		(if (re-search-forward "^Client name:[ \t]+\\(.*\\)$" nil t)
