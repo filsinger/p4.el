@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.49 2002/09/22 20:53:54 petero2 Exp $
+;; $Id: p4.el,v 1.50 2002/09/22 21:10:13 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -436,6 +436,7 @@ arguments to p4 commands."
     (define-key map "n"	 'p4-next-change-rev-line)
     (define-key map "p"	 'p4-prev-change-rev-line)
     (define-key map "N" (lookup-key map "p"))
+    (define-key map "l"	 'p4-toggle-line-wrap)
     map)
   "The key map to use for browsing print-revs buffers.")
 
@@ -1488,6 +1489,7 @@ type \\[p4-print-with-rev-history]"
       (p4-activate-print-buffer buffer-name nil)
       (save-excursion
 	(set-buffer buffer-name)
+	(setq truncate-lines t)
 	(use-local-map p4-print-rev-map)))))
 
 ;; The p4 refresh command
@@ -1755,6 +1757,13 @@ This command will execute the integrate/delete commands automatically.
     (move-to-column 32)
     (re-search-backward "^ *[0-9]+ +[0-9]+[^:]*:" nil "")
     (p4-moveto-print-rev-column c)))
+
+(defun p4-toggle-line-wrap ()
+  "Toggle line wrap mode"
+  (interactive)
+  (setq truncate-lines (not truncate-lines))
+  (save-window-excursion
+    (recenter)))
 
 (defun p4-quit-current-buffer (pnt)
   "Quit a buffer"
