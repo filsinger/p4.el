@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.42 2002/08/28 19:37:07 petero2 Exp $
+;; $Id: p4.el,v 1.43 2002/08/28 19:42:36 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -1428,7 +1428,7 @@ type \\[p4-print-with-rev-history]"
 				(list (concat fullname "#" (int-to-string
 							    head-rev)))
 				t)
-      (let (line rev ch (old-rev 0))
+      (let (line rev ch (old-rev 0) cur-list)
 	(save-excursion
 	  (set-buffer buffer)
 	  (goto-line 2)
@@ -3862,7 +3862,7 @@ to me to get around this, watch this space..."
 		  (let ((m1 (match-string 1 line))
 			(m2 (match-string 2 line))
 			(m3 (match-string 3 line))
-			(m34(match-string 4 line)))
+			(m4 (match-string 4 line)))
 
 		    (if (and (stringp p4-blame-cnum)
 			     (< (string-to-int p4-blame-cnum)
