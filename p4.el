@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.62 2002/10/24 15:42:51 rvgnu Exp $
+;; $Id: p4.el,v 1.63 2003/05/02 20:29:34 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -2143,6 +2143,20 @@ character events"
 	       (match-beginning 0)
 	     (point-max))))
       (p4-find-change-numbers buffer-name (point-min) stop))
+
+    (goto-char (point-min))
+    (if (looking-at "^Change [0-9]+ by \\([^ @]+\\)@\\([^ \n]+\\)")
+	(let ((user-match 1)
+	      (cl-match 2)
+	      cur-user cur-client)
+	  (setq cur-user (match-string user-match))
+	  (setq cur-client (match-string cl-match))
+	  (p4-create-active-link (match-beginning user-match)
+				 (match-end user-match)
+				 (list (cons 'user cur-user)))
+	  (p4-create-active-link (match-beginning cl-match)
+				 (match-end cl-match)
+				 (list (cons 'client cur-client)))))
 
     (use-local-map p4-diff-map)
     (setq buffer-read-only t)))

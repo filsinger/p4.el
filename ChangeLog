@@ -1,3 +1,8 @@
+2003-05-02  Peter Osterlund  <petero2@telia.com>
+
+	* (p4-activate-diff-buffer): Create links for client and user
+	  names in p4-describe buffers.
+
 2002-10-24  Rajesh Vaidheeswarran  <rvgnu@usw-pr-shell1.sourceforge.net>
 
 	* (p4-version): Update to 10.2 for release
