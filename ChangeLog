@@ -1,4 +1,15 @@
-2003-09-12  Rajesh Vaidheeswarran  <rv@dsmit.com>
+2004-05-18  Rajesh Vaidheeswarran  <rv!@noSpam_LosEthIs@dsmit.com>
+
+	* (p4-version): Bump to 10.4
+	* Update all email addresses in this list with some bogus string
+	to prevent auto-reaping of email addresses from this file
+
+2004-05-18  David Lum <david.lum!@noSpam_LosEthIs@amdocs.com>
+
+	* (p4-make-face): Add new defun to make a face only if it doesn't
+	already exist.
+
+2003-09-12  Rajesh Vaidheeswarran  <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): Bump version to 10.3
 	* p4.el.html: Document `p4-ediff2', `p4-depot-find-file' and
@@ -6,12 +17,12 @@
 	* thanks.html: Add P T Withington for p4-ediff2 related changes
 	* TODO: Remove note about documenting `p4-depot-find-file'
 
-2003-09-12  P T Withington <ptw@pobox.com>
+2003-09-12  P T Withington <ptw!@noSpam_LosEthIs@pobox.com>
 
 	* (p4-ediff2): New. Two ediff any two versions a file. Add to menu map
 	* (p4-ediff): Use `p4-ediff2' if called with prefix-arg
 
-2003-07-06  Daniel Brotsky  <dev@brotsky.com>
+2003-07-06  Daniel Brotsky  <dev!@noSpam_LosEthIs@brotsky.com>
 
 	Work around a problem in some emacsen wherein the PWD environment
 	variable is not updated on a per-buffer basis, thus confusing p4
@@ -33,21 +44,21 @@
 	so that this function correctly respects P4CONFIG.
 	* (p4-do-notify): changed to use the -d argument
 	
-2003-05-02  Peter Osterlund  <petero2@telia.com>
+2003-05-02  Peter Osterlund  <petero2!@noSpam_LosEthIs@telia.com>
 
 	* (p4-activate-diff-buffer): Create links for client and user
 	  names in p4-describe buffers.
 
-2002-10-24  Rajesh Vaidheeswarran  <rvgnu@usw-pr-shell1.sourceforge.net>
+2002-10-24  Rajesh Vaidheeswarran  <rvgnu!@noSpam_LosEthIs@usw-pr-shell1.sourceforge.net>
 
 	* (p4-version): Update to 10.2 for release
 
-2002-10-03  Peter Osterlund  <petero2@telia.com>
+2002-10-03  Peter Osterlund  <petero2!@noSpam_LosEthIs@telia.com>
 
 	* (p4-blame-int): Also include file revisions before a deleted
 	  revision in the blame computation.
 
-2002-10-02  Peter Osterlund  <petero2@telia.com>
+2002-10-02  Peter Osterlund  <petero2!@noSpam_LosEthIs@telia.com>
 
 	* (p4-blame-int): Bail out early instead of generating garbage if
 	  invoked with a non-existing file revision.
@@ -60,7 +71,7 @@
 	  as keys when looking up data in ch-alist. Revision numbers are
 	  not unique when more than one file is involved.
 
-2002-10-01  Peter Osterlund  <petero2@telia.com>
+2002-10-01  Peter Osterlund  <petero2!@noSpam_LosEthIs@telia.com>
 
 	* (p4-blame-int): Use correct filename when initializing the
 	  "p4-ch-buf" buffer.
@@ -69,12 +80,12 @@
 	  versions of emacs failed if you tricked them to fontify a binary
 	  file.
 
-2002-09-29  Peter Osterlund  <petero2@telia.com>
+2002-09-29  Peter Osterlund  <petero2!@noSpam_LosEthIs@telia.com>
 
 	* (p4-find-change-numbers): Handle the case "submit @1234" when
 	  searching for change numbers in change descriptions.
 
-2002-09-24  Peter Osterlund  <petero2@telia.com>
+2002-09-24  Peter Osterlund  <petero2!@noSpam_LosEthIs@telia.com>
 
 	* p4.el.html: Added documentation for the different key maps used
 	  by p4.el.
@@ -83,14 +94,14 @@
 	  C-l caused by hilit19 unnecessarily trying to rehighlight the
 	  buffer.
 
-2002-09-23  Peter Osterlund  <petero2@telia.com>
+2002-09-23  Peter Osterlund  <petero2!@noSpam_LosEthIs@telia.com>
 
 	* (p4-font-lock-buffer): New function. Colorize a buffer using
 	  font-lock mode.
 	* (p4-activate-print-buffer): Use p4-font-lock-buffer.
 	* (p4-print-with-rev-history-int): Use p4-font-lock-buffer.
 
-2002-09-22  Peter Osterlund  <petero2@telia.com>
+2002-09-22  Peter Osterlund  <petero2!@noSpam_LosEthIs@telia.com>
 
 	* (p4-print-with-rev-history-int): Fixed misaligned header text.
 
@@ -109,11 +120,11 @@
 	* (p4-print-with-rev-history-int): Tiny optimization. Only compute
 	  variable values if they are going to be used.
 
-2002-09-07  Peter Osterlund  <petero2@telia.com>
+2002-09-07  Peter Osterlund  <petero2!@noSpam_LosEthIs@telia.com>
 
 	* (p4-print-with-rev-history-int): Truncate long user names.
 
-2002-08-29  Peter Osterlund  <petero2@telia.com>
+2002-08-29  Peter Osterlund  <petero2!@noSpam_LosEthIs@telia.com>
 
 	* (p4-toggle-read-only): Updated docstring to match new "C-xC-q"
 	  handling from 2002-08-25.
@@ -130,12 +141,12 @@
 	  number of added characters a multiple of 8 to avoid messing up
 	  indentation for lines containing tabs.
 
-2002-08-28  Peter Osterlund  <petero2@telia.com>
+2002-08-28  Peter Osterlund  <petero2!@noSpam_LosEthIs@telia.com>
 
 	* (p4-print-with-rev-history-int): Declare local variable cur-list.
 	* (p4-blame): Fixed typo.
 
-2002-08-25  Peter Osterlund  <petero2@telia.com>
+2002-08-25  Peter Osterlund  <petero2!@noSpam_LosEthIs@telia.com>
 
 	Handle "C-xC-q" using a minor mode keymap instead of modifying the
 	global map. This lets p4.el coexist happily with "vc" without
@@ -145,18 +156,18 @@
 	* (p4-require-vc-p, p4-prev-toggle-fkn,
 	  substitute-key-definition): Removed.
 
-2002-08-24  Peter Osterlund  <petero2@telia.com>
+2002-08-24  Peter Osterlund  <petero2!@noSpam_LosEthIs@telia.com>
 
 	* (p4-prev-toggle-fkn, p4-exec-p4, substitute-key-definition): Do
 	  not autoload. Autoloading causes unnecessary overhead for those
 	  not using p4.el without really helping those who do use it.
 
-2002-08-05  Rajesh Vaidheeswarran  <rv@dsmit.com>
+2002-08-05  Rajesh Vaidheeswarran  <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-print-with-rev-history-int): Add Date and Author
 	* (p4-blame): Add Date and Author (but it doesn't seem to work!)
 
-2002-08-02  Peter Osterlund  <petero2@telia.com>
+2002-08-02  Peter Osterlund  <petero2!@noSpam_LosEthIs@telia.com>
 
 	* (p4-diff2): When invoking p4-diff2 interactively, default to
 	  showing the differences between the current rev and rev# minus
@@ -165,11 +176,11 @@
 	* (p4-prev-toggle-fkn): Mark for autoload, to make byte
 	  compilation from the xemacs source code possible.
 
-2002-08-01  Peter Osterlund  <petero2@telia.com>
+2002-08-01  Peter Osterlund  <petero2!@noSpam_LosEthIs@telia.com>
 
 	* Fixed some warnings during xemacs byte compilation.
 
-2002-07-31  Peter Osterlund  <petero2@telia.com>
+2002-07-31  Peter Osterlund  <petero2!@noSpam_LosEthIs@telia.com>
 
 	* (p4-activate-print-buffer), (p4-make-depot-list-buffer): Allow
 	  all characters in depot names, not just a-z and A-Z. Take
@@ -181,7 +192,7 @@
 
 	* (p4-is-vc): Removed unused variable 'max'.
 
-2002-07-27  Peter Osterlund  <petero2@telia.com>
+2002-07-27  Peter Osterlund  <petero2!@noSpam_LosEthIs@telia.com>
 
 	* (p4-empty-diff-p): Made non-interactive.
 
@@ -191,23 +202,23 @@
 
 	* Made loading of vc package optional.
 
-2002-07-26  Rajesh Vaidheeswarran <rv@dsmit.com>
+2002-07-26  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-diff-head): New command to diff an (un)opened
 	  file against the head revision in the depot.
 
-2002-07-26  Rajesh Vaidheeswarran <rv@dsmit.com>
+2002-07-26  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-emacs-version): Minor Release - 10.1
 
 	* (p4-maintainer): Fix email address
 
-	* Patch from  "Paul Krause" <pkrause@soundbite.com>
+	* Patch from  "Paul Krause" <pkrause!@noSpam_LosEthIs@soundbite.com>
 	    Update all buffers after a check-in without prompting the
 	    user yes-or-no for each buffer (a very nice thing when you're
 	    checking in 50 files at once).
 
-2002-07-26  Peter Osterlund  <petero2@telia.com>
+2002-07-26  Peter Osterlund  <petero2!@noSpam_LosEthIs@telia.com>
 
 	* (p4-check-mode): Made it possible to disable the periodic file
 	  modification check by setting p4-file-refresh-timer-time to 0.
@@ -217,13 +228,13 @@
 	  be bound to a key sequence, which can be handy if you have
 	  disabled the periodic file modification check.
 
-2002-07-26  Rajesh Vaidheeswarran <rv@dsmit.com>
+2002-07-26  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-emacs-version): First Sourceforge release - 10.0
 
 	* (p4-maintainer): Change to New sourceforge mailing address
 
-2002-07-26  Peter Osterlund  <petero2@telia.com>
+2002-07-26  Peter Osterlund  <petero2!@noSpam_LosEthIs@telia.com>
 
 	* (p4-current-client): If the p4-current-client function can't get
 	  the current client name from the environment or the $P4CONFIG
@@ -253,7 +264,7 @@
 	* (p4-get-add-branch-files): Optimized by not using the
 	  p4-read-depot-output function.
 
-2002-07-25  Peter Osterlund  <petero2@telia.com>
+2002-07-25  Peter Osterlund  <petero2!@noSpam_LosEthIs@telia.com>
 
 	* (p4-menu-def): Reordered code blocks to make xemacs work
 	  correctly.
@@ -315,26 +326,26 @@
 	  match on text in the description unless the
 	  isearch-open-invisible property is set (in xemacs, anyway)."
 
-2002-07-23  Rajesh Vaidheeswarran  <rv@dsmit.com>
+2002-07-23  Rajesh Vaidheeswarran  <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v9.1
 	* Lose the null device. New emacs requires nil to be
 	  passed into call-process.
 	* Set the default port to perforce:1666 per Perforce's docs.
 
-2000-08-02  Rajesh Vaidheeswarran  <rv@dsmit.com>
+2000-08-02  Rajesh Vaidheeswarran  <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v8.5
 
-2000-08-02  Axel Wienberg  <axel.wienberg@coremedia-ag.com>
+2000-08-02  Axel Wienberg  <axel.wienberg!@noSpam_LosEthIs@coremedia-ag.com>
 
 	* (p4-detect-p4): Fix the regexp for matching Windows drive letters.
 
-2000-06-09  Rajesh Vaidheeswarran  <rv@dsmit.com>
+2000-06-09  Rajesh Vaidheeswarran  <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v8.4
 
-2000-06-09  Peter Österlund <petero2@telia.com>
+2000-06-09  Peter Österlund <petero2!@noSpam_LosEthIs@telia.com>
 
 	* (p4-activate-diff-buffer): Optimized to generate fewer
 	extents. This can improve performance a lot for large diffs, at
@@ -356,35 +367,35 @@
 	* (p4-empty-diff-p): Fixed bug causing wrong return value
 	when no file was opened for edit.
 
-2000-06-07  Rajesh Vaidheeswarran  <rv@dsmit.com>
+2000-06-07  Rajesh Vaidheeswarran  <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* Change maintainer email address
 
-2000-06-07  Bryan O'Sullivan <bryan@bea.com>
+2000-06-07  Bryan O'Sullivan <bryan!@noSpam_LosEthIs@bea.com>
 
 	* (p4-submit): Added new defcustom `p4-check-empty-diffs' to
 	make the checks for empty diff user driven.
 
-2000-06-07  Mike Moretti" <mikemoretti@yahoo.com>
+2000-06-07  Mike Moretti" <mikemoretti!@noSpam_LosEthIs@yahoo.com>
 
 	* (p4-is-vc): Added check to ensure P4:Add shows up on
 	files that were added, and then visited later from emacs.
 
-2000-04-07  Rajesh Vaidheeswarran  <rv@dsmit.com>
+2000-04-07  Rajesh Vaidheeswarran  <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v8.3
 
-2000-04-02  Peter Österlund <petero2@telia.com>
+2000-04-02  Peter Österlund <petero2!@noSpam_LosEthIs@telia.com>
 
 	* General cleanup and typo fix.
 
 	* (p4-async-process-command): Fix for bug introduced in 8.2
 
-2000-02-24  Mark D. Anderson <mda@discerning.com>
+2000-02-24  Mark D. Anderson <mda!@noSpam_LosEthIs@discerning.com>
 
 	* (p4-detect-p4): Fix for infinite loop on windows
 
-2000-03-31  Rajesh Vaidheeswarran  <rv@dsmit.com>
+2000-03-31  Rajesh Vaidheeswarran  <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v8.2
 
@@ -395,26 +406,26 @@
 	* Modify all functions that use p4-executable directly to
 	use `p4-check-p4-executable' instead.
 
-1999-10-29  Rajesh Vaidheeswarran  <rv@dsmit.com>
+1999-10-29  Rajesh Vaidheeswarran  <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v8.1
 
-	* Take a tip from Noah Friedman <friedman@splode.com> and
+	* Take a tip from Noah Friedman <friedman!@noSpam_LosEthIs@splode.com> and
 	test for existence of `defcustom' and `defgroup' using fboundp
 	instead of assuming that these are not present in particular
 	flavors of emacs.
 
-1999-10-27  Rajesh Vaidheeswarran  <rv@dsmit.com>
+1999-10-27  Rajesh Vaidheeswarran  <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v8.0
 
 	* (p4-release-notes): Removed.
 
-1999/10/07  Rajesh Vaidheeswarran <rv@dsmit.com>
+1999/10/07  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* Code Re-organization.
 
-1999/07/03  Peter Österlund <petero2@telia.com>
+1999/07/03  Peter Österlund <petero2!@noSpam_LosEthIs@telia.com>
 
 	* Branched files are colored blue, like added files.
 
@@ -472,7 +483,7 @@
 	* Display a warning if the p4-submit command is invoked
 	when there exists a file opened for edit but with an empty diff.
 
-1999/05/19  Rajesh Vaidheeswarran <rv@dsmit.com>
+1999/05/19  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v7.8
 
@@ -481,13 +492,13 @@
 	hidden for users who don't want the output to show up during edits
 	and reverts.
 
-1999/05/10  Rajesh Vaidheeswarran <rv@dsmit.com>
+1999/05/10  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v7.7
 
 	* (p4-mode-hook): New hook, thanks to Christian Callsen.
 
-1999/05/06  Rajesh Vaidheeswarran <rv@dsmit.com>
+1999/05/06  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v7.6
 
@@ -511,7 +522,7 @@
 	* (p4-submit): command now accepts arguments. This makes "p4
 	submit -c changeno" work.
 
-1999/05/04  Rajesh Vaidheeswarran <rv@dsmit.com>
+1999/05/04  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v7.5
 
@@ -519,7 +530,7 @@
 	reported by the buffer is the same as the file on disk before
 	attempting to refresh.
 
-1999/05/01  Rajesh Vaidheeswarran <rv@dsmit.com>
+1999/05/01  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v7.4
 
@@ -528,7 +539,7 @@
 	this. All p4 buffers that have no modifications in them after last
 	save will automatically be refreshed.
 
-1999/04/13  Rajesh Vaidheeswarran <rv@dsmit.com>
+1999/04/13  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v7.3
 
@@ -539,13 +550,13 @@
 
 	* (p4-users): Peter Österlund added command completion.
 
-1999/04/05  Rajesh Vaidheeswarran <rv@dsmit.com>
+1999/04/05  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v7.2
 
 	* Peter Österlund fix - Make it work with 19.x again.
 
-1999/04/04  Rajesh Vaidheeswarran <rv@dsmit.com>
+1999/04/04  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v7.1
 
@@ -553,7 +564,7 @@
 
 	* Add web page redirector to menu bar.
 
-1999/04/04  Rajesh Vaidheeswarran <rv@dsmit.com>
+1999/04/04  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v7.0
 
@@ -562,13 +573,13 @@
 
 	* Indentation cleanup.
 
-1999/03/28  Rajesh Vaidheeswarran <rv@dsmit.com>
+1999/03/28  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v6.6
 
 	* (p4-get-client-root): Fix.
 
-1999/03/28  Rajesh Vaidheeswarran <rv@dsmit.com>
+1999/03/28  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v6.5
 
@@ -617,7 +628,7 @@
 	* (p4-read-arg-string): now also completes file names with
 	help from the new function `p4-file-name-completion'.
 
-1999/03/28  Rajesh Vaidheeswarran <rv@dsmit.com>
+1999/03/28  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v6.4
 
@@ -648,7 +659,7 @@
 
 	* Remove extraneous unused variables.
 
-1999/03/25  Rajesh Vaidheeswarran <rv@dsmit.com>
+1999/03/25  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v6.3
 
@@ -660,7 +671,7 @@
 	* Whitespace cleanup.
 
 
-1999/03/19  Rajesh Vaidheeswarran <rv@dsmit.com>
+1999/03/19  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v6.2
 
@@ -682,7 +693,7 @@
 	the menus. No shortcut key has been added since this is not a very
 	frequent operation.
 
-1999/03/19  Peter Österlund <petero2@telia.com>
+1999/03/19  Peter Österlund <petero2!@noSpam_LosEthIs@telia.com>
 
 	* (p4-create-active-link): Added. This makes it easier to
 	create clickable links and also removes a lot of duplicated code.
@@ -700,7 +711,7 @@
 	* Changed all `kill-region' to `delete-region' to avoid
 	trashing the kill ring.
 
-1999/03/19  Rajesh Vaidheeswarran <rv@dsmit.com>
+1999/03/19  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v6.1
 
@@ -728,7 +739,7 @@
 	from p4 info. Accepts strings on the left hand side of the `:' and
 	returns the string on the right hand side.
 
-1999/03/18  Rajesh Vaidheeswarran <rv@dsmit.com>
+1999/03/18  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v6.0
 
@@ -750,7 +761,7 @@
 	* Emacs can now detect P4 Submitted files, open in buffers,
 	and refresh them, using timers.
 
-1999/03/17  Rajesh Vaidheeswarran <rv@dsmit.com>
+1999/03/17  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v5.7
 
@@ -760,7 +771,7 @@
 	* (p4-branch), (p4-label): Added to edit branch and label
 	specifications from Emacs!
 
-1999/03/17  Rajesh Vaidheeswarran <rv@dsmit.com>
+1999/03/17  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v5.6
 
@@ -801,7 +812,7 @@
 	`p4-buffer-file-name-2' function to make the behaviour more
 	logical.
 
-1999/03/08  Rajesh Vaidheeswarran <rv@dsmit.com>
+1999/03/08  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v5.5
 
@@ -837,7 +848,7 @@
 	completion mechanism, and we use these functions internally in
 	`p4-make-depot-list-buffer' and `p4-map-depot-file'.
 
-1999/03/08  Rajesh Vaidheeswarran <rv@dsmit.com>
+1999/03/08  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v5.4
 
@@ -866,11 +877,11 @@
 	* (p4-depot-map-file): Added, exported. Can be used in other
 	libraries to test for a mapping of a given filespec.
 
-1999/03/02  Rajesh Vaidheeswarran <rv@dsmit.com>
+1999/03/02  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v5.3
 
-1999/03/02  Peter Österlund <petero2@telia.com>
+1999/03/02  Peter Österlund <petero2!@noSpam_LosEthIs@telia.com>
 
 	* Changed all local lambda keymap functions to global
 	functions, and now the documentation strings seem to work
@@ -882,7 +893,7 @@
 	* (p4-print): Modified to make buffers behave somewhat more
 	intelligently.
 
-1999/02/28  Rajesh Vaidheeswarran <rv@dsmit.com>
+1999/02/28  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v5.2
 
@@ -891,7 +902,7 @@
 
 	* Add a color for highlighting changes in context diffs.
 
-1999/02/27  Peter Österlund <petero2@telia.com>
+1999/02/27  Peter Österlund <petero2!@noSpam_LosEthIs@telia.com>
 
 	* (p4-filelog): Revert change from 5.1 since it was
 	incorrect.
@@ -902,7 +913,7 @@
 	* In the filelog buffers, the s and l keys for toggling
 	between short/long mode didn't work. Fix them.
 
-1999/02/28  Rajesh Vaidheeswarran <rv@dsmit.com>
+1999/02/28  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v5.1
 
@@ -912,7 +923,7 @@
 
 	* Whitespace cleanup.
 
-1999/02/27  Peter Österlund <petero2@telia.com>
+1999/02/27  Peter Österlund <petero2!@noSpam_LosEthIs@telia.com>
 
 	* (p4-changelog): New. In the same spirit as the
 	`p4-filelog' function.
@@ -950,7 +961,7 @@
 	* Added `p4-reopen', `p4-changes' and `p4-describe' to the
 	menus.
 
-1999/02/02  Rajesh Vaidheeswarran <rv@dsmit.com>
+1999/02/02  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v5.0
 
@@ -966,7 +977,7 @@
 	`switch-to-buffer-other-window' instead of `switch-to-buffer' to
 	maintain user's current context.
 
-1998/12/10  Rajesh Vaidheeswarran <rv@dsmit.com>
+1998/12/10  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v4.1
 
@@ -975,7 +986,7 @@
 	`p4-where' returns three values (//depot/path //client/path
 	//fs/path) instead of (//depot/path //client/path).
 
-1998/10/08  Rajesh Vaidheeswarran <rv@dsmit.com>
+1998/10/08  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v4.0
 
@@ -983,13 +994,13 @@
 	intent on setting local variables based on the current client's
 	root.
 
-1998/10/05  Rajesh Vaidheeswarran <rv@dsmit.com>
+1998/10/05  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v3.9
 
 	* (p4-edit) and (p4-diff): Now accept prefix-arguments.
 
-1998/08/07  Rajesh Vaidheeswarran <rv@dsmit.com>
+1998/08/07  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v3.8
 
@@ -997,7 +1008,7 @@
 	enable archiving at the ohio-state site
 	ftp.cis.ohio-state.edu:/pub/emacs-lisp/
 
-1998/07/23  Rajesh Vaidheeswarran <rv@dsmit.com>
+1998/07/23  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v3.7
 
@@ -1013,7 +1024,7 @@
 	* (p4-describe-bindings): Added. Bound to key `C-x p ?' that
 	lists all the key bindings in the p4 mode.
 
-1998/07/02  Rajesh Vaidheeswarran <rv@dsmit.com>
+1998/07/02  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v3.6
 
@@ -1035,7 +1046,7 @@
 	* (p4-opened-find-file): modified to work correctly in
 	Emacs.
 
-1998/06/20  Rajesh Vaidheeswarran <rv@dsmit.com>
+1998/06/20  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v3.5
 
@@ -1049,7 +1060,7 @@
 	* Print helpful message while submitting changes in async
 	processes.
 
-1998/06/19  Rajesh Vaidheeswarran <rv@dsmit.com>
+1998/06/19  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v3.4
 
@@ -1068,7 +1079,7 @@
 	* (p4-opened): Fix on NT Emacs. Now opens files from listing
 	produced by `p4-opened'.
 
-1998/06/17  Rajesh Vaidheeswarran <rv@dsmit.com>
+1998/06/17  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v3.3
 
@@ -1077,7 +1088,7 @@
 
 	* Added menu support for p4-opened.
 
-1998/06/12  Rajesh Vaidheeswarran <rv@dsmit.com>
+1998/06/12  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v3.2
 
@@ -1101,7 +1112,7 @@
 
 	* Added menu commands for setting/getting notification list.
 
-1998/06/11  Rajesh Vaidheeswarran <rv@dsmit.com>
+1998/06/11  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v3.1
 
@@ -1114,7 +1125,7 @@
 	* (p4-async-process-command): send output to
 	`p4-output-buffer-name' instead of sending it to the messages log.
 
-1998/06/11  Rajesh Vaidheeswarran <rv@dsmit.com>
+1998/06/11  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v3.0
 
@@ -1138,7 +1149,7 @@
 	* (p4-async-process-command): modified to take optional
 	parameter and `p4-submit' also now works within that framework.
 
-1998/06/10  Rajesh Vaidheeswarran <rv@dsmit.com>
+1998/06/10  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v2.7
 
@@ -1149,7 +1160,7 @@
 	editor client (gnuclient/emacsclient) can be done away
 	with. Thanks to Dima Barsky for the suggestion and sample code.
 
-1998/06/20  Rajesh Vaidheeswarran <rv@dsmit.com>
+1998/06/20  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v2.6
 
@@ -1163,7 +1174,7 @@
 	complain about `p4-mode' being void when called manually in non-p4
 	buffers.
 
-1998/06/09  Rajesh Vaidheeswarran <rv@dsmit.com>
+1998/06/09  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v2.5
 
@@ -1171,7 +1182,7 @@
 	VC. Revert to the normal behavior otherwise. This is done by
 	`p4-toggle-read-only'.
 
-1998/06/09  Rajesh Vaidheeswarran <rv@dsmit.com>
+1998/06/09  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v2.4
 
@@ -1180,7 +1191,7 @@
 
 	* Start a server, only if one is not already in place.
 
-1998/06/09  Rajesh Vaidheeswarran <rv@dsmit.com>
+1998/06/09  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v2.3
 
@@ -1197,7 +1208,7 @@
 	* (p4-set-p4-port), (p4-get-p4-port): to set and get the
 	current P4 server/port that we are attached to.
 
-1998/06/08  Rajesh Vaidheeswarran <rv@dsmit.com>
+1998/06/08  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v2.2
 
@@ -1211,7 +1222,7 @@
 	* Add p4-get-client-name and p4-set-client-name to the
 	menu.
 
-1998/06/08  Rajesh Vaidheeswarran <rv@dsmit.com>
+1998/06/08  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v2.1
 
@@ -1226,7 +1237,7 @@
 	* Add a lot of documentation to the variables, and cleanup
 	indentation in function documentation.
 
-1998/06/05  Rajesh Vaidheeswarran <rv@dsmit.com>
+1998/06/05  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v2.0
 
@@ -1269,7 +1280,7 @@
 	While compiling the end of the data:
 	  ** the function server-start is not known to be defined.
 
-1998/06/05  Rajesh Vaidheeswarran <rv@dsmit.com>
+1998/06/05  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v1.5
 
@@ -1291,13 +1302,13 @@
 
 	* Cleanup comments and a document some more functions.
 
-1998/06/04  Rajesh Vaidheeswarran <rv@dsmit.com>
+1998/06/04  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v1.4
 
 	* Split p4.el for Emacs and XEmacs
 
-1998/06/03  Rajesh Vaidheeswarran <rv@dsmit.com>
+1998/06/03  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v1.3
 
@@ -1321,7 +1332,7 @@
 
 	* (p4-output-buffer): Removed.
 
-1998/06/03  Rajesh Vaidheeswarran <rv@dsmit.com>
+1998/06/03  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v1.2
 
@@ -1342,13 +1353,13 @@
 	* Now supports RCS/CVS type vc revision level display on
 	mode line, and menu bar support.
 
-1998/02/24  Rajesh Vaidheeswarran <rv@dsmit.com>
+1998/02/24  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v1.1
 
 	* Cleanup and minor fixes.
 
-1997/03/27  Rajesh Vaidheeswarran <rv@dsmit.com>
+1997/03/27  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
 	* (p4-version): v1.0
 
@@ -1356,6 +1367,6 @@
 
 	* Applied GNU GPL to the file.
 
-1996/??/??  Eric Promislow <promislo@cse.ogi.edu>
+1996/??/??  Eric Promislow <promislo!@noSpam_LosEthIs@cse.ogi.edu>
 
 	* Created.

@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.65 2003/09/12 17:30:44 rvgnu Exp $
+;; $Id: p4.el,v 1.66 2004/05/18 14:52:11 rvgnu Exp $
 
 ;;; Commentary:
 ;;
@@ -30,7 +30,7 @@
 ;; LCD Archive Entry:
 ;; p4|Rajesh Vaidheeswarran|rv@NoSpAm.lOsEtHiS.dsmit.com|
 ;; P4 SCM Integration into Emacs/XEmacs|
-;; 2003/09/12|10.3|not_assigned_yet|
+;; 2004/05/18|10.4|not_assigned_yet|
 
 ;; WARNING:
 ;; --------
@@ -64,7 +64,7 @@
 
 ;;; Code:
 
-(defvar p4-emacs-version "10.3" "The Current P4-Emacs Integration Revision.")
+(defvar p4-emacs-version "10.4" "The Current P4-Emacs Integration Revision.")
 
 ;; Find out what type of emacs we are running in. We will be using this
 ;; quite a few times in this program.
@@ -1235,17 +1235,21 @@ name and a client name."
       (delete-region pmin (point-max)))
     files))
 
-(make-face 'p4-depot-unmapped-face)
-(set-face-foreground 'p4-depot-unmapped-face "grey30")
+(defun p4-make-face (face-name fg bg)
+  "Creates a new face if it does not already exist."
+  (let ((face (find-face face-name)))
+    (cond
+     ((null face)
+      (make-face face-name)
+      (if (not (null bg))
+	  (set-face-background face-name bg) t)
+      (if (not (null fg))
+	  (set-face-foreground face-name fg) t)))))
 
-(make-face 'p4-depot-deleted-face)
-(set-face-foreground 'p4-depot-deleted-face "red")
-
-(make-face 'p4-depot-added-face)
-(set-face-foreground 'p4-depot-added-face "blue")
-
-(make-face 'p4-depot-branch-op-face)
-(set-face-foreground 'p4-depot-branch-op-face "blue4")
+(p4-make-face 'p4-depot-unmapped-face "grey30" nil)
+(p4-make-face 'p4-depot-deleted-face "red" nil)
+(p4-make-face 'p4-depot-added-face "blue" nil)
+(p4-make-face 'p4-depot-branch-op-face "blue4" nil)
 
 (defun p4-make-depot-list-buffer (bufname &optional print-buffer)
   "Take the p4-output-buffer-name buffer, rename it to bufname, and
@@ -2125,20 +2129,11 @@ character events"
 
 
 ;; Activate special handling for a buffer generated with a diff-like command
-(make-face 'p4-diff-file-face)
-(set-face-background 'p4-diff-file-face "gray90")
-
-(make-face 'p4-diff-head-face)
-(set-face-background 'p4-diff-head-face "gray95")
-
-(make-face 'p4-diff-ins-face)
-(set-face-foreground 'p4-diff-ins-face "blue")
-
-(make-face 'p4-diff-del-face)
-(set-face-foreground 'p4-diff-del-face "red")
-
-(make-face 'p4-diff-change-face)
-(set-face-foreground 'p4-diff-change-face "dark green")
+(p4-make-face 'p4-diff-file-face nil "gray90")
+(p4-make-face 'p4-diff-head-face nil "gray95")
+(p4-make-face 'p4-diff-ins-face "blue" nil)
+(p4-make-face 'p4-diff-del-face "red" nil)
+(p4-make-face 'p4-diff-change-face "dark green" nil)
 
 (defun p4-buffer-set-face-property (regexp face-property)
   (save-excursion
