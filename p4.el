@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.72 2005/03/26 22:06:13 petero2 Exp $
+;; $Id: p4.el,v 1.73 2005/03/26 22:08:46 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -3770,47 +3770,6 @@ that."
 		    (goto-char (point-max))))))))
     (kill-buffer buffer)
     empty-diff))
-
-;; this next chunk is not currently used, but my plan is to
-;; reintroduce it as configurable bury-or-kill-on-q behaviour:
-
-;; (defcustom p4-blame-2ary-disp-method 'default
-;;   "Method to use when displaying p4-blame secondary buffers
-;;    (currently change and rev buffers)
-
-;;    new-frame   --  pop a new frame for the buffer
-;;    new-window  --  create a new window for the buffer
-;;    default     --  just do what `display-buffer' would do
-
-;;    Any other value is equivalent to default."
-;;   :type '(radio (const default) (const  new-frame) (const new-window))
-;;   :group 'p4)
-
-(defun p4-blame-kill-blame ()
-  "Don\'t ask any questions, just kill the current buffer"
-  (interactive)
-  (set-buffer-modified-p nil)
-  (kill-buffer (current-buffer)))
-
-(defun p4-blame-secondary-buffer-cleanup ()
-  "Attempt to clean up a` p4-blame' secondary buffer neatly, deleting
-windows or frames when we think that\'s necessary"
-  (let* ((this-buffer (current-buffer))
-	 (this-window (get-buffer-window this-buffer t)))
-    (cond
-     ;; in new-frame mode, delete the frame
-     ((eq p4-blame-2ary-disp-method 'new-frame)
-      (if (one-window-p 'ignore-minibuffer 'just-this-frame)
-	  (delete-frame (window-frame this-window))
-	(delete-window this-window)) t)
-     ;; in new-window mode, just zap the window,
-     ;; provided it is not the only one:
-     ((eq p4-blame-2ary-disp-method 'new-window)
-      (if (not (one-window-p 'ignore-minibuffer 'just-this-frame))
-	  (delete-window this-window)) t)
-     ;; any other mode, nothing special need be done
-     (t
-      t))))
 
 (defp4cmd p4-passwd ()
   "passwd" "To set the user's password on the server, type \\[p4-passwd].\n"

@@ -4,6 +4,8 @@
 	support for the corresponding p4 commands.
 	* (p4-exec-p4): Added support for automatic login when needed.
 	* Removed trailing whitespace.
+	* (p4-blame-kill-blame, p4-blame-secondary-buffer-cleanup):
+	Removed unused code.
 
 2004-06-11  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
