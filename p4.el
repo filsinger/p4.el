@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.4 2002/07/24 22:31:19 petero2 Exp $
+;; $Id: p4.el,v 1.5 2002/07/24 22:49:07 petero2 Exp $
 
 ;;; Commentary:
 ;;
@@ -645,10 +645,14 @@ controlled files."
 (defun p4-noinput-buffer-action (cmd
 				 do-revert
 				 show-output
-				 &optional arguments)
+				 &optional arguments preserve-buffer)
   "Internal function called by various p4 commands."
   (save-excursion
     (save-excursion
+      (if (not preserve-buffer)
+	  (progn
+	    (get-buffer-create p4-output-buffer-name);; We do these two lines
+	    (kill-buffer p4-output-buffer-name)))      ;; to ensure no duplicates
       (p4-exec-p4 (get-buffer-create p4-output-buffer-name)
 		  (append (list cmd) arguments)
 		  t))
@@ -923,8 +927,6 @@ When visiting a depot file, type \\[p4-diff2] and enter the versions.\n"
   (let ((p4-filelog-buffer
 	 (concat "*P4 " cmd ": "
 		 (p4-list-to-string file-list-spec) "*")))
-    (get-buffer-create p4-output-buffer-name);; We do these two lines
-    (kill-buffer p4-output-buffer-name);; to ensure no duplicates
     (p4-noinput-buffer-action cmd nil t (cons "-l" file-list-spec))
     (p4-activate-file-change-log-buffer p4-filelog-buffer)))
 
@@ -1007,8 +1009,6 @@ When visiting a depot file, type \\[p4-diff2] and enter the versions.\n"
 	(setq args (p4-make-list-from-string
 		    (p4-read-arg-string "p4 files: " (p4-buffer-file-name-2))))
       (setq args (list args)))
-    (get-buffer-create p4-output-buffer-name);; We do these two lines
-    (kill-buffer p4-output-buffer-name);; to ensure no duplicates
     (p4-noinput-buffer-action "files" nil t args)
     (save-excursion
       (set-buffer p4-output-buffer-name)
@@ -1256,6 +1256,8 @@ type \\[p4-print-with-rev-history]"
     (p4-print-with-rev-history-int arg-string)))
 
 (defun p4-print-with-rev-history-int (file-spec)
+  (get-buffer-create p4-output-buffer-name);; We do these two lines
+  (kill-buffer p4-output-buffer-name)      ;; to ensure no duplicates
   (let ((file-name file-spec)
 	(buffer (get-buffer-create p4-output-buffer-name))
 	change head-rev fullname headseen ch-alist)
@@ -1354,7 +1356,8 @@ type \\[p4-print-with-rev-history]"
 	  (setq tmp-alst (cdr tmp-alst))))
       (p4-noinput-buffer-action "print" nil t
 				(list (concat fullname "#" (int-to-string
-							    head-rev))))
+							    head-rev)))
+				t)
       (let (line rev ch (old-rev 0))
 	(save-excursion
 	  (set-buffer buffer)
@@ -1432,8 +1435,6 @@ This is equivalent to \"sync -f\"
     (if current-prefix-arg
 	(setq args (p4-make-list-from-string
 		    (p4-read-arg-string "p4 have: " (p4-buffer-file-name-2)))))
-    (get-buffer-create p4-output-buffer-name) ;; We do these two lines
-    (kill-buffer p4-output-buffer-name)	      ;; to ensure no duplicates
     (p4-noinput-buffer-action "have" nil t args)
     (p4-make-depot-list-buffer
      (concat "*P4 Have: (" (p4-current-client) ") " (car args) "*"))))
@@ -1949,8 +1950,6 @@ character events"
 
 ;; Internal version of the p4 describe command
 (defun p4-describe-internal (arg-string)
-  (get-buffer-create p4-output-buffer-name) ;; We do these two lines
-  (kill-buffer p4-output-buffer-name)	    ;; to ensure no duplicates
   (p4-noinput-buffer-action
    "describe" nil t arg-string)
   (p4-activate-diff-buffer
@@ -1970,8 +1969,6 @@ character events"
 
 (defun p4-opened-internal (args)
   (let ((p4-client (p4-current-client)))
-    (get-buffer-create p4-output-buffer-name) ;; We do these two lines
-    (kill-buffer p4-output-buffer-name)	      ;; to ensure no duplicates
     (p4-noinput-buffer-action "opened" nil t args)
     (p4-make-depot-list-buffer (concat "*Opened Files: " p4-client "*"))))
 
@@ -2043,8 +2040,6 @@ character events"
 	(setq args (p4-make-list-from-string
 		    (p4-read-arg-string "p4 where: "
 					(p4-buffer-file-name-2)))))
-    (get-buffer-create p4-output-buffer-name) ;; We do these two lines
-    (kill-buffer p4-output-buffer-name)	      ;; to ensure no duplicates
     (p4-noinput-buffer-action "where" nil 's args)))
 
 

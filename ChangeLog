@@ -2,9 +2,15 @@
 
 	* (p4-menu-def): Reordered code blocks to make xemacs work
 	  correctly.
+
 	* (p4-activate-diff-buffer): Simplified regexp to avoid regexp
 	  stack overflow when there are a lot of changes in the same
 	  file.
+
+	* Fixed problem when switching between different clients using the
+	  $P4CONFIG facility. When executing some p4.el commands, an old
+	  p4-output-buffer was not deleted, which had the effect that some
+	  p4 commands were executed with the wrong current directory.
 
 2002-07-23  Rajesh Vaidheeswarran  <rv@dsmit.com>
 
