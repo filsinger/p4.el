@@ -1,6 +1,6 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 ;;
-;; $Id: p4.el,v 1.68 2004/06/12 00:46:26 rvgnu Exp $
+;; $Id: p4.el,v 1.69 2004/06/12 01:15:00 rvgnu Exp $
 
 ;;; Commentary:
 ;;
@@ -30,7 +30,7 @@
 ;; LCD Archive Entry:
 ;; p4|Rajesh Vaidheeswarran|rv@NoSpAm.lOsEtHiS.dsmit.com|
 ;; P4 SCM Integration into Emacs/XEmacs|
-;; 2004/06/11|10.6|not_assigned_yet|
+;; 2004/06/11|10.7|not_assigned_yet|
 
 ;; WARNING:
 ;; --------
@@ -55,7 +55,7 @@
 ;; This creates a binary file p4.elc in the path. Add the path to your
 ;; load-path variable in .emacs like this:
 ;;
-;; (setq load-path (cons "/full/path/to/file" load-path))
+;; (setq load-path (cons "/full/path/to/dir/containing/file" load-path))
 ;;
 ;; Then add the library like this:
 ;;
@@ -64,7 +64,7 @@
 
 ;;; Code:
 
-(defvar p4-emacs-version "10.6" "The Current P4-Emacs Integration Revision.")
+(defvar p4-emacs-version "10.7" "The Current P4-Emacs Integration Revision.")
 
 ;; Find out what type of emacs we are running in. We will be using this
 ;; quite a few times in this program.
@@ -1155,7 +1155,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
 	      (progn
 		(goto-char pmin)
 		(re-search-forward
-		 "^Server version: .*\/.*\/\\(\\([0-9]+\\)\.[0-9]+\\)\/.*(.*)$")
+		 "^Server version: .*\/.*\/\\(\\([0-9]+\\)\.[0-9]+\\).*\/.*(.*)$")
 		(setq ser-ver (string-to-number (match-string 2)))
 		(setq p4-server-version-cache (cons (cons p4-port ser-ver)
 						    p4-server-version-cache))

@@ -1,5 +1,11 @@
 2004-06-11  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
 
+	* (p4-version): Bump to 10.7
+	* Documentation fixes.
+	* (p4-get-server-version): Fix regexp to be less picky
+
+2004-06-11  Rajesh Vaidheeswarran <rv!@noSpam_LosEthIs@dsmit.com>
+
 	* (p4-version): Bump to 10.6
 	* (p4-follow-link-name): Add check for cygwin
 	* (p4-cygpath): New function to do cygwin path mangling
