@@ -40,7 +40,8 @@ this package would not be what it is today.
 <p>
 <B>The files are now released under the <a href="http://sourceforge.net/project/showfiles.php?group_id=58201">Sourceforge Release System</a></B>
 <p>
-A helpful guide to p4.el is available <a href="p4.el.html">here.</a>
+A helpful guide to p4.el is available <a href="p4.el.html">here</a>, thanks
+to our users.
 <p>
 <b>Other Interesting Links</b>
 <ul>
@@ -72,6 +73,6 @@ Explorer Screen shots (<?php echo $p4explorer_ss_size; ?>KB)</a>
 <p>
 <A href="http://sourceforge.net"> <IMG src="http://sourceforge.net/sflogo.php?group_id=58201&amp;type=5" width="210" height="62" border="0" alt="SourceForge Logo"></A> 
 <hr>
-Last Updated: $Revision: 1.4 $ on $Date: 2002/07/26 16:39:13 $
+Last Updated: $Revision: 1.5 $ on $Date: 2002/07/26 20:23:09 $
 </body>
 </html>
