@@ -1,3 +1,7 @@
+2002-09-07  Peter Osterlund  <petero2@telia.com>
+
+	* (p4-print-with-rev-history-int): Truncate long user names.
+
 2002-08-29  Peter Osterlund  <petero2@telia.com>
 
 	* (p4-toggle-read-only): Updated docstring to match new "C-xC-q"
