@@ -39,6 +39,10 @@
 	* (p4-map-depot-files-int): Quote client related strings when
 	  using them in regexps.
 
+	* (p4-async-process-command): Set the buffer-offer-save variable
+	  to minimize the risk of losing data by accidentally hitting "C-x
+	  C-c".
+
 2002-07-23  Rajesh Vaidheeswarran  <rv@dsmit.com>
 
 	* (p4-version): v9.1
