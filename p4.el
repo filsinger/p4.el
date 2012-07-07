@@ -2995,7 +2995,7 @@ making the file writable and write protected."
 	(p4-edit p4-verbose)
       (p4-revert p4-verbose)))
    (p4-offline-mode
-    (toggle-read-only)
+	(setq buffer-read-only (not buffer-read-only)) ;; this used to be  (toggle-read-only), but toggle-read-only shouldnt be called from elsip... lets hope this works.
     (if buffer-file-name
 	(let ((mode (file-modes buffer-file-name)))
 	  (if buffer-read-only
@@ -3044,7 +3044,10 @@ making the file writable and write protected."
 
 (defun p4-cygpath (name)
   (if (memq system-type '(cygwin32))
-      (replace-in-string (exec-to-string (format "%s -w %s" p4-cygpath-exec name)) "\n" "")
+	  (if (featurep 'xemacs)
+	   (replace-in-string (exec-to-string (format "%s -w %s" p4-cygpath-exec name)) "\n" "")
+	   (replace-regexp-in-string "\n" "" (shell-command-to-string (format "%s -w %s" p4-cygpath-exec name)) )
+	   )
     name))
 
 (defvar p4-depot-filespec-history nil
