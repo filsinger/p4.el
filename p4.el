@@ -288,12 +288,6 @@ between them, that text will be marked with this face."
 	    "Face used for files deleted from the depot."
 	    :group 'p4-faces)
 
-
-;; Now add a hook to find-file-hooks
-(add-hook 'find-file-hooks 'p4-find-file-hook)
-;; .. and one to kill-buffer-hook
-(add-hook 'kill-buffer-hook 'p4-kill-buffer-hook)
-
 ;; Tell Emacs about this new kind of minor mode
 (defvar p4-mode nil "Is this file under p4?")
 (make-variable-buffer-local 'p4-mode)
@@ -3658,6 +3652,12 @@ that."
 
 (define-derived-mode p4-basic-list-mode p4-basic-mode "P4 Basic List"
   (setq font-lock-defaults '(p4-basic-list-font-lock-keywords t)))
+
+;; Now add a hook to find-file-hooks
+(add-hook 'find-file-hooks 'p4-find-file-hook)
+;; .. and one to kill-buffer-hook
+(add-hook 'kill-buffer-hook 'p4-kill-buffer-hook)
+
 
 (provide 'p4)
 
