@@ -1,5 +1,0 @@
-- Add a new p4-diff-head command that diffs unopened files against file#head
-- Document how prefix arguments work
-- Add p4-annotate command. We should be able to use that in p4-blame
-  since it seems more efficient. If only we could use python
-  dictionaries from inside emacs - this would be a 5 liner
