@@ -696,9 +696,10 @@ controlled files."
       val))
 
   (defun p4-help-text (cmd text)
-    (concat text 
+    (concat text
 	    (with-temp-buffer
 	      (if (and p4-include-help-to-command-docstring
+			   (stringp p4-executable)
 		       (file-executable-p p4-executable)
 		       (zerop (call-process p4-executable nil t nil "help" cmd)))
 		  (buffer-substring (point-min) (point-max))
@@ -753,7 +754,7 @@ controlled files."
   (p4-simple-command cmd args)
   (when (p4-buffer-file-name)
     (revert-buffer t t)))
-  
+
 (defun p4-call-command-process-filter (proc string)
   "Process filter for `p4-call-command'. Keep point position if `bobp'."
   (let ((buffer (process-buffer proc)))
@@ -780,7 +781,7 @@ controlled files."
 	    (goto-char (process-mark process))
 	    (insert "Process " (process-name process) " " message)
 	    (set-marker (process-mark process) (point)))
-	  (ding))	  
+	  (ding))
 	(set-buffer-modified-p nil)))))
 
 (defun p4-call-command (cmd args buffer-name &optional mode callback)
