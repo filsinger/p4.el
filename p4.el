@@ -23,9 +23,6 @@
 ;;    You should have received a copy of the GNU General Public License
 ;;    along with this program; if not, write to the Free Software
 ;;    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-;;
-;;    If you have any problems to report, or suggestions, please send them
-;;    to p4el-bugs@lists.sourceforge.net
 
 ;; LCD Archive Entry:
 ;; p4|Rajesh Vaidheeswarran|rv@NoSpAm.lOsEtHiS.dsmit.com|
@@ -59,48 +56,31 @@
 ;;
 ;; Then add the library like this:
 ;;
-;; (load-library "p4")
+;; (require 'p4)
+;; (define-key global-map "\C-cp" 'p4-prefix-map)
 ;;
 
 ;;; Code:
+
+(require 'comint)
+(require 'dired)
+(require 'easymenu)
+(require 'ediff)
+(require 'timer)
+(eval-when-compile
+  (require 'cl))
 
 (defvar p4-emacs-version "10.7" "The Current P4-Emacs Integration Revision.")
 
 ;; Find out what type of emacs we are running in. We will be using this
 ;; quite a few times in this program.
-(eval-and-compile
-  (defvar p4-running-emacs nil
-    "If the current Emacs is not XEmacs, then, this is non-nil.")
-  (defvar p4-running-xemacs nil
-    "If the current Emacs is XEmacs/Lucid, then, this is non-nil.")
-  (if (string-match "XEmacs\\|Lucid" emacs-version)
-      (setq p4-running-xemacs t)
-    (setq p4-running-emacs t)))
-
-;; Pick up a couple of missing function defs
-(if p4-running-xemacs
-    (eval-when-compile
-      (require 'timer)
-      (require 'dired)))
-
-(defvar p4-emacs-maintainer
-  "p4.el maintainers <p4el-bugs@lists.sourceforge.net>"
-  "The maintainer(s) of the emacs-p4 integration. Used for bug reports.")
-
-(defvar p4-web-page "http://p4el.sourceforge.net/" "The home of p4.el.")
-
-;; For flavors of Emacs which don't define `defgroup' and `defcustom'.
-(eval-when-compile
-  (if (not (fboundp 'defgroup))
-      (defmacro defgroup (sym memb doc &rest args)
-	"Null macro for defgroup in all versions of Emacs that don't define
-defgroup"
-	t))
-  (if (not (fboundp 'defcustom))
-      (defmacro defcustom (sym val doc &rest args)
-	"Macro to alias defcustom to defvar in all versions of Emacs that
-don't define defcustom"
-	`(defvar ,sym ,val ,doc))))
+(defvar p4-running-emacs nil
+  "If the current Emacs is not XEmacs, then, this is non-nil.")
+(defvar p4-running-xemacs nil
+  "If the current Emacs is XEmacs/Lucid, then, this is non-nil.")
+(if (string-match "XEmacs\\|Lucid" emacs-version)
+    (setq p4-running-xemacs t)
+  (setq p4-running-emacs t))
 
 (defgroup p4 nil "Perforce VC System." :group 'tools)
 
@@ -172,7 +152,7 @@ This provides for a much faster `p4-find-file-hook'."
   :group 'p4)
 
 ;; Check for empty diffs at submit time
-(defcustom p4-check-empty-diffs t
+(defcustom p4-check-empty-diffs nil
   "Set this to check for files with empty diffs before submitting."
   :type 'boolean
   :group 'p4)
@@ -194,8 +174,7 @@ command."
   :type 'sexp
   :group 'p4)
 
-(eval-and-compile
-  (defvar p4-output-buffer-name "*P4 Output*" "P4 Output Buffer."))
+(defvar p4-output-buffer-name "*P4 Output*" "P4 Output Buffer.")
 
 ;; Set this variable in .emacs if you want p4-set-client-name to complete
 ;; your client name for you.
@@ -255,6 +234,61 @@ within emacs."
   :type 'boolean
   :group 'p4)
 
+(defface p4-diff-file-face
+	    '((((class color) (background light)) (:background "gray90"))
+	      (((class color) (background dark)) (:background "gray10")))
+	    "Face used for file pathnames in difference buffers."
+	    :group 'p4-faces)
+
+(defface p4-diff-head-face
+	    '((((class color) (background light)) (:background "gray95"))
+	      (((class color) (background dark)) (:background "gray5")))
+	    "Face used for ?"
+	    :group 'p4-faces)
+
+(defface p4-diff-inserted-face
+	    '((((class color) (background light)) (:foreground "blue"))
+	      (((class color) (background dark)) (:foreground "cyan")))
+	    "Face used for new (inserted) text in difference buffers.
+When the newer revision contains text not in the older revision, that text will
+be marked with this face."
+	    :group 'p4-faces)
+
+(defface p4-diff-deleted-face
+	    '((((class color) (background light)) (:foreground "red"))
+	      (((class color) (background dark)) (:foreground "pink")))
+	    "Face used for old (deleted) text in difference buffers.
+When the older revision contains text not in the newer revision, that text will
+be marked with this face."
+	    :group 'p4-faces)
+
+(defface p4-diff-changed-face
+	    '((((class color) (background light)) (:foreground "dark green"))
+	      (((class color) (background dark)) (:foreground "light green")))
+	    "Face used for changed text in difference buffers.
+When a section of text is in both the newer and older revision, but differs
+between them, that text will be marked with this face."
+	    :group 'p4-faces)
+
+(defface p4-depot-branched-face
+	    '((((class color) (background light)) (:foreground "blue4"))
+	      (((class color) (background dark)) (:foreground "sky blue")))
+	    "Face used for branched files."
+	    :group 'p4-faces)
+
+(defface p4-depot-added-face
+	    '((((class color) (background light)) (:foreground "blue"))
+	      (((class color) (background dark)) (:foreground "cyan")))
+	    "Face used for files added to the depot."
+	    :group 'p4-faces)
+
+(defface p4-depot-deleted-face
+	    '((((class color) (background light)) (:foreground "red"))
+	      (((class color) (background dark)) (:foreground "pink")))
+	    "Face used for files deleted from the depot."
+	    :group 'p4-faces)
+
+
 ;; Now add a hook to find-file-hooks
 (add-hook 'find-file-hooks 'p4-find-file-hook)
 ;; .. and one to kill-buffer-hook
@@ -288,29 +322,15 @@ within emacs."
     (setq minor-mode-map-alist
 	  (cons '(p4-offline-mode . p4-minor-map) minor-mode-map-alist)))
 
-(defvar p4-async-minor-mode nil
-  "The minor mode for editing p4 asynchronous command buffers.")
-(make-variable-buffer-local 'p4-async-minor-mode)
-(defvar p4-async-minor-map (make-sparse-keymap) "Keymap for p4 async minor mode")
-(fset 'p4-async-minor-map p4-async-minor-map)
+(defvar p4-form-current-command nil)
+(make-variable-buffer-local 'p4-form-current-command)
+(put 'p4-form-current-command 'permanent-local t)
+(set-default 'p4-form-current-command nil)
 
-(or (assoc 'p4-async-minor-mode minor-mode-alist)
-    (setq minor-mode-alist
-	  (cons '(p4-async-minor-mode " P4") minor-mode-alist)))
-
-(or (assoc 'p4-async-minor-mode minor-mode-map-alist)
-    (setq minor-mode-map-alist
-	  (cons '(p4-async-minor-mode . p4-async-minor-map) minor-mode-map-alist)))
-
-(defvar p4-current-command nil)
-(make-variable-buffer-local 'p4-current-command)
-(put 'p4-current-command 'permanent-local t)
-(set-default 'p4-current-command nil)
-
-(defvar p4-current-args nil)
-(make-variable-buffer-local 'p4-current-args)
-(put 'p4-current-args 'permanent-local t)
-(set-default 'p4-current-args nil)
+(defvar p4-form-current-args nil)
+(make-variable-buffer-local 'p4-form-current-args)
+(put 'p4-form-current-args 'permanent-local t)
+(set-default 'p4-form-current-args nil)
 
 ;; To check if the current buffer's modeline and menu need to be altered
 (defvar p4-vc-check nil)
@@ -322,8 +342,6 @@ within emacs."
   "List of functions to be called after a p4 client is changed.
 The buffer's local variables (if any) will have been processed before the
 functions are called.")
-
-(if p4-running-emacs (require 'timer))
 
 (defvar p4-timer nil "Timer object that will be set to cleanup the caches
 periodically.")
@@ -351,10 +369,6 @@ variable to 0 to disable periodic refreshing."
   :type 'integer
   :group 'p4)
 
-(defvar p4-async-command-hook nil
-  "This hook is run after an async buffer has been set up by
-`p4-async-process-command'")
-
 (defvar p4-window-config-stack nil
   "Stack of saved window configurations.")
 
@@ -368,7 +382,7 @@ arguments to p4 commands."
   :type 'integer
   :group 'p4)
 
-(defvar p4-basic-map
+(defvar p4-basic-mode-map
   (let ((map (make-sparse-keymap)))
     (cond (p4-running-xemacs
 	   (define-key map [button2] 'p4-buffer-mouse-clicked)
@@ -376,12 +390,16 @@ arguments to p4 commands."
 	  (p4-running-emacs
 	   (define-key map [mouse-2] 'p4-buffer-mouse-clicked)
 	   (define-key map [mouse-3] 'p4-buffer-mouse-clicked-3)))
-    (define-key map [return] 'p4-buffer-commands)
-    (define-key map "\r" 'p4-buffer-commands)
+    (define-key map "\t" 'p4-forward-active-link)
+    (define-key map "\e\t" 'p4-backward-active-link)
+    (define-key map [(shift tab)] 'p4-backward-active-link)
+    (define-key map "\C-m" 'p4-buffer-commands)
     (define-key map "q"	 'p4-quit-current-buffer)
     (define-key map "k"	 'p4-scroll-down-1-line)
     (define-key map "j"	 'p4-scroll-up-1-line)
     (define-key map "b"	 'p4-scroll-down-1-window)
+    (define-key map "n"	 'next-line)
+    (define-key map "p"	 'previous-line)
     (define-key map [backspace] 'p4-scroll-down-1-window)
     (define-key map " "	 'p4-scroll-up-1-window)
     (define-key map "<"	 'p4-top-of-buffer)
@@ -389,17 +407,43 @@ arguments to p4 commands."
     (define-key map "="	 'p4-delete-other-windows)
     map))
 
+(define-derived-mode p4-basic-mode nil "P4 Basic")
+
+(defface p4-form-comment-face
+  '((t :inherit font-lock-comment-face))
+  "Face for comment in P4 form mode."
+  :group 'p4-faces)
+(defvar p4-form-comment-face 'p4-form-comment-face)
+
+(defface p4-form-keyword-face
+  '((t :inherit font-lock-keyword-face))
+  "Face for keyword in P4 form mode."
+  :group 'p4-faces)
+(defvar p4-form-keyword-face 'p4-form-keyword-face)
+
+(defvar p4-form-font-lock-keywords
+  '(("^#.*$" . p4-form-comment-face)
+    ("^\\w+:" . p4-form-keyword-face)))
+
+(defvar p4-form-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "\C-c\C-c" 'p4-form-commit)
+    map)
+  "Keymap for P4 form mode.")
+
+(define-derived-mode p4-form-mode indented-text-mode "P4 Form"
+  "Major mode for P4 form derived from `indented-text-mode'"
+  (setq fill-column 80
+	indent-tabs-mode t
+	font-lock-defaults '(p4-form-font-lock-keywords t)))
+
 (defun p4-make-derived-map (base-map)
-  (let (map)
-    (cond (p4-running-xemacs
-	   (setq map (make-sparse-keymap))
-	   (set-keymap-parents map (list base-map)))
-	  (p4-running-emacs
-	   (setq map (cons 'keymap base-map))))
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map base-map)
     map))
 
-(defvar p4-filelog-map
-  (let ((map (p4-make-derived-map p4-basic-map)))
+(defvar p4-filelog-mode-map
+  (let ((map (p4-make-derived-map p4-basic-mode-map)))
     (define-key map "d"	 'p4-diff2)
     (define-key map "f"	 'p4-find-file-other-window)
     (define-key map "s"	 'p4-filelog-short-format)
@@ -418,16 +462,10 @@ arguments to p4 commands."
     map)
   "The key map to use for selecting filelog properties.")
 
-(defvar p4-opened-map
-  (let ((map (p4-make-derived-map p4-basic-map)))
-    (define-key map "n"	 'p4-next-depot-file)
-    (define-key map "p"	 'p4-prev-depot-file)
-    (define-key map "N" (lookup-key map "p"))
-    map)
-  "The key map to use for selecting opened files.")
+(define-derived-mode p4-filelog-mode p4-basic-mode "P4 File Log")
 
-(defvar p4-diff-map
-  (let ((map (p4-make-derived-map p4-basic-map)))
+(defvar p4-diff-mode-map
+  (let ((map (p4-make-derived-map p4-basic-mode-map)))
     (define-key map "n"	 'p4-goto-next-diff)
     (define-key map "p"	 'p4-goto-prev-diff)
     (define-key map "N" (lookup-key map "p"))
@@ -435,8 +473,10 @@ arguments to p4 commands."
     (define-key map "u"	 'p4-prev-depot-diff)
     map))
 
-(defvar p4-print-rev-map
-  (let ((map (p4-make-derived-map p4-basic-map)))
+(define-derived-mode p4-diff-mode p4-basic-mode "P4 Diff")
+
+(defvar p4-print-rev-mode-map
+  (let ((map (p4-make-derived-map p4-basic-mode-map)))
     (define-key map "n"	 'p4-next-change-rev-line)
     (define-key map "p"	 'p4-prev-change-rev-line)
     (define-key map "N" (lookup-key map "p"))
@@ -444,59 +484,58 @@ arguments to p4 commands."
     map)
   "The key map to use for browsing print-revs buffers.")
 
+(define-derived-mode p4-print-rev-mode p4-basic-mode "P4 Print Rev")
+
 ;;; All functions start here.
+
+(defun p4-make-output-buffer (buffer-name &optional mode)
+  "Make read only buffer and return the buffer."
+  (let ((dir default-directory)
+	(inhibit-read-only t))
+    (with-current-buffer (get-buffer-create buffer-name)
+      (erase-buffer)
+      (funcall (or mode 'p4-basic-mode))
+      (setq buffer-read-only t)
+      (setq buffer-undo-list t)
+      (cd dir)
+      (current-buffer))))
+
+(defun p4-get-writable-output-buffer ()
+  "Do not use this function. Old code assumes output buffer is writable."
+  (let ((buffer (p4-make-output-buffer p4-output-buffer-name)))
+    (with-current-buffer buffer
+      (setq buffer-read-only nil))
+    buffer))
 
 ;; A generic function that we use to execute p4 commands
 ;; If executing the p4 command fails with a "password invalid" error
 ;; and no-login is false, p4-login will be called to let the user
 ;; login. The failed command will then be retried.
-(eval-and-compile
-  (defun p4-exec-p4 (output-buffer args &optional clear-output-buffer
-				   no-login)
-    "Internal function called by various p4 commands.
+(defun p4-exec-p4 (output-buffer args &optional dummy)
+  "Internal function called by various p4 commands.
 Executes p4 in the current buffer's current directory
 with output to a dedicated output buffer.
 If successful, adds the P4 menu to the current buffer.
 Does auto re-highlight management (whatever that is)."
-    (save-excursion
-      (if (eq major-mode 'dired-mode)
-	  (let ((dir (dired-current-directory)))
-	    (set-buffer output-buffer)
-	    (setq default-directory dir)))
-      (if clear-output-buffer
-	  (progn
-	    (set-buffer output-buffer)
-	    (delete-region (point-min) (point-max))))
-      (let ((result
-	     ;; XXX - call-process has changed from using
-	     ;; p4-null-device to nil as its second argument
-	     ;; in emacs version 21.1.1?? - rv 1/25/2002
-	     (apply 'call-process (p4-check-p4-executable) nil
-		    output-buffer
-		    nil			; update display?
-		    "-d" default-directory  ;override "PWD" env var
-		    args)))
-	(goto-char (point-min))
-	(if (and (not no-login)
-		 (or (looking-at "Perforce password (P4PASSWD) invalid or unset")
-		     (looking-at "Your session has expired, please login again.")))
-	    (progn
-	      (setq current-prefix-arg nil)
-	      (p4-login)
-	      (p4-exec-p4 output-buffer args clear-output-buffer t))
-	  (p4-menu-add)
-	  (if (and p4-running-emacs
-		   (boundp 'hilit-auto-rehighlight))
-	      (setq hilit-auto-rehighlight nil))
-	  result))))
+  (let ((result (apply 'call-process (p4-check-p4-executable) nil
+		       output-buffer
+		       nil		; update display?
+		       args)))
+    (p4-menu-add)
+    result))
+
   (defun p4-call-p4-here (&rest args)
     "Internal function called by various p4 commands.
 Executes p4 in the current buffer (generally a temp)."
     (apply 'call-process (p4-check-p4-executable) nil
 	   t
 	   nil			; update display?
-	   "-d" default-directory  ;override "PWD" env var
-	   args)))
+	   args))
+
+(defun p4-start-p4 (buffer args)
+  "Start P4 command asynchronously.
+Return process object"
+  (apply 'start-process "P4" buffer (p4-check-p4-executable) args))
 
 (defun p4-push-window-config ()
   "Push the current window configuration on the `p4-window-config-stack'
@@ -507,20 +546,18 @@ stack."
 	      p4-window-config-stack))
   (while (> (length p4-window-config-stack) p4-window-config-stack-size)
     (setq p4-window-config-stack
-	  (reverse (cdr (reverse p4-window-config-stack))))))
+	  (nreverse (cdr (nreverse p4-window-config-stack))))))
 
 (defun p4-pop-window-config (num)
   "Pop `num' elements from the `p4-window-config-stack' stack and use
 the last popped element to restore the window configuration."
   (interactive "p")
-  (while (> num 0)
-    (if (eq p4-window-config-stack nil)
-	(error "window config stack empty"))
+  (when (> num 0)
+    (setq p4-window-config-stack (nthcdr (1- num) p4-window-config-stack))
+    (unless p4-window-config-stack
+      (error "window config stack empty"))
     (set-window-configuration (car p4-window-config-stack))
-    (setq p4-window-config-stack (cdr p4-window-config-stack))
-    (setq num (1- num)))
-  (message "window config popped (stack size %d)"
-	   (length p4-window-config-stack)))
+    (setq p4-window-config-stack (cdr p4-window-config-stack))))
 
 
 ;; The menu definition is in the XEmacs format. Emacs parses and converts
@@ -529,117 +566,86 @@ the last popped element to restore the window configuration."
 (defalias 'p4-toggle-vc-mode-off 'p4-toggle-vc-mode)
 (defalias 'p4-toggle-vc-mode-on 'p4-toggle-vc-mode)
 
-(eval-and-compile
-  (defvar p4-menu-def
-    '(["Specify Arguments..." universal-argument t]
-      ["--" nil nil]
-      ["Add Current to P4" p4-add
-       (and (p4-buffer-file-name) (not p4-mode))]
-      ["Check out/Edit"    p4-edit
-       (and (p4-buffer-file-name-2) (or (not p4-mode) buffer-read-only))]
-      ["Re-open"	       p4-reopen
-       (and (p4-buffer-file-name-2) (or (not p4-mode) (not buffer-read-only)))]
-      ["Revert File"  p4-revert
-       (and (p4-buffer-file-name-2) (or (not p4-mode) (not buffer-read-only)))]
-      ["Delete File from Depot"  p4-delete
-       (and (p4-buffer-file-name-2) (or (not p4-mode) buffer-read-only))]
-      ["Rename Depot File" p4-rename
-       (and (p4-buffer-file-name-2) (or (not p4-mode) buffer-read-only))]
-      ["Submit Changes"  p4-submit t]
-      ["--" nil nil]
-      ["Sync/Get Files from Depot" p4-get t]
-      ["--" nil nil]
-      ["Show Opened Files"	p4-opened t]
-      ["Filelog" p4-filelog (p4-buffer-file-name-2)]
-      ["Changes" p4-changes t]
-      ["Describe Change" p4-describe t]
-      ["--" nil nil]
-      ["Diff 2 Versions" p4-diff2 (p4-buffer-file-name-2)]
-      ["Diff Current" p4-diff t]
-      ["Diff All Opened Files" p4-diff-all-opened t]
-      ["Diff Current with Ediff"   p4-ediff
-       (and (p4-buffer-file-name) (not buffer-read-only) p4-mode)]
-      ["Diff 2 Versions with Ediff"   p4-ediff2 (p4-buffer-file-name-2)]
-      ["--" nil nil]
-      ["Schedule Integrations" p4-integ t]
-      ["Resolve Conflicts" p4-resolve t]
-      ["--" nil nil]
-      ["Print" p4-print (p4-buffer-file-name-2)]
-      ["Print with Revision History" p4-blame
-       (p4-buffer-file-name-2)]
-      ["Find File using Depot Spec" p4-depot-find-file
-       p4-do-find-file]
-      ["--" nil nil]
-      ["Edit a Branch Specification" p4-branch t]
-      ["Edit a Label Specification" p4-label t]
-      ["Edit a Client Specification" p4-client t]
-      ["Edit a User Specification" p4-user t]
-      ["--" nil nil]
-      ["Show Version" p4-emacs-version t]
-      ["Disable P4 VC Check"  p4-toggle-vc-mode-off
-       p4-do-find-file]
-      ["Enable P4 VC Check"	 p4-toggle-vc-mode-on
-       (not p4-do-find-file)]
-      ["--" nil nil]
-      ["Set P4 Config"  p4-set-client-config p4-do-find-file]
-      ["Get Current P4 Config"  p4-get-client-config
-       p4-do-find-file]
-      ["--" nil nil]
-      ["Set P4 Client"  p4-set-client-name p4-do-find-file]
-      ["Get Current P4 Client"  p4-get-client-name
-       p4-do-find-file]
-      ["--" nil nil]
-      ["Set P4 Server/Port"	 p4-set-p4-port p4-do-find-file]
-      ["Get Current P4 Server/Port"	 p4-get-p4-port
-       p4-do-find-file]
-      ["--" nil nil]
-      ["Set P4 Notification List"  p4-set-notify-list
-       p4-mode]
-      ["Get P4 Notification List"  p4-get-notify-list p4-notify]
-      ["--" nil nil]
-      ["Describe Key Bindings"  p4-describe-bindings t]
-      ["Check for later versions of p4.el" p4-browse-web-page t]
-      ["--" nil nil]
-      ["Report Bug in p4.el"  p4-bug-report t])
-    "The P4 menu definition")
+(defvar p4-menu-spec
+  '(["Specify Arguments..." universal-argument t]
+    ["--" nil nil]
+    ["Add Current to P4" p4-add
+     (and (p4-buffer-file-name) (not p4-mode))]
+    ["Check out/Edit"    p4-edit
+     (and (p4-buffer-file-name-2) (or (not p4-mode) buffer-read-only))]
+    ["Re-open"	       p4-reopen
+     (and (p4-buffer-file-name-2) (or (not p4-mode) (not buffer-read-only)))]
+    ["Revert File"  p4-revert
+     (and (p4-buffer-file-name-2) (or (not p4-mode) (not buffer-read-only)))]
+    ["Delete File from Depot"  p4-delete
+     (and (p4-buffer-file-name-2) (or (not p4-mode) buffer-read-only))]
+    ["Rename Depot File" p4-rename
+     (and (p4-buffer-file-name-2) (or (not p4-mode) buffer-read-only))]
+    ["Submit Changes"  p4-submit t]
+    ["--" nil nil]
+    ["Sync/Get Files from Depot" p4-get t]
+    ["--" nil nil]
+    ["Show Opened Files"	p4-opened t]
+    ["Filelog" p4-filelog (p4-buffer-file-name-2)]
+    ["Changes" p4-changes t]
+    ["Describe Change" p4-describe t]
+    ["--" nil nil]
+    ["Diff 2 Versions" p4-diff2 (p4-buffer-file-name-2)]
+    ["Diff Current" p4-diff t]
+    ["Diff All Opened Files" p4-diff-all-opened t]
+    ["Diff Current with Ediff"   p4-ediff
+     (and (p4-buffer-file-name) (not buffer-read-only) p4-mode)]
+    ["Diff 2 Versions with Ediff"   p4-ediff2 (p4-buffer-file-name-2)]
+    ["--" nil nil]
+    ["Schedule Integrations" p4-integ t]
+    ["Resolve Conflicts" p4-resolve t]
+    ["--" nil nil]
+    ["Print" p4-print (p4-buffer-file-name-2)]
+    ["Print with Revision History" p4-blame
+     (p4-buffer-file-name-2)]
+    ["Find File using Depot Spec" p4-depot-find-file
+     p4-do-find-file]
+    ["--" nil nil]
+    ["Edit a Branch Specification" p4-branch t]
+    ["Edit a Label Specification" p4-label t]
+    ["Edit a Client Specification" p4-client t]
+    ["Edit a User Specification" p4-user t]
+    ["--" nil nil]
+    ["Show Version" p4-emacs-version t]
+    ["Disable P4 VC Check"  p4-toggle-vc-mode-off
+     p4-do-find-file]
+    ["Enable P4 VC Check"	 p4-toggle-vc-mode-on
+     (not p4-do-find-file)]
+    ["--" nil nil]
+    ["Set P4 Config"  p4-set-client-config p4-do-find-file]
+    ["Get Current P4 Config"  p4-get-client-config
+     p4-do-find-file]
+    ["--" nil nil]
+    ["Set P4 Client"  p4-set-client-name p4-do-find-file]
+    ["Get Current P4 Client"  p4-get-client-name
+     p4-do-find-file]
+    ["--" nil nil]
+    ["Set P4 Server/Port"	 p4-set-p4-port p4-do-find-file]
+    ["Get Current P4 Server/Port"	 p4-get-p4-port
+     p4-do-find-file]
+    ["--" nil nil]
+    ["Set P4 Notification List"  p4-set-notify-list
+     p4-mode]
+    ["Get P4 Notification List"  p4-get-notify-list p4-notify]
+    )
+  "The P4 menu definition")
 
-  (cond (p4-running-xemacs
-	 ;; Menu Support for XEmacs
-	 (require 'easymenu)
-	 (defun p4-mode-menu (modestr)
-	   (cons modestr p4-menu-def)))
+(defun p4-mode-menu (modestr)
+  (cons modestr p4-menu-spec))
 
-	(p4-running-emacs
-	 ;; Menu support for Emacs
-	 (or (lookup-key global-map [menu-bar])
-	     (define-key global-map [menu-bar] (make-sparse-keymap "menu-bar")))
-	 (defvar menu-bar-p4-menu (make-sparse-keymap "P4"))
-	 (setq menu-bar-final-items (cons 'p4-menu menu-bar-final-items))
-	 (define-key global-map [menu-bar p4-menu]
-	   (cons "P4" menu-bar-p4-menu))
-	 (let ((m (reverse p4-menu-def))
-	       (separator-number 0))
-	   (while m
-	     (let ((menu-text (elt (car m) 0))
-		   (menu-action (elt (car m) 1))
-		   (menu-pred (elt (car m) 2)))
-	       (if menu-action
-		   (progn
-		     (define-key menu-bar-p4-menu (vector menu-action)
-		       (cons menu-text menu-action))
-		     (put menu-action 'menu-enable menu-pred))
-		 (define-key menu-bar-p4-menu
-		   (vector (make-symbol
-			    (concat "separator-"
-				    (int-to-string separator-number))))
-		   '("--"))
-		 (setq separator-number (1+ separator-number))))
-	     (setq m (cdr m))))))
+(easy-menu-add-item nil '("tools")
+		    (easy-menu-create-menu "P4" p4-menu-spec)
+		    "PCL-CVS")
 
   (defun p4-depot-output (command &optional args)
     "Executes p4 command inside a buffer.
 Returns the buffer."
-    (let ((buffer (generate-new-buffer p4-output-buffer-name)))
+    (let ((buffer (p4-get-writable-output-buffer)))
       (p4-exec-p4 buffer (cons command args) t)
       buffer))
 
@@ -661,18 +667,6 @@ the P4 depot or in the current client view.."
 	   (easy-menu-add (p4-mode-menu "P4"))))
     t)
 
-  (defun p4-help-text (cmd text)
-    (if cmd
-	(let ((buf (generate-new-buffer p4-output-buffer-name))
-	      (help-text ""))
-	  (if (= (p4-exec-p4 buf (list "help" cmd) t) 0)
-	      (setq help-text (save-excursion
-				(set-buffer buf)
-				(buffer-string))))
-	  (kill-buffer buf)
-	  (concat text help-text))
-      text))
-
   ;; To set the path to the p4 executable
   (defun p4-set-p4-executable (p4-exe-name)
     "Set the path to the correct P4 Executable.
@@ -685,7 +679,7 @@ To set this as a part of the .emacs, add the following to your .emacs:
 Argument P4-EXE-NAME The new value of the p4 executable, with full path."
     (interactive "fFull path to your P4 executable: " )
     (setq p4-executable p4-exe-name)
-    p4-executable))
+    p4-executable)
 
 ;; The kill-buffer hook for p4.
 (defun p4-kill-buffer-hook ()
@@ -694,6 +688,21 @@ controlled files."
   (if p4-vc-check
       (p4-refresh-refresh-list (p4-buffer-file-name)
 			       (buffer-name))))
+
+(eval-and-compile
+  (defvar p4-include-help-to-command-docstring
+    (let (val)
+      (eval-when (compile) (setq val t))
+      val))
+
+  (defun p4-help-text (cmd text)
+    (concat text 
+	    (with-temp-buffer
+	      (if (and p4-include-help-to-command-docstring
+		       (file-executable-p p4-executable)
+		       (zerop (call-process p4-executable nil t nil "help" cmd)))
+		  (buffer-substring (point-min) (point-max))
+		"")))))
 
 (defmacro defp4cmd (fkn &rest all-args)
   (let ((args (car all-args))
@@ -706,44 +715,111 @@ controlled files."
 		body))))
 
 (defun p4-noinput-buffer-action (cmd
-				 do-revert
+				 dummy
 				 show-output
-				 &optional arguments preserve-buffer no-login)
+				 &optional arguments)
   "Internal function called by various p4 commands."
-  (save-excursion
-    (save-excursion
-      (if (not preserve-buffer)
-	  (progn
-	    (get-buffer-create p4-output-buffer-name);; We do these two lines
-	    (kill-buffer p4-output-buffer-name)))    ;; to ensure no duplicates
-      (p4-exec-p4 (get-buffer-create p4-output-buffer-name)
-		  (append (list cmd) arguments)
-		  t no-login))
+  (p4-exec-p4 (p4-get-writable-output-buffer)
+	      (append (list cmd) arguments)
+	      t)
+  (p4-partial-cache-cleanup cmd)
+  (when show-output
+    (p4-push-window-config)
+    (display-buffer p4-output-buffer-name)))
+
+(defun p4-simple-command (cmd args)
+  (let* ((buffer (p4-make-output-buffer "*P4*"))
+	 (inhibit-read-only t)
+	 (ret (p4-exec-p4 buffer (cons cmd args))))
     (p4-partial-cache-cleanup cmd)
-    (if show-output
-	(if (and
-	     (eq show-output 's)
-	     (= (save-excursion
-		  (set-buffer p4-output-buffer-name)
-		  (count-lines (point-min) (point-max)))
-		1)
-	     (not (save-excursion
-		    (set-buffer p4-output-buffer-name)
-		    (goto-char (point-min))
-		    (looking-at "==== "))))
-	    (save-excursion
-	      (set-buffer p4-output-buffer-name)
-	      (message (buffer-substring (point-min)
-					 (save-excursion
-					   (goto-char (point-min))
-					   (end-of-line)
-					   (point)))))
-	  (p4-push-window-config)
-	  (if (not (one-window-p))
-	      (delete-other-windows))
-	  (display-buffer p4-output-buffer-name t))))
-  (if (and do-revert (p4-buffer-file-name))
-      (revert-buffer t t)))
+    (with-current-buffer buffer
+      (if (and
+	   (zerop ret)
+	   (= (count-lines (point-min) (point-max)) 1)
+	   (not (save-excursion
+		  (goto-char (point-min))
+		  (looking-at "==== "))))
+	  (message (buffer-substring (point-min)
+				     (save-excursion
+				       (goto-char (point-min))
+				       (end-of-line)
+				       (point))))
+	(p4-push-window-config)
+	(display-buffer buffer)))
+    (unless (zerop ret)
+      (error "P4 exits abnormally"))))
+
+(defun p4-simple-command-and-revert-buffer (cmd args)
+  (p4-simple-command cmd args)
+  (when (p4-buffer-file-name)
+    (revert-buffer t t)))
+  
+(defun p4-call-command-process-filter (proc string)
+  "Process filter for `p4-call-command'. Keep point position if `bobp'."
+  (let ((buffer (process-buffer proc)))
+    (when (buffer-live-p buffer)
+      (with-current-buffer buffer
+	(let ((inhibit-read-only t)
+	      (moving (and (= (point) (process-mark proc))
+			   (not (bobp)))))
+	  (save-excursion
+	    (goto-char (process-mark proc))
+	    (insert string)
+	    (set-marker (process-mark proc) (point)))
+	  (if moving (goto-char (process-mark proc))))))))
+
+(defun p4-call-command-process-sentinel (callback process message)
+  (let ((inhibit-read-only t)
+	(buffer (process-buffer process)))
+    (when (buffer-live-p buffer)
+      (with-current-buffer buffer
+	(when callback
+	  (funcall callback))
+	(unless (string-equal message "finished\n")
+	  (save-excursion
+	    (goto-char (process-mark process))
+	    (insert "Process " (process-name process) " " message)
+	    (set-marker (process-mark process) (point)))
+	  (ding))	  
+	(set-buffer-modified-p nil)))))
+
+(defun p4-call-command (cmd args buffer-name &optional mode callback)
+  (let* ((buffer (p4-make-output-buffer buffer-name mode))
+	 (process (p4-start-p4 buffer (cons cmd args))))
+    (set-process-filter process 'p4-call-command-process-filter)
+    (lexical-let ((callback callback))
+      (set-process-sentinel process
+			    (lambda (process message)
+			      (p4-call-command-process-sentinel callback process message))))
+    (p4-push-window-config)
+    (pop-to-buffer buffer)))
+
+(defun p4-async-command-process-sentinel (callback process message)
+  (let ((inhibit-read-only t)
+	(buffer (process-buffer process)))
+    (when (buffer-live-p buffer)
+      (with-current-buffer buffer
+	(when callback
+	  (funcall callback))
+	(let ((moving (= (point) (process-mark process))))
+	  (save-excursion
+	    (goto-char (process-mark process))
+	    (insert "Process " (process-name process) " " message)
+	    (set-marker (process-mark process) (point)))
+	  (if moving (goto-char (process-mark process))))
+	(unless (string-equal message "finished\n")
+	  (ding))
+	(set-buffer-modified-p nil)))))
+
+(defun p4-async-command (cmd args buffer-name &optional mode callback)
+  (let* ((buffer (p4-make-output-buffer buffer-name mode))
+	 (process (p4-start-p4 buffer (cons cmd args))))
+    (lexical-let ((callback callback))
+      (set-process-sentinel process
+			    (lambda (process message)
+			      (p4-async-command-process-sentinel callback process message))))
+    (display-buffer buffer)
+    process))
 
 ;; The p4 edit command
 (defp4cmd p4-edit (show-output)
@@ -760,7 +836,7 @@ controlled files."
 		      (p4-read-arg-string "p4 edit: " (cons args 0))))
 	  (setq refresh-after t))
       (setq args (list args)))
-    (p4-noinput-buffer-action "edit" t (and show-output 's) args)
+    (p4-simple-command-and-revert-buffer "edit" args)
     (if refresh-after
 	(p4-refresh-files-in-buffers)))
   (p4-check-mode)
@@ -780,7 +856,7 @@ command if t.\n"
 		"")))
     (setq args (p4-make-list-from-string
 		(p4-read-arg-string "p4 reopen: " (cons args 0))))
-    (p4-noinput-buffer-action "reopen" t (and show-output 's) args))
+    (p4-simple-command-and-revert-buffer "reopen" args))
   (p4-check-mode)
   (p4-update-opened-list))
 
@@ -801,7 +877,7 @@ command if t.\n"
       (setq args (list args)))
     (if (yes-or-no-p "Really revert changes? ")
 	(progn
-	  (p4-noinput-buffer-action "revert" t (and show-output 's) args)
+	  (p4-simple-command-and-revert-buffer "revert" args)
 	  (if refresh-after
 	      (progn
 		(p4-refresh-files-in-buffers)
@@ -818,7 +894,7 @@ command if t.\n"
 	(setq args (p4-make-list-from-string
 		    (p4-read-arg-string "p4 lock: "
 					(p4-buffer-file-name-2)))))
-    (p4-noinput-buffer-action "lock" t 's args)
+    (p4-simple-command-and-revert-buffer "lock" args)
     (p4-update-opened-list)))
 
 ;; The p4 unlock command
@@ -830,7 +906,7 @@ command if t.\n"
 	(setq args (p4-make-list-from-string
 		    (p4-read-arg-string "p4 unlock: "
 					(p4-buffer-file-name-2)))))
-    (p4-noinput-buffer-action "unlock" t 's args)
+    (p4-simple-command-and-revert-buffer "unlock" args)
     (p4-update-opened-list)))
 
 ;; The p4 diff command
@@ -844,15 +920,8 @@ command if t.\n"
     (if current-prefix-arg
 	(setq args (p4-make-list-from-string
 		    (p4-read-arg-string "p4 diff: " p4-default-diff-options))))
-    (p4-noinput-buffer-action "diff" nil 's args)
-    (p4-activate-diff-buffer "*P4 diff*")))
-
-(defun p4-diff-all-opened ()
-  (interactive)
-  (p4-noinput-buffer-action "diff" nil 's
-			    (p4-make-list-from-string p4-default-diff-options))
-  (p4-activate-diff-buffer "*P4 diff*"))
-
+    (p4-call-command "diff" args "*P4 diff*" 'p4-diff-mode
+		     'p4-activate-diff-buffer)))
 
 (defun p4-get-file-rev (default-name rev)
   (if (string-match "^\\([0-9]+\\|none\\|head\\|have\\)$" rev)
@@ -892,38 +961,16 @@ When visiting a depot file, type \\[p4-diff2] and enter the versions.\n"
     (setq diff-version1 (p4-get-file-rev (p4-buffer-file-name-2) version1))
     (setq diff-version2 (p4-get-file-rev (p4-buffer-file-name-2) version2))
 
-    (p4-noinput-buffer-action "diff2" nil t
-			      (append diff-options
-				      (list diff-version1
-					    diff-version2)))
-    (p4-activate-diff-buffer "*P4 diff2*")))
-
-(defp4cmd p4-diff-head ()
-  "diff-head" "Display diff of file against the head revision in depot.
-
-When visiting a depot file, type \\[p4-diff-head].\n"
-
-  (interactive)
-  (let (head-revision
-	(diff-options (p4-make-list-from-string p4-default-diff-options)))
-    (if current-prefix-arg
-	(setq diff-options (p4-make-list-from-string
-			    (p4-read-arg-string "Optional Args: "
-						p4-default-diff-options))))
-    (setq head-revision (p4-get-file-rev (p4-buffer-file-name-2) "head"))
-
-    (p4-noinput-buffer-action "diff" nil t
-			      (append diff-options
-				      (list head-revision)))
-    (p4-activate-diff-buffer "*P4 diff vs. head*")))
-
+    (p4-call-command "diff2" (append diff-options
+				     (list diff-version1
+					   diff-version2))
+		     "*P4 diff2*" 'p4-diff-mode 'p4-activate-diff-buffer)))
 
 ;; p4-ediff for all those who diff using ediff
 
 (defun p4-ediff ()
   "Use ediff to compare file with its original client version."
   (interactive)
-  (require 'ediff)
   (if current-prefix-arg
       (call-interactively 'p4-ediff2)
     (progn
@@ -931,7 +978,7 @@ When visiting a depot file, type \\[p4-diff-head].\n"
 				(list "-q"
 				      (concat (p4-buffer-file-name) "#have")))
       (let ((local (current-buffer))
-	    (depot (get-buffer-create p4-output-buffer-name)))
+	    (depot (p4-get-writable-output-buffer)))
 	(ediff-buffers local
 		       depot
 		       `((lambda ()
@@ -997,7 +1044,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
 		      (p4-read-arg-string "p4 add: " (cons args 0))))
 	  (setq refresh-after t))
       (setq args (list args)))
-    (p4-noinput-buffer-action "add" nil 's args)
+    (p4-simple-command "add" args)
     (if refresh-after
 	(p4-check-mode-all-buffers)
       (p4-check-mode)))
@@ -1015,7 +1062,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
 					(p4-buffer-file-name-2))))
       (setq args (list args)))
     (if (yes-or-no-p "Really delete from depot? ")
-	(p4-noinput-buffer-action "delete" nil 's args)))
+	(p4-simple-command "delete" args)))
   (p4-check-mode)
   (p4-update-opened-list))
 
@@ -1049,6 +1096,18 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
 					  (cons 'mouse-face 'highlight))
 				    prop-list)))
 
+(defun p4-forward-active-link ()
+  (interactive)
+  (while (and (not (eobp))
+	      (goto-char (next-overlay-change (point)))
+	      (not (get-char-property (point) 'face)))))
+
+(defun p4-backward-active-link ()
+  (interactive)
+  (while (and (not (bobp))
+	      (goto-char (previous-overlay-change (point)))
+	      (not (get-char-property (point) 'face)))))
+
 (defun p4-move-buffer-point-to-top (buf-name)
   (if (get-buffer-window buf-name)
       (save-selected-window
@@ -1056,63 +1115,60 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
 	(goto-char (point-min)))))
 
 (defun p4-file-change-log (cmd file-list-spec)
-  (let ((p4-filelog-buffer
-	 (concat "*P4 " cmd ": "
-		 (p4-list-to-string file-list-spec) "*")))
-    (p4-noinput-buffer-action cmd nil t (cons "-l" file-list-spec))
-    (p4-activate-file-change-log-buffer p4-filelog-buffer)))
+  (p4-call-command cmd (cons "-l" file-list-spec)
+		   (concat "*P4 " cmd ": " (p4-list-to-string file-list-spec) "*")
+		   'p4-filelog-mode
+		   (lambda ()
+		     (p4-activate-file-change-log-buffer (current-buffer)))))
 
-(defun p4-activate-file-change-log-buffer (bufname)
-  (let (p4-cur-rev p4-cur-change p4-cur-action
-	p4-cur-user p4-cur-client)
-    (p4-activate-print-buffer bufname nil)
-    (set-buffer bufname)
-    (setq buffer-read-only nil)
-    (goto-char (point-min))
-    (while (re-search-forward (concat
-			       "^\\(\\.\\.\\. #\\([0-9]+\\) \\)?[Cc]hange "
-			       "\\([0-9]+\\) \\([a-z]+\\)?.*on.*by "
-			       "\\([^ @]+\\)@\\([^ \n]+\\).*\n"
-			       "\\(\\(\\([ \t].*\\)?\n\\)*\\)") nil t)
-      (let ((rev-match 2)
-	    (ch-match 3)
-	    (act-match 4)
-	    (user-match 5)
-	    (cl-match 6)
-	    (desc-match 7))
-	(setq p4-cur-rev (match-string rev-match))
-	(setq p4-cur-change (match-string ch-match))
-	(setq p4-cur-action (match-string act-match))
-	(setq p4-cur-user (match-string user-match))
-	(setq p4-cur-client (match-string cl-match))
+(defun p4-activate-file-change-log-buffer (buffer)
+  (with-current-buffer buffer
+    (let (p4-cur-rev p4-cur-change p4-cur-action
+		     p4-cur-user p4-cur-client)
+      (p4-mark-print-buffer buffer nil)
+      (goto-char (point-min))
+      (while (re-search-forward (concat
+				 "^\\(\\.\\.\\. #\\([0-9]+\\) \\)?[Cc]hange "
+				 "\\([0-9]+\\) \\([a-z]+\\)?.*on.*by "
+				 "\\([^ @]+\\)@\\([^ \n]+\\).*\n"
+				 "\\(\\(\\([ \t].*\\)?\n\\)*\\)") nil t)
+	(let ((rev-match 2)
+	      (ch-match 3)
+	      (act-match 4)
+	      (user-match 5)
+	      (cl-match 6)
+	      (desc-match 7))
+	  (setq p4-cur-rev (match-string rev-match))
+	  (setq p4-cur-change (match-string ch-match))
+	  (setq p4-cur-action (match-string act-match))
+	  (setq p4-cur-user (match-string user-match))
+	  (setq p4-cur-client (match-string cl-match))
 
-	(if (match-beginning rev-match)
-	    (p4-create-active-link (match-beginning rev-match)
-				   (match-end rev-match)
-				   (list (cons 'rev p4-cur-rev))))
-	(p4-create-active-link (match-beginning ch-match)
-			       (match-end ch-match)
-			       (list (cons 'change p4-cur-change)))
-	(if (match-beginning act-match)
-	    (p4-create-active-link (match-beginning act-match)
-				   (match-end act-match)
-				   (list (cons 'action p4-cur-action)
-					 (cons 'rev p4-cur-rev))))
-	(p4-create-active-link (match-beginning user-match)
-			       (match-end user-match)
-			       (list (cons 'user p4-cur-user)))
-	(p4-create-active-link (match-beginning cl-match)
-			       (match-end cl-match)
-			       (list (cons 'client p4-cur-client)))
-	(p4-set-extent-properties (match-beginning desc-match)
-				  (match-end desc-match)
-				  (list (cons 'invisible t)
-					(cons 'isearch-open-invisible t)))))
-    (p4-find-change-numbers bufname (point-min) (point-max))
-    (use-local-map p4-filelog-map)
-    (setq buffer-invisibility-spec (list))
-    (setq buffer-read-only t)
-    (p4-move-buffer-point-to-top bufname)))
+	  (if (match-beginning rev-match)
+	      (p4-create-active-link (match-beginning rev-match)
+				     (match-end rev-match)
+				     (list (cons 'rev p4-cur-rev))))
+	  (p4-create-active-link (match-beginning ch-match)
+				 (match-end ch-match)
+				 (list (cons 'change p4-cur-change)))
+	  (if (match-beginning act-match)
+	      (p4-create-active-link (match-beginning act-match)
+				     (match-end act-match)
+				     (list (cons 'action p4-cur-action)
+					   (cons 'rev p4-cur-rev))))
+	  (p4-create-active-link (match-beginning user-match)
+				 (match-end user-match)
+				 (list (cons 'user p4-cur-user)))
+	  (p4-create-active-link (match-beginning cl-match)
+				 (match-end cl-match)
+				 (list (cons 'client p4-cur-client)))
+	  (p4-set-extent-properties (match-beginning desc-match)
+				    (match-end desc-match)
+				    (list (cons 'invisible t)
+					  (cons 'isearch-open-invisible t)))))
+      (p4-find-change-numbers buffer (point-min) (point-max))
+      (setq buffer-invisibility-spec (list))
+      (p4-move-buffer-point-to-top buffer))))
 
 ;; Scan specified region for references to change numbers
 ;; and make the change numbers clickable.
@@ -1142,13 +1198,9 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
 	(setq args (p4-make-list-from-string
 		    (p4-read-arg-string "p4 files: " (p4-buffer-file-name-2))))
       (setq args (list args)))
-    (p4-noinput-buffer-action "files" nil t args)
-    (save-excursion
-      (set-buffer p4-output-buffer-name)
-      (p4-find-change-numbers p4-output-buffer-name (point-min) (point-max)))
-    (p4-make-depot-list-buffer
-     (concat "*P4 Files: (" (p4-current-client) ") " (car args) "*"))))
-
+    (p4-call-command "files" args
+		     (concat "*P4 Files: (" (p4-current-client) ") " (car args) "*")
+		     'p4-basic-list-mode)))
 
 (defvar p4-server-version-cache nil)
 
@@ -1159,7 +1211,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
     (setq ser-ver (cdr (assoc p4-port p4-server-version-cache)))
     (if (not ser-ver)
 	(save-excursion
-	  (get-buffer-create p4-output-buffer-name)
+	  (p4-get-writable-output-buffer)
 	  (set-buffer p4-output-buffer-name)
 	  (goto-char (point-max))
 	  (setq pmin (point))
@@ -1179,7 +1231,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
    This can be used by any other macro that requires this value."
   (let (p4-client-root pmin)
     (save-excursion
-      (get-buffer-create p4-output-buffer-name)
+      (p4-get-writable-output-buffer)
       (set-buffer p4-output-buffer-name)
       (goto-char (point-max))
       (setq pmin (point))
@@ -1224,15 +1276,11 @@ name and a client name."
 	 (client-root (p4-get-client-root current-client))
 	 (re-current-client (regexp-quote current-client))
 	 (re-client-root (regexp-quote client-root))
-	 files pmin)
-    (save-excursion
-      (get-buffer-create p4-output-buffer-name)
-      (set-buffer p4-output-buffer-name)
-      (goto-char (point-max))
-      (setq pmin (point))
+	 files)
+    (with-temp-buffer
       (insert "\n")
       (apply 'p4-call-p4-here "where" file-list)
-      (goto-char pmin)
+      (goto-char (point-min))
       (if (< (p4-get-server-version) 98)
 	  (while (re-search-forward
 		  (concat "^\\([^\n]+\\) //" re-current-client
@@ -1247,92 +1295,34 @@ name and a client name."
 			"\\([^\n]+\\) \\(" re-client-root ".*\\)$") nil t)
 	  (setq files (cons
 		       (cons
-			(match-string 1) (match-string 3)) files))))
-      (delete-region pmin (point-max)))
+			(match-string 1) (match-string 3)) files)))))
     files))
 
-(defun p4-make-face (face-name fg bg)
-  "Creates a new face if it does not already exist."
-  (let ((face (facep face-name)))
-    (cond
-     ((null face)
-      (make-face face-name)
-      (if (not (null bg))
-	  (set-face-background face-name bg) t)
-      (if (not (null fg))
-	  (set-face-foreground face-name fg) t)))))
-
-(p4-make-face 'p4-depot-unmapped-face "grey30" nil)
-(p4-make-face 'p4-depot-deleted-face "red" nil)
-(p4-make-face 'p4-depot-added-face "blue" nil)
-(p4-make-face 'p4-depot-branch-op-face "blue4" nil)
-
-(defun p4-make-depot-list-buffer (bufname &optional print-buffer)
-  "Take the p4-output-buffer-name buffer, rename it to bufname, and
-make all depot file names active, so that clicking them opens
-the corresponding client file."
-  (let (args files depot-regexp)
-    (set-buffer p4-output-buffer-name)
-    (goto-char (point-min))
-    (setq depot-regexp
-	  (if print-buffer
-	      "\\(^\\)\\(//[^/@# ][^/@#]*/[^@#]+\\)#[0-9]+ - "
-	    "^\\(\\.\\.\\. [^/\n]*\\|==== \\)?\\(//[^/@# ][^/@#]*/[^#\n]*\\)"))
-    (while (re-search-forward depot-regexp nil t)
-      (setq args (cons (match-string 2) args)))
-    (setq files (p4-map-depot-files args))
-    (get-buffer-create bufname);; We do these two lines
-    (kill-buffer bufname);; to ensure no duplicates
-    (set-buffer p4-output-buffer-name)
-    (rename-buffer bufname t)
-    (goto-char (point-min))
-    (while (re-search-forward depot-regexp nil t)
-      (let ((p4-client-file (cdr (assoc (match-string 2) files)))
-	    (p4-depot-file (match-string 2))
-	    (start (match-beginning 2))
-	    (end (match-end 2))
-	    (branching-op-p (and (match-string 1)
-				 (string-match "\\.\\.\\. \\.\\.\\..*"
-					       (match-string 1))))
-	    prop-list)
-	(if (and p4-client-file
-		 (file-readable-p p4-client-file))
-	    (setq prop-list (list (cons 'link-client-name
-					p4-client-file)))
+(defun p4-mark-depot-list-buffer (&optional print-buffer)
+  (save-excursion
+    (let ((depot-regexp
+	   (if print-buffer
+	       "\\(^\\)\\(//[^/@# ][^/@#]*/[^@#]+\\)#[0-9]+ - "
+	     "^\\(\\.\\.\\. [^/\n]*\\|==== \\)?\\(//[^/@# ][^/@#]*/[^#\n]*\\)")))
+      (goto-char (point-min))
+      (while (re-search-forward depot-regexp nil t)
+	(let ((p4-depot-file (match-string 2))
+	      (start (match-beginning 2))
+	      (end (match-end 2))
+	      (branching-op-p (and (match-string 1)
+				   (string-match "\\.\\.\\. \\.\\.\\..*"
+						 (match-string 1))))
+	      prop-list)
 	  (setq prop-list (list (cons 'link-depot-name
-				      p4-depot-file))))
-	;; some kind of operation related to branching/integration
-	(if branching-op-p
-	    (setq prop-list (append (list
-				     (cons 'history-for p4-depot-file)
-				     (cons 'face
-					   'p4-depot-branch-op-face))
-				    prop-list)))
-	(cond
-	 ((not p4-client-file)
-	  (p4-set-extent-properties
-	   start end
-	   (append (list (cons 'face 'p4-depot-unmapped-face))
-		   prop-list)))
-	 ((save-excursion
-	    (goto-char end)
-	    (looking-at ".* deleted?[ \n]"))
-	  (p4-set-extent-properties
-	   start end
-	   (append (list (cons 'face 'p4-depot-deleted-face))
-		   prop-list)))
-	 ((save-excursion
-	    (goto-char end)
-	    (looking-at ".* \\(add\\|branch\\)\\(ed\\)?[ \n]"))
-	  (p4-create-active-link
-	   start end
-	   (append (list (cons 'face 'p4-depot-added-face))
-		   prop-list)))
-	 (t
-	  (p4-create-active-link start end prop-list)))))
-    (use-local-map p4-opened-map)
-    (setq buffer-read-only t)
-    (p4-move-buffer-point-to-top bufname)))
+				      p4-depot-file)))
+	  ;; some kind of operation related to branching/integration
+	  (if branching-op-p
+	      (setq prop-list (append (list
+				       (cons 'history-for p4-depot-file)
+				       (cons 'face
+					     'p4-depot-branched-face))
+				      prop-list)))
+	  (p4-create-active-link start end prop-list))))))
 
 ;; The p4 print command
 (defp4cmd p4-print ()
@@ -1380,48 +1370,54 @@ the corresponding client file."
 	  (font-lock-fontify-buffer)
 	(error nil))
       (fundamental-mode)
-      (if (and p4-running-emacs
-	       (boundp 'hilit-auto-rehighlight))
-	  (setq hilit-auto-rehighlight nil))
       (setq buffer-read-only nil)
       (goto-char (point-min))
       (p4-insert-no-properties first-line))))
 
+(defun p4-mark-print-buffer (buffer print-buffer)
+  (with-current-buffer buffer
+    (p4-mark-depot-list-buffer print-buffer)
+    (let ((depot-regexp
+	   (if print-buffer
+	       "^\\(//[^/@# ][^/@#]*/\\)[^@#]+#[0-9]+ - "
+	     "^\\(//[^/@# ][^/@#]*/\\)")))
+      (save-excursion
+	(goto-char (point-min))
+	(while (re-search-forward depot-regexp nil t)
+	  (let ((link-client-name (get-char-property (match-end 1)
+						     'link-client-name))
+		(link-depot-name (get-char-property (match-end 1)
+						    'link-depot-name))
+		(start (match-beginning 1))
+		(end (point-max)))
+	    (save-excursion
+	      (if (re-search-forward depot-regexp nil t)
+		  (setq end (match-beginning 1))))
+	    (if link-client-name
+		(p4-set-extent-properties start end
+					  (list (cons 'block-client-name
+						      link-client-name))))
+	    (if link-depot-name
+		(p4-set-extent-properties start end
+					  (list (cons 'block-depot-name
+						      link-depot-name))))
+	    (p4-find-change-numbers buffer start
+				    (save-excursion
+				      (goto-char start)
+				      (line-end-position)))))))))
+
 (defun p4-activate-print-buffer (buffer-name print-buffer)
   (if print-buffer
       (p4-font-lock-buffer p4-output-buffer-name))
-  (p4-make-depot-list-buffer buffer-name print-buffer)
-  (let ((depot-regexp
-	 (if print-buffer
-	     "^\\(//[^/@# ][^/@#]*/\\)[^@#]+#[0-9]+ - "
-	   "^\\(//[^/@# ][^/@#]*/\\)")))
-    (save-excursion
-      (set-buffer buffer-name)
-      (setq buffer-read-only nil)
-      (goto-char (point-min))
-      (while (re-search-forward depot-regexp nil t)
-	(let ((link-client-name (get-char-property (match-end 1)
-						   'link-client-name))
-	      (link-depot-name (get-char-property (match-end 1)
-						  'link-depot-name))
-	      (start (match-beginning 1))
-	      (end (point-max)))
-	  (save-excursion
-	    (if (re-search-forward depot-regexp nil t)
-		(setq end (match-beginning 1))))
-	  (if link-client-name
-	      (p4-set-extent-properties start end
-					(list (cons 'block-client-name
-						    link-client-name))))
-	  (if link-depot-name
-	      (p4-set-extent-properties start end
-					(list (cons 'block-depot-name
-						    link-depot-name))))
-	  (p4-find-change-numbers buffer-name start
-				  (save-excursion
-				    (goto-char start)
-				    (line-end-position)))))
-      (setq buffer-read-only t))))
+  (set-buffer p4-output-buffer-name)
+  (get-buffer-create buffer-name) ;; We do these two lines
+  (kill-buffer buffer-name)	  ;; to ensure no duplicates
+  (set-buffer p4-output-buffer-name)
+  (rename-buffer buffer-name t)
+  (p4-mark-depot-list-buffer print-buffer)
+  (setq buffer-read-only t)
+  (p4-move-buffer-point-to-top buffer-name)
+  (p4-mark-print-buffer buffer-name print-buffer))
 
 (defconst p4-blame-change-regex
   (concat "^\\.\\.\\. #"     "\\([0-9]+\\)"   ;; revision
@@ -1471,10 +1467,8 @@ type \\[p4-blame]"
 (defalias 'p4-print-with-rev-history 'p4-blame)
 
 (defun p4-blame-int (file-spec)
-  (get-buffer-create p4-output-buffer-name);; We do these two lines
-  (kill-buffer p4-output-buffer-name)      ;; to ensure no duplicates
   (let ((file-name file-spec)
-	(buffer (get-buffer-create p4-output-buffer-name))
+	(buffer (p4-get-writable-output-buffer))
 	head-name  ;; file spec of the head revision for this blame assignment
 	branch-p   ;; have we tracked into a branch?
 	cur-file   ;; file name of the current branch during blame assignment
@@ -1484,18 +1478,17 @@ type \\[p4-blame]"
     (if (string-match "\\(.*\\)@\\([0-9]+\\)" file-spec)
 	(progn
 	  (setq file-name (match-string 1 file-spec))
-	  (setq change (string-to-int (match-string 2 file-spec)))))
+	  (setq change (string-to-number (match-string 2 file-spec)))))
 
     ;; we asked for blame constrained by a revision
     (if (string-match "\\(.*\\)#\\([0-9]+\\)" file-spec)
 	(progn
 	  (setq file-name (match-string 1 file-spec))
-	  (setq head-rev (string-to-int (match-string 2 file-spec)))))
+	  (setq head-rev (string-to-number (match-string 2 file-spec)))))
 
     ;; make sure the filespec is unambiguous
-    (p4-exec-p4 buffer (list "files" file-name) t)
-    (save-excursion
-      (set-buffer buffer)
+    (with-temp-buffer
+      (p4-exec-p4 t (list "files" file-name) t)
       (if (> (count-lines (point-min) (point-max)) 1)
 	  (error "File pattern maps to more than one file.")))
 
@@ -1518,8 +1511,8 @@ type \\[p4-blame]"
 
 	;; a non-branch change:
 	(if (looking-at p4-blame-change-regex)
-	    (let ((rev (string-to-int (match-string 1)))
-		  (ch (string-to-int (match-string 2)))
+	    (let ((rev (string-to-number (match-string 1)))
+		  (ch (string-to-number (match-string 2)))
 		  (op (match-string 3))
 		  (date (match-string 4))
 		  (author (match-string 5)))
@@ -1569,6 +1562,7 @@ type \\[p4-blame]"
 	      (file2 (nth P4-FILE (cdr (cadr tmp-alst))))
 	      ins-string)
 	  (setq ins-string (format "%d\n" ch-2))
+	  (with-current-buffer buffer (erase-buffer))
 	  (p4-exec-p4 buffer (list "diff2"
 				   (format "%s@%d" file1 ch-1)
 				   (format "%s@%d" file2 ch-2)) t)
@@ -1576,11 +1570,11 @@ type \\[p4-blame]"
 	    (set-buffer buffer)
 	    (goto-char (point-max))
 	    (while (re-search-backward p4-blame-revision-regex nil t)
-	      (let ((la (string-to-int (match-string 1)))
-		    (lb (string-to-int (match-string 2)))
+	      (let ((la (string-to-number (match-string 1)))
+		    (lb (string-to-number (match-string 2)))
 		    (op (match-string 3))
-		    (ra (string-to-int (match-string 4)))
-		    (rb (string-to-int (match-string 5))))
+		    (ra (string-to-number (match-string 4)))
+		    (rb (string-to-number (match-string 5))))
 		(if (= lb 0)
 		    (setq lb la))
 		(if (= rb 0)
@@ -1600,8 +1594,7 @@ type \\[p4-blame]"
 		    (setq ra (1+ ra)))))))
 	  (setq tmp-alst (cdr tmp-alst))))
       (p4-noinput-buffer-action "print" nil t
-				(list (format "%s#%d" fullname head-rev))
-				t)
+				(list (format "%s#%d" fullname head-rev)))
       (p4-font-lock-buffer p4-output-buffer-name)
       (let (line cnum (old-cnum 0) change-data
 	    xth-rev xth-date xth-auth xth-file)
@@ -1611,7 +1604,7 @@ type \\[p4-blame]"
 	  (move-to-column 0)
 	  (p4-insert-no-properties "Change  Rev       Date  Author\n")
 	  (while (setq line (p4-read-depot-output ch-buffer))
-	    (setq cnum (string-to-int line))
+	    (setq cnum (string-to-number line))
 	    (if (= cnum old-cnum)
 		(p4-insert-no-properties (format "%29s : " ""))
 
@@ -1656,7 +1649,7 @@ type \\[p4-blame]"
       (save-excursion
 	(set-buffer buffer-name)
 	(setq truncate-lines t)
-	(use-local-map p4-print-rev-map)))))
+	(use-local-map p4-print-rev-mode-map)))))
 
 ;; The p4 refresh command
 (defp4cmd p4-refresh ()
@@ -1670,101 +1663,61 @@ This is equivalent to \"sync -f\"
 	(setq args (p4-make-list-from-string
 		    (p4-read-arg-string "p4 refresh: ")))
       (setq args (list args)))
-    (p4-noinput-buffer-action "refresh" nil t args)
-    (p4-refresh-files-in-buffers)
-    (p4-make-depot-list-buffer
-     (concat "*P4 Refresh: (" (p4-current-client) ") " (car args) "*"))))
+    (p4-call-command "refresh" args (concat "*P4 Refresh: (" (p4-current-client) ") " (car args) "*")
+		     'p4-basic-list-mode
+		     (lambda ()
+		       (p4-refresh-files-in-buffers)
+		       ))))
 
 ;; The p4 get/sync command
-(defp4cmd p4-sync ()
-  "sync"
-  "To synchronise the local view with the depot, type \\[p4-get].\n"
-  (interactive)
-  (p4-get))
+(defalias 'p4-sync 'p4-get)
 
-(defp4cmd p4-get ()
+(defp4cmd p4-get (&rest args)
   "sync"
   "To synchronise the local view with the depot, type \\[p4-get].\n"
-  (interactive)
-  (let (args)
-    (if current-prefix-arg
-	(setq args (p4-make-list-from-string (p4-read-arg-string "p4 get: "))))
-    (p4-noinput-buffer-action "get" nil t args)
-    (p4-refresh-files-in-buffers)
-    (p4-make-depot-list-buffer
-     (concat "*P4 Get: (" (p4-current-client) ") " (car args) "*"))))
+  (interactive (p4-read-args* "p4 get: "))
+  (p4-async-command "get" args
+		    (p4-make-output-buffer (concat "*P4 Get: (" (p4-current-client) ")*")) 'p4-basic-list-mode
+		    'p4-refresh-files-in-buffers))
 
 ;; The p4 have command
-(defp4cmd p4-have ()
+(defp4cmd p4-have (&rest args)
   "have" "To list revisions last gotten, type \\[p4-have].\n"
-  (interactive)
-  (let ((args (list "...")))
-    (if current-prefix-arg
-	(setq args (p4-make-list-from-string
-		    (p4-read-arg-string "p4 have: " (p4-buffer-file-name-2)))))
-    (p4-noinput-buffer-action "have" nil t args)
-    (p4-make-depot-list-buffer
-     (concat "*P4 Have: (" (p4-current-client) ") " (car args) "*"))))
+  (interactive (p4-read-args* "p4 have: " nil (p4-buffer-file-name-2)))
+  (p4-call-command "have" args (concat "*P4 Have: (" (p4-current-client) ") " (car args) "*")
+		   'p4-basic-list-mode))
 
 ;; The p4 changes command
-(defp4cmd p4-changes ()
+(defp4cmd p4-changes (&rest args)
   "changes" "To list changes, type \\[p4-changes].\n"
-  (interactive)
-  (let ((arg-list (list "-m" "200" "...")))
-    (if current-prefix-arg
-	(setq arg-list (p4-make-list-from-string
-			(p4-read-arg-string "p4 changes: " "-m 200"))))
-    (p4-file-change-log "changes" arg-list)))
+  (interactive (p4-read-args* "p4 changes: " nil "-m" "200" "..."))
+  (p4-file-change-log "changes" args))
 
 ;; The p4 help command
-(defp4cmd p4-help (arg)
+(defp4cmd p4-help (&rest args)
   "help" "To print help message, type \\[p4-help].
-
-Argument ARG command for which help is needed.
-"
-  (interactive (list (p4-make-list-from-string
-		      (p4-read-arg-string "Help on which command: "
-					  nil "help"))))
-  (p4-noinput-buffer-action "help" nil t arg)
-  (p4-make-basic-buffer "*P4 help*"))
-
-(defun p4-make-basic-buffer (buf-name &optional map)
-  "rename `p4-output-buffer-name' to buf-name \(which will be killed first if
-it already exists\), set its local map to map, if specified, or
-`p4-basic-map' otherwise. Makes the buffer read only."
-  (get-buffer-create buf-name)
-  (kill-buffer buf-name)
-  (set-buffer p4-output-buffer-name)
-  (goto-char (point-min))
-  (rename-buffer buf-name t)
-  (use-local-map (if (keymapp map) map p4-basic-map))
-  (setq buffer-read-only t)
-  (p4-move-buffer-point-to-top buf-name))
+Argument ARG command for which help is needed."
+  (interactive (p4-read-args "p4 help: "))
+  (p4-call-command "help" args "*P4 help*"))
 
 ;; The p4 info command
 (defp4cmd p4-info ()
   "info" "To print out client/server information, type \\[p4-info].\n"
   (interactive)
-  (p4-noinput-buffer-action "info" nil t)
-  (p4-make-basic-buffer "*P4 info*"))
+  (p4-call-command "info" nil "*P4 info*"))
 
 ;; The p4 integrate command
-(defp4cmd p4-integ ()
+(defp4cmd p4-integ (&rest args)
   "integ" "To schedule integrations between branches, type \\[p4-integ].\n"
-  (interactive)
-  (let ((args (p4-make-list-from-string
-	       (p4-read-arg-string "p4 integ: " "-b "))))
-    (p4-noinput-buffer-action "integ" nil t args)
-    (p4-make-depot-list-buffer "*P4 integ*")))
+  (interactive (p4-read-args "p4 integ: " nil "-b "))
+  (p4-async-command "integ" args "*P4 integ*"
+		    'p4-basic-list-mode))
 
-(defp4cmd p4-resolve ()
+(defp4cmd p4-resolve (&rest args)
   "resolve"
   "To merge open files with other revisions or files, type \\[p4-resolve].\n"
-  (interactive)
-  (let (buffer args (buf-name "*p4 resolve*"))
-    (if current-prefix-arg
-	(setq args (p4-make-list-from-string
-		    (p4-read-arg-string "p4 resolve: " nil))))
+  (interactive (p4-read-args* "p4 resolve: "))
+  (let (buffer (buf-name "*p4 resolve*"))
     (setq buffer (get-buffer buf-name))
     (if (and (buffer-live-p buffer)
 	     (not (comint-check-proc buffer)))
@@ -1775,7 +1728,7 @@ it already exists\), set its local map to map, if specified, or
 	    (goto-char (point-max))
 	    (insert "\n--------\n\n"))))
     (setq args (cons "resolve" args))
-    (setq buffer (apply 'make-comint "p4 resolve" p4-executable nil "-d" default-directory args))
+    (setq buffer (apply 'make-comint "p4 resolve" p4-executable nil args))
     (set-buffer buffer)
     (comint-mode)
     (display-buffer buffer)
@@ -1792,7 +1745,7 @@ This command will execute the integrate/delete commands automatically.
     (setq from-file (p4-read-arg-string "rename from: " (p4-buffer-file-name-2)))
     (setq to-file (p4-read-arg-string "rename to: " (p4-buffer-file-name-2)))
     (p4-noinput-buffer-action "integ" nil t (list from-file to-file))
-    (p4-exec-p4 (get-buffer-create p4-output-buffer-name)
+    (p4-exec-p4 (p4-get-writable-output-buffer)
 		(list "delete" from-file)
 		nil)))
 
@@ -1931,12 +1884,11 @@ This command will execute the integrate/delete commands automatically.
   (save-window-excursion
     (recenter)))
 
-(defun p4-quit-current-buffer (pnt)
+(defun p4-quit-current-buffer ()
   "Quit a buffer"
-  (interactive "d")
-  (if (not (one-window-p))
-      (delete-window)
-    (bury-buffer)))
+  (interactive)
+  (bury-buffer)
+  (p4-pop-window-config 1))
 
 (defun p4-buffer-mouse-clicked (event)
   "Function to translate the mouse clicks in a P4 filelog buffer to
@@ -1993,28 +1945,16 @@ character events"
 	     (p4-noinput-buffer-action "print" nil t (list fn1))
 	     (p4-activate-print-buffer "*P4 print*" t)))
 	  (action
-	   (let* ((rev2 (int-to-string (1- (string-to-int rev))))
-		  (fn1 (concat filename "#" rev))
-		  (fn2 (concat filename "#" rev2)))
-	     (if (> (string-to-int rev2) 0)
-		 (progn
-		   (p4-noinput-buffer-action
-		    "diff2" nil t
-		    (append (p4-make-list-from-string
-			     p4-default-diff-options)
-			    (list fn2 fn1)))
-		   (p4-activate-diff-buffer "*P4 diff*"))
+	   (let ((rev2 (int-to-string (1- (string-to-number rev)))))
+	     (if (> (string-to-number rev2) 0)
+		 (p4-diff2 (concat "#" rev2) (concat "#" rev))
 	       (error "There is no earlier revision to diff."))))
 	  (change (p4-describe-internal
 		   (append (p4-make-list-from-string p4-default-diff-options)
 			   (list change))))
-	  (user (p4-async-process-command "user" nil
-					  (concat
-					   "*P4 User: " user "*")
-					  "user" (list user)))
-	  (client (p4-async-process-command
-		   "client" "Description:\n\t"
-		   (concat "*P4 Client: " client "*") "client" (list client)))
+	  (user (p4-user user))
+	  (group (p4-group group))
+	  (client (p4-client client))
 	  (label (p4-label (list label)))
 	  (branch (p4-branch (list branch)))
 
@@ -2062,10 +2002,7 @@ character events"
 (defun p4-find-file-or-print-other-window (client-name depot-name)
   (if client-name
       (find-file-other-window client-name)
-    (p4-noinput-buffer-action "print" nil t
-			      (list depot-name))
-    (p4-activate-print-buffer depot-name t)
-    (other-window 1)))
+    (p4-depot-find-file depot-name)))
 
 (defun p4-find-file-other-window ()
   "Open/print file"
@@ -2150,13 +2087,6 @@ character events"
     (move-to-column c)))
 
 
-;; Activate special handling for a buffer generated with a diff-like command
-(p4-make-face 'p4-diff-file-face nil "gray90")
-(p4-make-face 'p4-diff-head-face nil "gray95")
-(p4-make-face 'p4-diff-ins-face "blue" nil)
-(p4-make-face 'p4-diff-del-face "red" nil)
-(p4-make-face 'p4-diff-change-face "dark green" nil)
-
 (defun p4-buffer-set-face-property (regexp face-property)
   (save-excursion
     (goto-char (point-min))
@@ -2166,33 +2096,26 @@ character events"
 	(p4-set-extent-properties start end
 				  (list (cons 'face face-property)))))))
 
-(defun p4-activate-diff-buffer (buffer-name)
-  (p4-make-depot-list-buffer buffer-name)
+(defun p4-activate-diff-buffer ()
   (save-excursion
-    (set-buffer buffer-name)
-    (setq buffer-read-only nil)
+    (p4-mark-depot-list-buffer)
     (if p4-colorized-diffs
 	(progn
 	  (p4-buffer-set-face-property "^=.*\n" 'p4-diff-file-face)
 	  (p4-buffer-set-face-property "^[@*].*" 'p4-diff-head-face)
-	  (p4-buffer-set-face-property "^\\([+>].*\n\\)+" 'p4-diff-ins-face)
-	  (p4-buffer-set-face-property "^\\([-<].*\n\\)+" 'p4-diff-del-face)
+	  (p4-buffer-set-face-property "^\\([+>].*\n\\)+" 'p4-diff-inserted-face)
+	  (p4-buffer-set-face-property "^\\([-<].*\n\\)+" 'p4-diff-deleted-face)
 	  (p4-buffer-set-face-property "^\\(!.*\n\\)+" 'p4-diff-change-face)))
 
     (goto-char (point-min))
     (while (re-search-forward "^\\(==== //\\).*\n"
 			      nil t)
-      (let* ((link-client-name (get-char-property (match-end 1) 'link-client-name))
-	     (link-depot-name (get-char-property (match-end 1) 'link-depot-name))
+      (let* ((link-depot-name (get-char-property (match-end 1) 'link-depot-name))
 	     (start (match-beginning 0))
 	     (end (save-excursion
 		    (if (re-search-forward "^==== " nil t)
 			(match-beginning 0)
 		      (point-max)))))
-	(if link-client-name
-	    (p4-set-extent-properties start end
-				      (list (cons 'block-client-name
-						  link-client-name))))
 	(if link-depot-name
 	    (p4-set-extent-properties start end
 				      (list (cons 'block-depot-name
@@ -2202,7 +2125,7 @@ character events"
     (while (re-search-forward
 	    (concat "^[@0-9].*\\([cad+]\\)\\([0-9]*\\).*\n"
 		    "\\(\\(\n\\|[^@0-9\n].*\n\\)*\\)") nil t)
-      (let ((first-line (string-to-int (match-string 2)))
+      (let ((first-line (string-to-number (match-string 2)))
 	    (start (match-beginning 3))
 	    (end (match-end 3)))
 	(p4-set-extent-properties start end
@@ -2214,7 +2137,7 @@ character events"
 	   (if (re-search-forward "^\\(\\.\\.\\.\\|====\\)" nil t)
 	       (match-beginning 0)
 	     (point-max))))
-      (p4-find-change-numbers buffer-name (point-min) stop))
+      (p4-find-change-numbers (current-buffer) (point-min) stop))
 
     (goto-char (point-min))
     (if (looking-at "^Change [0-9]+ by \\([^ @]+\\)@\\([^ \n]+\\)")
@@ -2229,9 +2152,7 @@ character events"
 	  (p4-create-active-link (match-beginning cl-match)
 				 (match-end cl-match)
 				 (list (cons 'client cur-client)))))
-
-    (use-local-map p4-diff-map)
-    (setq buffer-read-only t)))
+    ))
 
 
 ;; The p4 describe command
@@ -2245,33 +2166,27 @@ character events"
 
 ;; Internal version of the p4 describe command
 (defun p4-describe-internal (arg-string)
-  (p4-noinput-buffer-action
-   "describe" nil t arg-string)
-  (p4-activate-diff-buffer
-   (concat "*P4 describe: " (p4-list-to-string arg-string) "*")))
+  (p4-call-command "describe" arg-string
+		   (concat "*P4 describe: " (p4-list-to-string arg-string) "*")
+		   'p4-diff-mode
+		   'p4-activate-diff-buffer))
 
 ;; The p4 opened command
-(defp4cmd p4-opened ()
+(defp4cmd p4-opened (&rest args)
   "opened"
   "To display list of files opened for pending change, type \\[p4-opened].\n"
-  (interactive)
-  (let (args)
-    (if current-prefix-arg
-	(setq args (p4-make-list-from-string
-		    (p4-read-arg-string "p4 opened: "
-					(p4-buffer-file-name-2)))))
-    (p4-opened-internal args)))
+  (interactive (p4-read-args* "p4 opened: "))
+  (p4-opened-internal args))
 
 (defun p4-opened-internal (args)
   (let ((p4-client (p4-current-client)))
-    (p4-noinput-buffer-action "opened" nil t args)
-    (p4-make-depot-list-buffer (concat "*Opened Files: " p4-client "*"))))
+    (p4-call-command "opened" args (concat "*Opened Files: " p4-client "*")
+		     'p4-basic-list-mode)))
 
 (defun p4-update-opened-list ()
-  (if (get-buffer-window (concat "*Opened Files: " (p4-current-client) "*"))
-      (progn
-	(setq current-prefix-arg nil)
-	(p4-opened-internal nil))))
+  ;; (when (get-buffer-window (concat "*Opened Files: " (p4-current-client) "*"))
+  ;;   (p4-opened-internal nil))
+  )
 
 (defun p4-regexp-create-links (buffer-name regexp property)
   (save-excursion
@@ -2286,55 +2201,37 @@ character events"
     (setq buffer-read-only t)))
 
 ;; The p4 users command
-(defp4cmd p4-users ()
+(defp4cmd p4-users (&rest args)
   "users" "To display list of known users, type \\[p4-users].\n"
-  (interactive)
-  (let (args)
-    (if current-prefix-arg
-	(setq args (p4-make-list-from-string
-		    (p4-read-arg-string "p4 users: " nil "user"))))
-    (p4-noinput-buffer-action "users" nil t args))
-  (p4-make-basic-buffer "*P4 users*")
-  (p4-regexp-create-links "*P4 users*" "^\\([^ ]+\\).*\n" 'user))
+  (interactive (p4-read-args* "p4 users: " "user"))
+  (p4-call-command "users" args "*P4 users*" nil
+		   (lambda ()
+		     (p4-regexp-create-links "*P4 users*" "^\\([^ ]+\\).*\n" 'user))))
 
-(defp4cmd p4-groups ()
+(defp4cmd p4-groups (&rest args)
   "groups" "To display list of known groups, type \\[p4-groups].\n"
-  (interactive)
-  (let (args)
-    (if current-prefix-arg
-	(setq args (p4-make-list-from-string
-		    (p4-read-arg-string "p4 groups: " nil "group"))))
-    (p4-noinput-buffer-action "groups" nil t args))
-  (p4-make-basic-buffer "*P4 groups*")
-  (p4-regexp-create-links "*P4 groups*" "^\\(.*\\)\n" 'group))
+  (interactive (p4-read-args* "p4 groups: " "group"))
+  (p4-call-command "groups" args "*P4 groups*" nil
+		   (lambda ()
+		     (p4-regexp-create-links "*P4 groups*" "^\\(.*\\)\n" 'group))))
 
 ;; The p4 jobs command
-(defp4cmd p4-jobs ()
+(defp4cmd p4-jobs (&rest args)
   "jobs" "To display list of jobs, type \\[p4-jobs].\n"
-  (interactive)
-  (let (args)
-    (if current-prefix-arg
-	(setq args (p4-make-list-from-string (p4-read-arg-string "p4 jobs: "))))
-    (p4-noinput-buffer-action "jobs" nil t args))
-  (p4-make-basic-buffer "*P4 jobs*"))
+  (interactive (p4-read-args* "p4 jobs: "))
+  (p4-call-command "jobs" args "*P4 jobs*"))
 
 ;; The p4 fix command
-(defp4cmd p4-fix ()
+(defp4cmd p4-fix (&rest args)
   "fix" "To mark jobs as being fixed by a changelist number, type \\[p4-fix].\n"
-  (interactive)
-  (let ((args (p4-make-list-from-string (p4-read-arg-string "p4 fix: "
-							    nil "job"))))
-    (p4-noinput-buffer-action "fix" nil t args)))
+  (interactive (p4-read-args "p4 fix: " "job"))
+  (p4-call-command "fix" args p4-output-buffer-name))
 
 ;; The p4 fixes command
-(defp4cmd p4-fixes ()
+(defp4cmd p4-fixes (&rest args)
   "fixes" "To list what changelists fix what jobs, type \\[p4-fixes].\n"
-  (interactive)
-  (let (args)
-    (if current-prefix-arg
-	(setq args (p4-make-list-from-string (p4-read-arg-string "p4 fixes: "))))
-    (p4-noinput-buffer-action "fixes" nil t args)
-    (p4-make-basic-buffer "*P4 fixes*")))
+  (interactive (p4-read-args* "p4 fixes: "))
+  (p4-call-command "fixes" args "*P4 fixes*"))
 
 ;; The p4 where command
 (defp4cmd p4-where ()
@@ -2346,15 +2243,20 @@ character events"
 	(setq args (p4-make-list-from-string
 		    (p4-read-arg-string "p4 where: "
 					(p4-buffer-file-name-2)))))
-    (p4-noinput-buffer-action "where" nil 's args)))
+    (p4-simple-command "where" args)))
 
 
-(defun p4-async-process-command (p4-this-command &optional
-						 p4-regexp
-						 p4-this-buffer
-						 p4-out-command
-						 p4-in-args
-						 p4-out-args)
+(defun p4-check-cmd-line-switch (args)
+  (when (or (member "-i" args)
+	    (member "-o" args))
+    (error "Do not specify -i or -o switches.")))
+
+(defun p4-form-command (p4-this-command &optional
+					p4-regexp
+					p4-this-buffer
+					p4-out-command
+					p4-in-args
+					p4-out-args)
   "Internal function to call an asynchronous process with a local buffer,
 instead of calling an external client editor to run within emacs.
 
@@ -2367,23 +2269,24 @@ on.
 P4-THIS-BUFFER is the optional buffer to create. (Default is *P4 <command>*).
 
 P4-OUT-COMMAND is the optional command that will be used as the command to
-be called when `p4-async-call-process' is called.
+be called when `p4-form-commit' is called.
 
 P4-IN-ARGS is the optional argument passed that will be used as the list of
 arguments to the P4-THIS-COMMAND.
 
 P4-OUT-ARGS is the optional argument passed that will be used as the list of
 arguments to P4-OUT-COMMAND."
+  (p4-check-cmd-line-switch p4-in-args)
+  (p4-check-cmd-line-switch p4-out-args)
   (let ((dir default-directory))
     (if p4-this-buffer
 	(set-buffer (get-buffer-create p4-this-buffer))
       (set-buffer (get-buffer-create (concat "*P4 " p4-this-command "*"))))
-    (setq p4-current-command p4-this-command)
+    (setq p4-form-current-command p4-this-command)
     (cd dir))
   (if (zerop (apply 'call-process-region (point-min) (point-max)
 		    (p4-check-p4-executable) t t nil
-		    "-d" default-directory
-		    p4-current-command "-o"
+		    p4-form-current-command "-o"
 		    p4-in-args))
       (progn
 	(goto-char (point-min))
@@ -2392,50 +2295,46 @@ arguments to P4-OUT-COMMAND."
 			"# Type C-x k to kill current changes.\n"
 			"#\n"))
 	(if p4-regexp (re-search-forward p4-regexp))
-	(indented-text-mode)
-	(setq p4-async-minor-mode t)
-	(setq fill-column 79)
+	(p4-form-mode)
 	(p4-push-window-config)
 	(switch-to-buffer-other-window (current-buffer))
 	(if p4-out-command
-	    (setq p4-current-command p4-out-command))
-	(setq p4-current-args p4-out-args)
+	    (setq p4-form-current-command p4-out-command))
+	(setq p4-form-current-args p4-out-args)
 	(setq buffer-offer-save t)
 
-	(define-key p4-async-minor-map "\C-c\C-c" 'p4-async-call-process)
-	(run-hooks 'p4-async-command-hook)
 	(set-buffer-modified-p nil)
 	(message "C-c C-c to finish editing and exit buffer."))
     (error "%s %s -o failed to complete successfully."
-	   (p4-check-p4-executable) p4-current-command)))
+	   (p4-check-p4-executable) p4-form-current-command)))
 
-(defun p4-async-call-process ()
-  "Internal function called by `p4-async-process-command' to process the
+(defun p4-form-commit ()
+  "Internal function called by `p4-form-command' to process the
 buffer after editing is done using the minor mode key mapped to `C-c C-c'."
   (interactive)
-  (message "p4 %s ..." p4-current-command)
-  (let ((max (point-max)) msg
-	(current-command p4-current-command)
-	(current-args p4-current-args))
-    (goto-char max)
-    (if (zerop (apply 'call-process-region (point-min)
-		      max (p4-check-p4-executable)
-		      nil '(t t) nil
-		      "-d" default-directory
-		      current-command "-i"
-		      current-args))
+  (message "p4 %s ..." p4-form-current-command)
+  (let* ((buffer (p4-make-output-buffer "*P4*"))
+	 (inhibit-read-only t)
+	 (current-command p4-form-current-command)
+	 (current-args p4-form-current-args)
+	 (ret (apply 'call-process-region (point-min)
+		     (point-max) (p4-check-p4-executable)
+		     nil buffer nil
+		     current-command "-i"
+		     current-args)))
+    (with-current-buffer buffer
+      (if (= (count-lines (point-min) (point-max)) 1)
+	  (message (buffer-substring (point-min)
+				     (save-excursion
+				       (goto-char (point-min))
+				       (end-of-line)
+				       (point))))
+	(p4-push-window-config)
+	(display-buffer buffer)))
+    (if (zerop ret)
 	(progn
-	  (goto-char max)
-	  (setq msg (buffer-substring max (point-max)))
-	  (delete-region max (point-max))
-	  (save-excursion
-	    (set-buffer (get-buffer-create p4-output-buffer-name))
-	    (delete-region (point-min) (point-max))
-	    (insert msg))
 	  (kill-buffer nil)
-	  (display-buffer p4-output-buffer-name)
 	  (p4-partial-cache-cleanup current-command)
-	  (message "p4 %s done." current-command)
 	  (if (equal current-command "submit")
 	      (progn
 		(p4-refresh-files-in-buffers)
@@ -2445,10 +2344,6 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
       (error "%s %s -i failed to complete successfully."
 	     (p4-check-p4-executable)
 	     current-command))))
-
-(defun p4-cmd-line-flags (args)
-  (memq t (mapcar (lambda (x) (not (not (string-match "^-" x))))
-		  args)))
 
 ;; The p4 change command
 (defp4cmd p4-change ()
@@ -2461,33 +2356,23 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
       (if current-prefix-arg
 	  (setq args (p4-make-list-from-string
 		      (p4-read-arg-string "p4 change: " nil))))
-      (if (p4-cmd-line-flags args)
-	  (p4-noinput-buffer-action "change" nil t args)
-	(p4-async-process-command "change" "Description:\n\t"
-				  change-buf-name nil args)))))
+      (p4-form-command "change" "Description:\n\t"
+		       change-buf-name nil args))))
 
 ;; The p4 client command
-(defp4cmd p4-client ()
+(defp4cmd p4-client (&rest args)
   "client" "To edit a client specification, type \\[p4-client].\n"
-  (interactive)
-  (let (args
-	(client-buf-name "*P4 client*"))
-    (if (buffer-live-p (get-buffer client-buf-name))
-	(switch-to-buffer-other-window (get-buffer client-buf-name))
-      (if current-prefix-arg
-	  (setq args (p4-make-list-from-string
-		      (p4-read-arg-string "p4 client: " nil "client"))))
-      (if (p4-cmd-line-flags args)
-	  (p4-noinput-buffer-action "client" nil t args)
-	(p4-async-process-command "client" "\\(Description\\|View\\):\n\t"
-				  client-buf-name nil args)))))
+  (interactive (p4-read-args* "p4 client: " "client"))
+  (let ((client-buf-name "*P4 client*"))
+    (p4-form-command "client" "\\(Description\\|View\\):\n\t"
+		     client-buf-name nil args)))
 
-(defp4cmd p4-clients ()
+(defp4cmd p4-clients (&rest args)
   "clients" "To list all clients, type \\[p4-clients].\n"
-  (interactive)
-  (p4-noinput-buffer-action "clients" nil t nil)
-  (p4-make-basic-buffer "*P4 clients*")
-  (p4-regexp-create-links "*P4 clients*" "^Client \\([^ ]+\\).*\n" 'client))
+  (interactive (p4-read-args* "p4 clients: "))
+  (p4-call-command "clients" args "*P4 clients*" nil
+		   (lambda ()
+		     (p4-regexp-create-links "*P4 clients*" "^Client \\([^ ]+\\).*\n" 'client))))
 
 (defp4cmd p4-branch (args)
   "branch" "Edit a P4-BRANCH specification using \\[p4-branch]."
@@ -2496,19 +2381,17 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
 		 (p4-read-arg-string "p4 branch: " nil "branch"))))
   (if (or (null args) (equal args (list "")))
       (error "Branch must be specified!")
-    (if (p4-cmd-line-flags args)
-	(p4-noinput-buffer-action "branch" nil t args)
-      (p4-async-process-command "branch" "Description:\n\t"
-				(concat "*P4 Branch: "
-					(car (reverse args)) "*")
-				"branch" args))))
+    (p4-form-command "branch" "Description:\n\t"
+		     (concat "*P4 Branch: "
+			     (car (reverse args)) "*")
+		     "branch" args)))
 
-(defp4cmd p4-branches ()
+(defp4cmd p4-branches (&rest args)
   "branches" "To list all branches, type \\[p4-branches].\n"
-  (interactive)
-  (p4-noinput-buffer-action "branches" nil t nil)
-  (p4-make-basic-buffer "*P4 branches*")
-  (p4-regexp-create-links "*P4 branches*" "^Branch \\([^ ]+\\).*\n" 'branch))
+  (interactive (p4-read-args* "p4 branches: "))
+  (p4-call-command "branches" args "*P4 branches*" nil
+		   (lambda ()
+		     (p4-regexp-create-links "*P4 branches*" "^Branch \\([^ ]+\\).*\n" 'branch))))
 
 (defp4cmd p4-label (args)
   "label" "Edit a P4-label specification using \\[p4-label].\n"
@@ -2517,19 +2400,17 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
 		 (p4-read-arg-string "p4 label: " nil "label"))))
   (if (or (null args) (equal args (list "")))
       (error "label must be specified!")
-    (if (p4-cmd-line-flags args)
-	(p4-noinput-buffer-action "label" nil t args)
-      (p4-async-process-command "label" "Description:\n\t"
-				(concat "*P4 label: "
-					(car (reverse args)) "*")
-				"label" args))))
+    (p4-form-command "label" "Description:\n\t"
+		     (concat "*P4 label: "
+			     (car (reverse args)) "*")
+		     "label" args)))
 
 (defp4cmd p4-labels ()
   "labels" "To display list of defined labels, type \\[p4-labels].\n"
   (interactive)
-  (p4-noinput-buffer-action "labels" nil t nil)
-  (p4-make-basic-buffer "*P4 labels*")
-  (p4-regexp-create-links "*P4 labels*" "^Label \\([^ ]+\\).*\n" 'label))
+  (p4-call-command "labels" nil "*P4 labels*" nil
+		   (lambda ()
+		     (p4-regexp-create-links "*P4 labels*" "^Label \\([^ ]+\\).*\n" 'label))))
 
 ;; The p4 labelsync command
 (defp4cmd p4-labelsync ()
@@ -2538,8 +2419,8 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
   (interactive)
   (let ((args (p4-make-list-from-string
 	       (p4-read-arg-string "p4 labelsync: "))))
-    (p4-noinput-buffer-action "labelsync" nil t args))
-  (p4-make-depot-list-buffer "*P4 labelsync*"))
+    (p4-call-command "labelsync" args "*P4 labelsync*"
+		     'p4-basic-list-mode)))
 
 (defun p4-filter-out (pred lst)
   (let (res)
@@ -2570,50 +2451,35 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
 		(ding t)
 		(yes-or-no-p
 		 "File with empty diff opened for edit. Submit anyway? ")))
-	  (p4-async-process-command "change" "Description:\n\t"
+	  (p4-form-command "change" "Description:\n\t"
 				    submit-buf-name "submit" args)))))
 
 ;; The p4 user command
-(defp4cmd p4-user ()
+(defp4cmd p4-user (&rest args)
   "user" "To create or edit a user specification, type \\[p4-user].\n"
-  (interactive)
-  (let (args)
-    (if current-prefix-arg
-	(setq args (p4-make-list-from-string
-		    (p4-read-arg-string "p4 user: " nil "user"))))
-    (if (p4-cmd-line-flags args)
-	(p4-noinput-buffer-action "user" nil t args)
-      (p4-async-process-command "user" nil nil nil args))))
+  (interactive (p4-make-list-from-string
+		(p4-read-arg-string "p4 user: " nil "user")))
+  (p4-form-command "user" nil nil nil args))
 
 ;; The p4 group command
-(defp4cmd p4-group ()
+(defp4cmd p4-group (&rest args)
   "group" "To create or edit a group specification, type \\[p4-group].\n"
-  (interactive)
-  (let (args)
-    (if current-prefix-arg
-	(setq args (p4-make-list-from-string
-		    (p4-read-arg-string "p4 group: " nil "group"))))
-    (if (p4-cmd-line-flags args)
-	(p4-noinput-buffer-action "group" nil t args)
-      (p4-async-process-command "group" nil nil nil args))))
+  (interactive (p4-make-list-from-string
+		(p4-read-arg-string "p4 group: " nil "group")))
+  (p4-form-command "group" nil nil nil args))
 
 ;; The p4 job command
-(defp4cmd p4-job ()
+(defp4cmd p4-job (&rest args)
   "job" "To create or edit a job, type \\[p4-job].\n"
-  (interactive)
-  (let (args)
-    (if current-prefix-arg
-	(setq args (p4-make-list-from-string
-		    (p4-read-arg-string "p4 job: " nil "job"))))
-    (if (p4-cmd-line-flags args)
-	(p4-noinput-buffer-action "job" nil t args)
-      (p4-async-process-command "job" "Description:\n\t" nil nil args))))
+  (interactive (p4-make-list-from-string
+		(p4-read-arg-string "p4 job: " nil "job")))
+  (p4-form-command "job" "Description:\n\t" nil nil args))
 
 ;; The p4 jobspec command
 (defp4cmd p4-jobspec ()
   "jobspec" "To edit the job template, type \\[p4-jobspec].\n"
   (interactive)
-  (p4-async-process-command "jobspec"))
+  (p4-form-command "jobspec"))
 
 ;; A function to set the current P4 client name
 (defun p4-set-client-name (p4-new-client-name)
@@ -2635,7 +2501,8 @@ the current client."
 				 (if p4-my-clients
 				     p4-my-clients
 				   'p4-clients-completion)
-				 nil p4-strict-complete (p4-current-client))
+				 nil p4-strict-complete (p4-current-client)
+				 'p4-clients-history)
 		))
   (if (or (null p4-new-client-name) (equal p4-new-client-name "nil"))
       (progn
@@ -2759,7 +2626,7 @@ the current value of P4PORT."
 (defvar p4-prefix-map
   (let ((map (make-sparse-keymap)))
     (define-key map "a" 'p4-add)
-    (define-key map "b" 'p4-bug-report)
+    (define-key map "b" 'p4-branches)
     (define-key map "B" 'p4-branch)
     (define-key map "c" 'p4-client)
     (define-key map "C" 'p4-changes)
@@ -2802,12 +2669,10 @@ the current value of P4PORT."
     (define-key map "X" 'p4-fix)
     (define-key map "=" 'p4-diff)
     (define-key map "-" 'p4-ediff)
-    (define-key map "?" 'p4-describe-bindings)
     map)
   "The Prefix for P4 Library Commands.")
 
-(if (not (keymapp (lookup-key global-map "\C-xp")))
-    (define-key global-map "\C-xp" p4-prefix-map))
+(fset 'p4-prefix-map p4-prefix-map)
 
 ;; For users interested in notifying a change, a notification list can be
 ;; set up using this function.
@@ -2881,7 +2746,7 @@ list."
   (save-excursion
     (if (and p4-notify-list (not (equal p4-notify-list "")))
 	(save-excursion
-	  (set-buffer (get-buffer-create p4-output-buffer-name))
+	  (set-buffer (p4-get-writable-output-buffer))
 	  (goto-char (point-min))
 	  (if (re-search-forward "[0-9]+.*submitted" (point-max) t)
 	      (let (p4-matched-change)
@@ -2891,7 +2756,6 @@ list."
 		(call-process-region (point-min) (point-max)
 				     (p4-check-p4-executable)
 				     t t nil
-				     "-d" default-directory
 				     "describe" "-s"
 				     p4-matched-change)
 		(switch-to-buffer "*P4 Notify*")
@@ -2913,11 +2777,11 @@ list."
 
 		  (kill-buffer nil)))
 	    (save-excursion
-	      (set-buffer (get-buffer-create p4-output-buffer-name))
+	      (set-buffer (p4-get-writable-output-buffer))
 	      (goto-char (point-max))
 	      (insert "\np4-do-notify: No Change Submissions found."))))
       (save-excursion
-	(set-buffer (get-buffer-create p4-output-buffer-name))
+	(set-buffer (p4-get-writable-output-buffer))
 	(goto-char (point-max))
 	(insert "\np4-do-notify: Notification list not set.")))))
 
@@ -3138,66 +3002,6 @@ making the file writable and write protected."
 	    (setq mode (logior mode 128)))
 	  (set-file-modes buffer-file-name mode))))))
 
-(defun p4-browse-web-page ()
-  "Browse the p4.el web page."
-  (interactive)
-  (require 'browse-url)
-  (browse-url p4-web-page))
-
-(defun p4-bug-report ()
-  (interactive)
-  (if (string-match " 19\\." (emacs-version))
-      ;; unfortunately GNU Emacs 19.x doesn't have compose-mail
-      (mail nil p4-emacs-maintainer (concat "BUG REPORT: "
-					    (p4-emacs-version)))
-    (compose-mail p4-emacs-maintainer (concat "BUG REPORT: "
-					      (p4-emacs-version))))
-  (goto-char (point-min))
-  (re-search-forward (concat "^" (regexp-quote mail-header-separator) "\n"))
-  ;; Insert warnings for novice users.
-  (insert
-   "This bug report will be sent to the P4-Emacs Integration Maintainer,\n"
-   p4-emacs-maintainer "\n\n")
-  (insert (concat (emacs-version) "\n\n"))
-  (insert "A brief description of the problem and how to reproduce it:\n")
-  (save-excursion
-    (let ((message-buf (get-buffer
-			(cond (p4-running-xemacs " *Message-Log*")
-			      (p4-running-emacs "*Messages*")))))
-      (if message-buf
-	  (let (beg-pos
-		(end-pos (point-max)))
-	    (save-excursion
-	      (set-buffer message-buf)
-	      (goto-char end-pos)
-	      (forward-line -10)
-	      (setq beg-pos (point)))
-	    (insert "\n\nRecent messages:\n")
-	    (insert-buffer-substring message-buf beg-pos end-pos))))))
-
-(defun p4-describe-bindings ()
-  "A function to list the key bindings for the p4 prefix map"
-  (interactive)
-  (save-excursion
-    (p4-push-window-config)
-    (let ((map (make-sparse-keymap))
-	  (p4-bindings-buffer "*P4 key bindings*"))
-      (get-buffer-create p4-bindings-buffer)
-      (cond
-       (p4-running-xemacs
-	(set-buffer p4-bindings-buffer)
-	(delete-region (point-min) (point-max))
-	(insert "Key Bindings for P4 Mode\n------------------------\n")
-	(describe-bindings-internal p4-prefix-map))
-       (p4-running-emacs
-	(kill-buffer p4-bindings-buffer)
-	(describe-bindings "\C-xp")
-	(set-buffer "*Help*")
-	(rename-buffer p4-bindings-buffer)))
-      (define-key map "q" 'p4-quit-current-buffer)
-      (use-local-map map)
-      (display-buffer p4-bindings-buffer))))
-
 ;; Break up a string into a list of words
 ;; (p4-make-list-from-string "ab c de  f") -> ("ab" "c" "de" "f")
 (defun p4-make-list-from-string (str)
@@ -3223,7 +3027,8 @@ making the file writable and write protected."
 	((get-char-property (point) 'block-depot-name))
 	((if (and (fboundp 'dired-get-filename)
 		  (dired-get-filename nil t))
-	     (p4-follow-link-name (dired-get-filename nil t))))))
+	     (p4-follow-link-name (dired-get-filename nil t))))
+	((p4-basic-list-get-filename))))
 
 (defun p4-buffer-file-name ()
   (cond (buffer-file-name
@@ -3524,6 +3329,15 @@ file name selection.")
 		     nil nil
 		     initial 'p4-arg-string-history)))
 
+(defun p4-read-args (prompt &optional type &rest args)
+  (p4-make-list-from-string
+   (p4-read-arg-string prompt (p4-list-to-string args) type)))
+
+(defun p4-read-args* (prompt &optional type &rest args)
+  (if current-prefix-arg
+      (apply 'p4-read-args prompt type args)
+    args))
+
 (defun p4-arg-string-completion (string predicate action)
   (let ((first-part "") completion)
     (if (string-match "^\\(.* +\\)\\(.*\\)" string)
@@ -3680,7 +3494,7 @@ Emacs P4."
     client))
 
 (defun p4-get-config-info (file-name token)
-  (let ((output-buffer (generate-new-buffer p4-output-buffer-name))
+  (let ((output-buffer (p4-get-writable-output-buffer))
 	(data (getenv token)))
     (save-excursion
       (set-buffer output-buffer)
@@ -3702,7 +3516,7 @@ Emacs P4."
       (setq cur-client (p4-get-config-info p4-config-file "P4CLIENT")))
     (if (not cur-client)
 	(save-excursion
-	  (get-buffer-create p4-output-buffer-name)
+	  (p4-get-writable-output-buffer)
 	  (set-buffer p4-output-buffer-name)
 	  (goto-char (point-max))
 	  (setq pmin (point))
@@ -3723,8 +3537,6 @@ that."
       (p4-get-config-info p4-config-file "P4PORT"))))
 
 (defun p4-save-opened-files ()
-  (get-buffer-create p4-output-buffer-name);; We do these two lines
-  (kill-buffer p4-output-buffer-name)      ;; to ensure no duplicates
   (let ((output-buffer (p4-depot-output "opened"))
 	opened)
     (save-excursion
@@ -3763,6 +3575,7 @@ that."
 	(setq opened (cons (match-string 1) opened))))
     (if opened
 	(progn
+	  (with-current-buffer buffer (erase-buffer))
 	  (p4-exec-p4 buffer (list "diff") t)
 	  (save-excursion
 	    (set-buffer buffer)
@@ -3784,8 +3597,7 @@ that."
 	 (new-pw (read-passwd "Enter new password: "))
 	 (new2-pw (read-passwd "Re-enter new password: ")))
     (if (string= new-pw new2-pw)
-	(p4-noinput-buffer-action "passwd" nil 's
-				  (list "-O" old-pw "-P" new-pw))
+	(p4-simple-command "passwd" (list "-O" old-pw "-P" new-pw))
       (error "Passwords don't match"))))
 
 (defp4cmd p4-login ()
@@ -3798,7 +3610,7 @@ that."
     (if (not (member "-s" args))
 	(setq pw (read-passwd "Enter perforce password: ")))
     (save-excursion
-      (set-buffer (get-buffer-create p4-output-buffer-name))
+      (set-buffer (p4-get-writable-output-buffer))
       (delete-region (point-min) (point-max))
       (insert pw)
       (apply 'call-process-region (point-min) (point-max)
@@ -3814,7 +3626,37 @@ that."
   (let (args)
     (if current-prefix-arg
 	(setq args (list (p4-read-arg-string "p4 logout: "))))
-    (p4-noinput-buffer-action "logout" nil 's args nil t)))
+    (p4-simple-command "logout" args)))
+
+;; P4 Basic List Mode
+
+(defvar p4-basic-list-mode-map
+  (let ((map (p4-make-derived-map p4-basic-mode-map)))
+    (define-key map "n" 'next-line)
+    (define-key map "p" 'previous-line)
+    (define-key map "\C-m" 'p4-basic-list-activate)
+    map)
+  "The key map to use for selecting opened files.")
+
+(defvar p4-basic-list-font-lock-keywords
+  '(("^\\(//.*\\)#[0-9]+ - delete" 1 'p4-depot-deleted-face)
+    ("^\\(//.*\\)#[0-9]+ - add" 1 'p4-depot-added-face)
+    ("^\\(//.*\\)#[0-9]+ - branch" 1 'p4-depot-branched-face)))
+
+(defun p4-basic-list-get-filename ()
+  (save-excursion
+    (beginning-of-line)
+    (when (looking-at "^\\(//.*\\)#[0-9]+ - ")
+      (match-string-no-properties 1))))
+
+(defun p4-basic-list-activate ()
+  (interactive)
+  (let ((file (p4-basic-list-get-filename)))
+    (when file
+      (p4-find-file-or-print-other-window nil file))))
+
+(define-derived-mode p4-basic-list-mode p4-basic-mode "P4 Basic List"
+  (setq font-lock-defaults '(p4-basic-list-font-lock-keywords t)))
 
 (provide 'p4)
 
