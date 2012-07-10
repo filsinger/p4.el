@@ -1462,11 +1462,28 @@ type \\[p4-blame]"
 	   (setq arg-string (concat arg-string "@" change))))
     (if (or current-prefix-arg (not arg-string))
 	(setq arg-string (p4-read-arg-string "p4 print-revs: " arg-string)))
-    (p4-blame-int arg-string)))
+    (p4-blame-int arg-string nil)))
 
 (defalias 'p4-print-with-rev-history 'p4-blame)
 
-(defun p4-blame-int (file-spec)
+(defun p4-blame-line ()
+  "To Print a depot file with revision history to a buffer,
+type and jump to the current line in the revision buffer. \\[p4-blame]"
+  (interactive)
+  (let ((arg-string (p4-buffer-file-name-2))
+					(src-line (line-number-at-pos (point)))
+	(rev (get-char-property (point) 'rev))
+	(change (get-char-property (point) 'change)))
+    (cond (rev
+	   (setq arg-string (concat arg-string "#" rev)))
+	  (change
+	   (setq arg-string (concat arg-string "@" change))))
+    (if (or current-prefix-arg (not arg-string))
+	(setq arg-string (p4-read-arg-string "p4 print-revs: " arg-string)))
+    (p4-blame-int arg-string src-line)))
+
+
+(defun p4-blame-int (file-spec &optional src-line)
   (let ((file-name file-spec)
 	(buffer (p4-get-writable-output-buffer))
 	head-name  ;; file spec of the head revision for this blame assignment
@@ -1649,7 +1666,10 @@ type \\[p4-blame]"
       (with-current-buffer buffer-name
 		(save-excursion
 	(setq truncate-lines t)
-	(use-local-map p4-print-rev-mode-map))))))
+	(use-local-map p4-print-rev-mode-map))))
+	(when src-line
+	  (switch-to-buffer-other-window  buffer)
+	  (p4-goto-line (+ 2 src-line)))))
 
 ;; The p4 refresh command
 (defp4cmd p4-refresh ()
