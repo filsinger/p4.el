@@ -471,11 +471,27 @@ arguments to p4 commands."
       (setq buffer-read-only nil))
     buffer))
 
+(defvar p4-no-session-regexp
+  (concat "Perforce password (P4PASSWD) invalid or unset\\|"
+          "Your session has expired, please login again"))
+
 (defun p4-run (args)
-  "Run p4 ARGS in the current buffer and place point at the start
-of the output. Return the status of the command."
-  (save-excursion
-    (apply 'call-process (p4-check-p4-executable) nil t nil args)))
+  "Run p4 ARGS in the current buffer, with output after point.
+Return the status of the command. If the command cannot be run
+because the user is not logged in, prompt for a password and
+re-run the command."
+  (let ((incomplete t) status)
+    (while incomplete
+      (save-excursion
+        (save-restriction
+          (narrow-to-region (point) (point))
+          (setq status (apply 'call-process (p4-check-p4-executable) nil t nil args))
+          (goto-char (point-min))
+          (setq incomplete (looking-at p4-no-session-regexp))
+          (when incomplete
+            (p4-login)
+            (delete-region (point-min) (point-max))))))
+    status)))
 
 (defmacro p4-with-temp-buffer (args &rest body)
   "Run p4 ARGS in a temporary buffer, place point at the start of
@@ -3344,15 +3360,15 @@ return a buffer listing those files. Otherwise, return NIL."
     (if (not (member "-s" args))
 	(setq pw (read-passwd "Enter perforce password: ")))
     (with-current-buffer (p4-get-writable-output-buffer)
-		(save-excursion
-      (delete-region (point-min) (point-max))
-      (insert pw)
-      (apply 'call-process-region (point-min) (point-max)
-	     (p4-check-p4-executable) t t nil "login" args)
-      (goto-char (point-min))
-      (if (re-search-forward "Enter password:.*\n" nil t)
-	  (replace-match ""))
-      (message "%s" (buffer-substring (point-min) (1- (point-max))))))))
+      (save-excursion
+        (delete-region (point-min) (point-max))
+        (insert pw)
+        (apply 'call-process-region (point-min) (point-max)
+               (p4-check-p4-executable) t t nil "login" args)
+        (goto-char (point-min))
+        (if (re-search-forward "Enter password:.*\n" nil t)
+            (replace-match ""))
+        (message "%s" (buffer-substring (point-min) (1- (point-max))))))))
 
 (defp4cmd p4-logout ()
   "logout" "To logout by removing a session ticket, type \\[p4-logout].\n"
