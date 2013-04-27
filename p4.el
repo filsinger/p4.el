@@ -29,18 +29,6 @@
 ;; P4 SCM Integration into Emacs/XEmacs|
 ;; 2004/06/11|10.7|not_assigned_yet|
 
-;; WARNING:
-;; --------
-;;
-;;    % p4 edit foo.c
-;;    ... make changes to foo.c in emacs
-;;    % p4 submit
-;;     ... keep the writable copy of foo.c in emacs.  Start making changes
-;;     to it.  Discover that you can't save it.	 If you do M-x:p4-edit,
-;;     you'll lose your changes.  You need to do a 'p4 edit' at the
-;;     command-line.
-;;
-
 ;; NOTES:
 ;; ------
 ;;
@@ -753,7 +741,7 @@ controlled files."
 (defun p4-simple-command-and-revert-buffer (cmd args)
   (p4-simple-command cmd args)
   (when (p4-buffer-file-name)
-    (revert-buffer t t)))
+    (revert-buffer t)))
 
 (defun p4-call-command-process-filter (proc string)
   "Process filter for `p4-call-command'. Keep point position if `bobp'."
@@ -2949,7 +2937,7 @@ actually up-to-date, if in buffers, or need refreshing."
 		  (if (not (buffer-modified-p buf))
 		      (if (not (verify-visited-file-modtime buf))
 			  (if (file-readable-p buffile)
-			      (revert-buffer t t)
+			      (revert-buffer t)
 			    (p4-check-mode))))
 		(if (file-readable-p buffile)
 		    (find-file-noselect buffile t)
