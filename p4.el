@@ -53,14 +53,6 @@
 
 (defvar p4-emacs-version "10.8" "The Current P4-Emacs Integration Revision.")
 
-(defvar p4-running-emacs nil
-  "If the current Emacs is not XEmacs, then, this is non-nil.")
-(defvar p4-running-xemacs nil
-  "If the current Emacs is XEmacs/Lucid, then, this is non-nil.")
-(if (string-match "XEmacs\\|Lucid" emacs-version)
-    (setq p4-running-xemacs t)
-  (setq p4-running-emacs t))
-
 (defgroup p4 nil "Perforce VC System." :group 'tools)
 
 (eval-and-compile
@@ -350,12 +342,12 @@ arguments to p4 commands."
 
 (defvar p4-basic-mode-map
   (let ((map (make-sparse-keymap)))
-    (cond (p4-running-xemacs
-	   (define-key map [button2] 'p4-buffer-mouse-clicked)
-	   (define-key map [button3] 'p4-buffer-mouse-clicked-3))
-	  (p4-running-emacs
-	   (define-key map [mouse-2] 'p4-buffer-mouse-clicked)
-	   (define-key map [mouse-3] 'p4-buffer-mouse-clicked-3)))
+    (if (featurep 'xemacs)
+        (progn
+          (define-key map [button2] 'p4-buffer-mouse-clicked)
+          (define-key map [button3] 'p4-buffer-mouse-clicked-3))
+      (define-key map [mouse-2] 'p4-buffer-mouse-clicked)
+      (define-key map [mouse-3] 'p4-buffer-mouse-clicked-3))
     (define-key map "\t" 'p4-forward-active-link)
     (define-key map "\e\t" 'p4-backward-active-link)
     (define-key map [(shift tab)] 'p4-backward-active-link)
@@ -627,10 +619,9 @@ valid `p4-executable'."
   "To add the P4 menu bar button for files that are already not in
 the P4 depot or in the current client view.."
   (interactive)
-  (cond (p4-running-xemacs
-         (if (not (boundp 'p4-mode))
-             (setq p4-mode nil))
-         (easy-menu-add (p4-mode-menu "P4"))))
+  (when (featurep 'xemacs)
+    (unless (boundp 'p4-mode) (setq p4-mode nil))
+    (easy-menu-add (p4-mode-menu "P4")))
   t)
 
 (defun p4-set-p4-executable (p4-exe-name)
@@ -1031,14 +1022,14 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
 
 (defun p4-set-extent-properties (start end prop-list)
   (if (featurep 'xemacs)
-	 (let ((ext (make-extent start end)))
-	   (while prop-list
-	     (set-extent-property ext (caar prop-list) (cdar prop-list))
-	     (setq prop-list (cdr prop-list)))))
-	 (let ((ext (make-overlay start end)))
-	   (while prop-list
-	     (overlay-put ext (caar prop-list) (cdar prop-list))
-	     (setq prop-list (cdr prop-list)))))
+      (let ((ext (make-extent start end)))
+        (while prop-list
+          (set-extent-property ext (caar prop-list) (cdar prop-list))
+          (setq prop-list (cdr prop-list))))
+    (let ((ext (make-overlay start end)))
+      (while prop-list
+        (overlay-put ext (caar prop-list) (cdar prop-list))
+        (setq prop-list (cdr prop-list))))))
 
 (defun p4-create-active-link (start end prop-list)
   (p4-set-extent-properties start end
@@ -1856,13 +1847,12 @@ This command will execute the integrate/delete commands automatically.
 character events"
   (interactive "e")
   (let (win pnt)
-	(if (featurep 'xemacs)
-	  (progn
-	   (setq win (event-window event))
-	   (setq pnt (event-point event)))
-	  (progn
-	   (setq win (posn-window (event-end event)))
-	   (setq pnt (posn-point (event-start event)))))
+    (if (featurep 'xemacs)
+        (progn
+          (setq win (event-window event))
+          (setq pnt (event-point event)))
+      (setq win (posn-window (event-end event)))
+      (setq pnt (posn-point (event-start event))))
     (select-window win)
     (goto-char pnt)
     (p4-buffer-commands pnt)))
@@ -1873,12 +1863,11 @@ character events"
   (interactive "e")
   (let (win pnt)
     (if (featurep 'xemacs)
-   	  (progn
-	   (setq win (event-window event))
-	   (setq pnt (event-point event)))
-	  (progn
-	   (setq win (posn-window (event-end event)))
-	   (setq pnt (posn-point (event-start event)))))
+        (progn
+          (setq win (event-window event))
+          (setq pnt (event-point event)))
+      (setq win (posn-window (event-end event)))
+      (setq pnt (posn-point (event-start event))))
     (select-window win)
     (goto-char pnt)
     (let ((link-name (or (get-char-property pnt 'link-client-name)
@@ -2555,13 +2544,13 @@ the current value of P4PORT."
   "Refresh the list of files to be refreshed."
   (setq p4-all-buffer-files (delete (list buffile bufname)
 				    p4-all-buffer-files))
-  (if (not p4-all-buffer-files)
-      (progn
-	(if (and p4-running-emacs (timerp p4-file-refresh-timer))
-	    (cancel-timer p4-file-refresh-timer))
-	(if (and p4-running-xemacs p4-file-refresh-timer)
-	    (disable-timeout p4-file-refresh-timer))
-	(setq p4-file-refresh-timer nil))))
+  (unless p4-all-buffer-files
+    (if (featurep 'xemacs)
+        (when p4-file-refresh-timer
+          (disable-timeout p4-file-refresh-timer))
+      (when (timerp p4-file-refresh-timer)
+        (cancel-timer p4-file-refresh-timer)))
+    (setq p4-file-refresh-timer nil)))
 
 (defvar p4-prefix-map
   (let ((map (make-sparse-keymap)))
@@ -2723,9 +2712,10 @@ list."
 	(insert "\np4-do-notify: Notification list not set."))))))
 
 (defun p4-emacs-version ()
-  "Return the current Emacs-P4 Integration version."
+  "Describe the (X)Emacs-P4 Integration version."
   (interactive)
-  (message (concat (cond (p4-running-xemacs "X")) "Emacs-P4 Integration v%s")
+  (message "%sEmacs-P4 Integration version %s"
+           (if (featurep 'xemacs) "X" "")
 	   p4-emacs-version))
 
 (defun p4-find-p4-config-file ()
@@ -2833,13 +2823,12 @@ no args."
 	      (add-to-list 'p4-all-buffer-files (list buffile bufname))))
 	(if (and (not p4-file-refresh-timer) (not (= p4-file-refresh-timer-time 0)))
 	    (setq p4-file-refresh-timer
-		  (cond (p4-running-emacs
-			 (run-at-time nil p4-file-refresh-timer-time
-				      'p4-refresh-files-in-buffers))
-			(p4-running-xemacs
-			 (add-timeout p4-file-refresh-timer-time
-				      'p4-refresh-files-in-buffers nil
-				      p4-file-refresh-timer-time)))))
+		  (if (featurep 'xemacs)
+                      (add-timeout p4-file-refresh-timer-time
+                                   'p4-refresh-files-in-buffers nil
+                                   p4-file-refresh-timer-time)
+                    (run-at-time nil p4-file-refresh-timer-time
+                                 'p4-refresh-files-in-buffers))))
 	;; run hooks
 	(and p4-vc-check (run-hooks 'p4-mode-hook))
 	p4-vc-check)))
@@ -2892,10 +2881,9 @@ actually up-to-date, if in buffers, or need refreshing."
 
 (defun p4-force-mode-line-update ()
   "Force the mode line update for different flavors of Emacs."
-  (cond (p4-running-xemacs
-	 (redraw-modeline))
-	(p4-running-emacs
-	 (force-mode-line-update))))
+  (if (featurep 'xemacs)
+      (redraw-modeline)
+    (force-mode-line-update)))
 
 (defun p4-toggle-vc-mode ()
   "In case, the P4 server is not available, or when working off-line, toggle
@@ -2972,10 +2960,9 @@ making the file writable and write protected."
 
 (defun p4-cygpath (name)
   (if (memq system-type '(cygwin32))
-	  (if (featurep 'xemacs)
-	   (replace-in-string (exec-to-string (format "%s -w %s" p4-cygpath-exec name)) "\n" "")
-	   (replace-regexp-in-string "\n" "" (shell-command-to-string (format "%s -w %s" p4-cygpath-exec name)) )
-	   )
+      (if (featurep 'xemacs)
+          (replace-in-string (exec-to-string (format "%s -w %s" p4-cygpath-exec name)) "\n" "")
+        (replace-regexp-in-string "\n" "" (shell-command-to-string (format "%s -w %s" p4-cygpath-exec name))))
     name))
 
 (defvar p4-depot-filespec-history nil
@@ -3048,12 +3035,10 @@ So the 'no match' answer is different from 'not in cache'."
 	dir list)
 
     (if (and p4-cleanup-cache (not p4-timer))
-	(setq p4-timer (cond (p4-running-emacs
-			      (run-at-time p4-cleanup-time nil
-					   'p4-cache-cleanup))
-			     (p4-running-xemacs
-			      (add-timeout p4-cleanup-time 'p4-cache-cleanup
-					   nil nil)))))
+	(setq p4-timer
+              (if (featurep 'xemacs)
+                  (add-timeout p4-cleanup-time 'p4-cache-cleanup nil nil)
+                (run-at-time p4-cleanup-time nil 'p4-cache-cleanup))))
     (while l
       (if (string-match (concat "^" (car (car l)) "[^/]*$") filespec)
 	  (progn
@@ -3080,8 +3065,9 @@ So the 'no match' answer is different from 'not in cache'."
   (setq p4-labels-completion-cache nil)
   (setq p4-users-completion-cache nil)
   (setq p4-groups-completion-cache nil)
-  (if (and p4-running-emacs (timerp p4-timer)) (cancel-timer p4-timer))
-  (if (and p4-running-xemacs p4-timer) (disable-timeout p4-timer))
+  (if (featurep 'xemacs)
+      (when p4-timer (disable-timeout p4-timer))
+    (when (timerp p4-timer) (cancel-timer p4-timer)))
   (setq p4-timer nil)
   (message "Cleaning up the p4 caches ... done."))
 
