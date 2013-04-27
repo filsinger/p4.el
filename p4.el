@@ -715,7 +715,7 @@ controlled files."
 (defun p4-simple-command-and-revert-buffer (cmd args)
   (p4-simple-command cmd args)
   (when (p4-buffer-file-name)
-    (revert-buffer t)))
+    (revert-buffer t (not (buffer-modified-p)))))
 
 (defun p4-call-command-process-filter (proc string)
   "Process filter for `p4-call-command'. Keep point position if `bobp'."
@@ -2862,7 +2862,7 @@ actually up-to-date, if in buffers, or need refreshing."
 		  (if (not (buffer-modified-p buf))
 		      (if (not (verify-visited-file-modtime buf))
 			  (if (file-readable-p buffile)
-			      (revert-buffer t)
+			      (revert-buffer t t)
 			    (p4-check-mode))))
 		(if (file-readable-p buffile)
 		    (find-file-noselect buffile t)
