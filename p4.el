@@ -483,13 +483,24 @@ If successful, adds the P4 menu to the current buffer."
     (p4-menu-add)
     result))
 
-  (defun p4-call-p4-here (&rest args)
-    "Internal function called by various p4 commands.
-Executes p4 in the current buffer (generally a temp)."
-    (apply 'call-process (p4-check-p4-executable) nil
-	   t
-	   nil			; update display?
-	   args))
+(defmacro p4-with-temp-buffer (args &rest body)
+  "Run p4 ARGS in a temporary buffer, place point at the
+beginning of the output, and evaluate BODY."
+  `(with-temp-buffer
+     (when (zerop (apply 'call-process (p4-check-p4-executable) nil t nil ,args))
+       (goto-char (point-min))
+       ,@body)))
+
+(put 'p4-with-temp-buffer 'lisp-indent-function 1)
+
+(defun p4-output-matches (args regexp &optional group)
+  "Run p4 ARGS and return a list of matches for REGEXP in the output.
+With optional argument GROUP, return that matched group."
+  (p4-with-temp-buffer args
+    (let (result)
+      (while (re-search-forward regexp nil t)
+        (push (match-string (or group 0)) result))
+      (nreverse result))))
 
 (defun p4-start-p4 (buffer args)
   "Start P4 command asynchronously.
@@ -599,13 +610,6 @@ the last popped element to restore the window configuration."
 (easy-menu-add-item nil '("tools")
 		    (easy-menu-create-menu "P4" p4-menu-spec)
 		    "PCL-CVS")
-
-(defun p4-depot-output (command &optional args)
-  "Executes p4 command inside a buffer.
-Returns the buffer."
-  (let ((buffer (p4-get-writable-output-buffer)))
-    (p4-exec-p4 buffer (cons command args) t)
-    buffer))
 
 (defun p4-check-p4-executable ()
   "Check if the `p4-executable' is nil, and if so, prompt the user for a
@@ -747,33 +751,6 @@ controlled files."
 			      (p4-call-command-process-sentinel callback process message))))
     (p4-push-window-config)
     (pop-to-buffer buffer)))
-
-(defun p4-async-command-process-sentinel (callback process message)
-  (let ((inhibit-read-only t)
-	(buffer (process-buffer process)))
-    (when (buffer-live-p buffer)
-      (with-current-buffer buffer
-	(when callback
-	  (funcall callback))
-	(let ((moving (= (point) (process-mark process))))
-	  (save-excursion
-	    (goto-char (process-mark process))
-	    (insert "Process " (process-name process) " " message)
-	    (set-marker (process-mark process) (point)))
-	  (if moving (goto-char (process-mark process))))
-	(unless (string-equal message "finished\n")
-	  (ding))
-	(set-buffer-modified-p nil)))))
-
-(defun p4-async-command (cmd args buffer-name &optional mode callback)
-  (let* ((buffer (p4-make-output-buffer buffer-name mode))
-	 (process (p4-start-p4 buffer (cons cmd args))))
-    (lexical-let ((callback callback))
-      (set-process-sentinel process
-			    (lambda (process message)
-			      (p4-async-command-process-sentinel callback process message))))
-    (display-buffer buffer)
-    process))
 
 (defp4cmd p4-edit (show-output)
   "edit" "To open the current depot file for edit, type \\[p4-edit].\n"
@@ -1142,46 +1119,24 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
 		     (concat "*P4 Files: (" (p4-current-client) ") " (car args) "*")
 		     'p4-basic-list-mode)))
 
-(defvar p4-server-version-cache nil)
+(defvar p4-server-version-cache nil
+  "Association list mapping P4PORT to P4 server version on that port.")
 
 (defun p4-get-server-version ()
-  "To get the version number of the p4 server."
-  (let ((p4-port (p4-current-server-port))
-	ser-ver pmin)
-    (setq ser-ver (cdr (assoc p4-port p4-server-version-cache)))
-    (if (not ser-ver)
-	(save-excursion
-	  (p4-get-writable-output-buffer)
-	  (set-buffer p4-output-buffer-name)
-	  (goto-char (point-max))
-	  (setq pmin (point))
-	  (if (zerop (p4-call-p4-here "info"))
-	      (progn
-		(goto-char pmin)
-		(re-search-forward
-		 "^Server version: .*\/.*\/\\(\\([0-9]+\\)\.[0-9]+\\).*\/.*(.*)$")
-		(setq ser-ver (string-to-number (match-string 2)))
-		(setq p4-server-version-cache (cons (cons p4-port ser-ver)
-						    p4-server-version-cache))
-		(delete-region pmin (point-max))))))
-    ser-ver))
+  "Return the version number of the P4 server, or NIL if unknown."
+  (let ((p4-port (p4-current-server-port)))
+    (or (cdr (assoc p4-port p4-server-version-cache))
+        (p4-with-temp-buffer '("info")
+          (when (re-search-forward "^Server version: .*/\\([0-9]+\\)\.[0-9]+/" nil t)
+            (let ((version (string-to-number (match-string 1))))
+              (push (cons p4-port version) p4-server-version-cache)
+              version))))))
 
-(defun p4-get-client-root (client-name)
-  "To get the current value of Client's root type \\[p4-get-client-root].
-   This can be used by any other macro that requires this value."
-  (let (p4-client-root pmin)
-    (save-excursion
-      (p4-get-writable-output-buffer)
-      (set-buffer p4-output-buffer-name)
-      (goto-char (point-max))
-      (setq pmin (point))
-      (if (zerop (p4-call-p4-here "client" "-o" client-name))
-	  (progn
-	    (goto-char pmin)
-	    (re-search-forward "^Root:[ \t]+\\(.*\\)$")
-	    (setq p4-client-root (p4-canonize-client-root (match-string 1)))
-	    (delete-region pmin (point-max)))))
-    p4-client-root))
+(defun p4-get-client-root (client)
+  "Return the client root directory for the specified client."
+  (p4-with-temp-buffer (list "client" "-o" client)
+    (when (re-search-forward "^Root:[ \t]+\\(.*\\)$" nil t)
+      (p4-canonize-client-root (match-string 1)))))
 
 (defun p4-canonize-client-root (p4-client-root)
   "Canonizes client root"
@@ -1217,25 +1172,17 @@ name and a client name."
 	 (re-current-client (regexp-quote current-client))
 	 (re-client-root (regexp-quote client-root))
 	 files)
-    (with-temp-buffer
-      (insert "\n")
-      (apply 'p4-call-p4-here "where" file-list)
-      (goto-char (point-min))
+    (p4-with-temp-buffer (cons "where" file-list)
       (if (< (p4-get-server-version) 98)
 	  (while (re-search-forward
-		  (concat "^\\([^\n]+\\) //" re-current-client
-			  "\\(.*\\)$") nil t)
-	    (setq files (cons
-			 (cons
-			  (match-string 1)
-			  (concat client-root (match-string 2)))
-			 files)))
+		  (concat "^\\([^\n]+\\) //" re-current-client "\\(.*\\)$")
+                  nil t)
+	    (push (cons (match-string 1) (concat client-root (match-string 2)))
+                  files))
 	(while (re-search-forward
 		(concat "^\\([^\n]+\\) //" re-current-client
-			"\\([^\n]+\\) \\(" re-client-root ".*\\)$") nil t)
-	  (setq files (cons
-		       (cons
-			(match-string 1) (match-string 3)) files)))))
+			"[^\n]+ \\(" re-client-root ".*\\)$") nil t)
+	  (push (cons (match-string 1) (match-string 2)) files))))
     files))
 
 (defun p4-mark-depot-list-buffer (&optional print-buffer)
@@ -1633,8 +1580,8 @@ This is equivalent to \"sync -f\"
   "sync"
   "To synchronise the local view with the depot, type \\[p4-get].\n"
   (interactive (p4-read-args* "p4 get: "))
-  (p4-async-command "get" args
-		    (p4-make-output-buffer (concat "*P4 Get: (" (p4-current-client) ")*")) 'p4-basic-list-mode
+  (p4-call-command "get" args
+                   (p4-make-output-buffer (concat "*P4 Get: (" (p4-current-client) ")*")) 'p4-basic-list-mode
 		    'p4-refresh-files-in-buffers))
 
 (defp4cmd p4-have (&rest args)
@@ -1662,8 +1609,8 @@ Argument ARG command for which help is needed."
 (defp4cmd p4-integ (&rest args)
   "integ" "To schedule integrations between branches, type \\[p4-integ].\n"
   (interactive (p4-read-args "p4 integ: " nil "-b "))
-  (p4-async-command "integ" args "*P4 integ*"
-		    'p4-basic-list-mode))
+  (p4-call-command "integ" args "*P4 integ*"
+                   'p4-basic-list-mode))
 
 (defp4cmd p4-resolve (&rest args)
   "resolve"
@@ -2743,32 +2690,19 @@ list."
       (p4-check-mode)))
 
 (defun p4-get-add-branch-files (&optional name-list)
-  (let ((output-buffer (p4-depot-output "opened" name-list))
-	files depot-map)
-    (with-current-buffer output-buffer
-		(save-excursion
-      (goto-char (point-min))
-      (while (re-search-forward "^\\(//[^/@#]+/[^#\n]*\\)#[0-9]+ - add " nil t)
-	(setq files (cons (cons (match-string 1) "Add")
-			  files)))
-      (goto-char (point-min))
-      (while (re-search-forward "^\\(//[^/@#]+/[^#\n]*\\)#[0-9]+ - branch " nil t)
-	(setq files (cons (cons (match-string 1) "Branch")
-			  files)))))
-    (kill-buffer output-buffer)
+  (let (files depot-map)
+    (p4-with-temp-buffer (cons "opened" name-list)
+      (while (re-search-forward "^\\([^#\n]+\\)#[0-9]+ - \\(add\\|branch\\) " nil t)
+        (push (cons (match-string 1) (capitalize (match-string 2))) files)))
     (setq depot-map (p4-map-depot-files (mapcar 'car files)))
     (mapcar (lambda (x) (cons (cdr (assoc (car x) depot-map))
 			      (cdr x))) files)))
 
 (defun p4-get-have-files (file-list)
-  (let ((output-buffer (p4-depot-output "have" file-list))
-	line files depot-map elt)
-    (while (setq line (p4-read-depot-output output-buffer))
-      (if (string-match "^\\(//[^/@#]+/[^#\n]*\\)#\\([0-9]+\\) - " line)
-	  (setq files (cons (cons (match-string 1 line)
-				  (match-string 2 line))
-			    files))))
-    (kill-buffer output-buffer)
+  (let (files depot-map elt)
+    (p4-with-temp-buffer (cons "have" file-list)
+      (while (re-search-forward "^\\([^#\n]+\\)#\\([0-9]+\\) - " nil t)
+        (push (cons (match-string 1) (match-string 2)) files)))
     (setq depot-map (p4-map-depot-files (mapcar 'car files)))
     (setq files (mapcar (lambda (x) (cons (cdr (assoc (car x) depot-map))
 					  (cdr x))) files))
@@ -2780,21 +2714,18 @@ list."
     files))
 
 (defun p4-is-vc (&optional file-mode-cache filename)
-  "If a file is controlled by P4 then return version else return nil."
+  "If filename is controlled by P4 then return its version else return nil."
   (if (not filename)
       (setq filename (p4-buffer-file-name)))
   (let (version done)
     (let ((el (assoc filename file-mode-cache)))
       (setq done el)
       (setq version (cdr el)))
-    (if (and (not done) filename)
-	(let ((output-buffer (p4-depot-output "have" (list filename)))
-	      line)
-	  (setq line (p4-read-depot-output output-buffer))
-	  (kill-buffer output-buffer)
-	  (if (string-match "^//[^/@#]+/[^#\n]*#\\([0-9]+\\) - " line)
-	      (setq version (match-string 1 line)))
-	  (setq done version)))
+    (when (and (not done) filename)
+      (p4-with-temp-buffer (list "have" filename)
+        (when (re-search-forward "^//[^#\n]+#\\([0-9]+\\) - " nil t)
+          (setq version (match-string 1)))
+        (setq done version)))
     (if (and (not done) (not file-mode-cache))
 	(progn
 	  (setq file-mode-cache
@@ -3112,67 +3043,53 @@ matched the REGEXP."
 	    (substring line 0 (1- (length line)))
 	  line))))))
 
-(defun p4-completion-helper (filespec cmd var regexp)
-  (let (output-buffer line list)
-    (message "Making %s completion list..." cmd)
-    (setq output-buffer (p4-depot-output cmd))
-    (while (setq line (p4-read-depot-output
-		       output-buffer regexp))
-      (if line
-	  (setq list (cons line list))))
-    (kill-buffer output-buffer)
-    (set var
-	 (cons (cons filespec list) (eval var)))
+(defun p4-completion-helper (spec cmd var regexp)
+  "Run p4 CMD, collect strings from output matching group 1 in REGEXP,
+push SPEC onto the front of the list, assign the list to VAR, and
+return the list."
+  (let ((list (p4-output-matches (list cmd) regexp 1)))
+    (set var (cons (cons spec list) (eval var)))
     list))
 
-(defun p4-depot-completion-build (filespec cmd)
-  "Ask Perforce for a list of files and directories beginning with FILESPEC."
+(defun p4-depot-completion-build (spec cmd)
+  "Return list of depot objects beginning with SPEC that are
+suitable for passing to CMD."
+  (message "Making %s completion list..." cmd)
   (let (output-buffer line list)
     (cond
      ((equal cmd "branches")
       (setq list (p4-completion-helper
-		  filespec cmd 'p4-branches-completion-cache
-		  "^Branch \\([^ \n]*\\) [0-9][0-9][0-9][0-9]/.*$")))
+		  spec cmd 'p4-branches-completion-cache
+		  "^Branch \\([^ \n]*\\) [0-9]+/")))
      ((equal cmd "clients")
       (setq list (p4-completion-helper
-		  filespec cmd 'p4-clients-completion-cache
-		  "^Client \\([^ \n]*\\) [0-9][0-9][0-9][0-9]/.*$")))
-
+		  spec cmd 'p4-clients-completion-cache
+		  "^Client \\([^ \n]*\\) [0-9]+/")))
      ((equal cmd "dirs")
-      (message "Making p4 completion list...")
-      (setq output-buffer (p4-depot-output cmd
-					   (list (concat filespec "*"))))
-      (while (setq line (p4-read-depot-output output-buffer))
-	(if (not (string-match "no such file" line))
-	    (setq list (cons (concat line "/") list))))
-      (kill-buffer output-buffer)
-      (setq output-buffer (p4-depot-output "files"
-					   (list (concat filespec "*"))))
-      (while (setq line (p4-read-depot-output output-buffer))
-	(if (string-match "^\\(.+\\)#[0-9]+ - " line)
-	    (setq list (cons (match-string 1 line) list))))
-      (kill-buffer output-buffer)
-      (setq p4-depot-completion-cache
-	    (cons (cons filespec list) p4-depot-completion-cache)))
-
+      (setq list
+            (append (p4-output-matches (list "dirs" (concat spec "*"))
+                                       "^\\([^#\n]+\\)#[0-9]+ - " 1)
+                    (p4-output-matches (list "files" (concat spec "*"))
+                                       "^\\([^#\n]+\\)#[0-9]+ - " 1)))
+      (push (cons spec list) p4-depot-completion-cache))
      ((equal cmd "jobs")
       (setq list (p4-completion-helper
-		  filespec cmd 'p4-jobs-completion-cache
-		  "\\([^ \n]*\\) on [0-9][0-9][0-9][0-9]/.*$")))
+		  spec cmd 'p4-jobs-completion-cache
+		  "\\([^ \n]*\\) on [0-9]+/")))
      ((equal cmd "labels")
       (setq list (p4-completion-helper
-		  filespec cmd 'p4-labels-completion-cache
-		  "^Label \\([^ \n]*\\) [0-9][0-9][0-9][0-9]/.*$")))
+		  spec cmd 'p4-labels-completion-cache
+		  "^Label \\([^ \n]*\\) [0-9]+/")))
      ((equal cmd "users")
       (setq list (p4-completion-helper
-		  filespec cmd 'p4-users-completion-cache
-		  "^\\([^ ]+\\).*$")))
+		  spec cmd 'p4-users-completion-cache
+		  "^\\([^ \n]+\\)")))
      ((equal cmd "groups")
       (setq list (p4-completion-helper
-		  filespec cmd 'p4-groups-completion-cache
-		  "^\\(.*\\)$"))))
+		  spec cmd 'p4-groups-completion-cache
+		  "^\\([^ \n]+\\)"))))
     (message nil)
-    (cons filespec list)))
+    (cons spec list)))
 
 (defun p4-completion-builder (type)
   `(lambda (string predicate action)
@@ -3423,60 +3340,37 @@ Emacs P4."
     data))
 
 (defun p4-current-client ()
-  "Get the current local client, or the global client, if that."
-  (let ((p4-config-file (p4-find-p4-config-file))
-	cur-client pmin)
-    (if (not p4-config-file)
-	(setq cur-client (getenv "P4CLIENT"))
-      (setq cur-client (p4-get-config-info p4-config-file "P4CLIENT")))
-    (if (not cur-client)
-	(save-excursion
-	  (p4-get-writable-output-buffer)
-	  (set-buffer p4-output-buffer-name)
-	  (goto-char (point-max))
-	  (setq pmin (point))
-	  (if (zerop (p4-call-p4-here "info"))
-	      (progn
-		(goto-char pmin)
-		(if (re-search-forward "^Client name:[ \t]+\\(.*\\)$" nil t)
-		    (setq cur-client (match-string 1)))
-		(delete-region pmin (point-max))))))
-    cur-client))
+  "Return the current P4 client."
+  (p4-with-temp-buffer '("set")
+    (when (re-search-forward "^P4CLIENT=\\(\\S-+\\)" nil t)
+      (match-string 1))))
 
 (defun p4-current-server-port ()
-  "Get the current local server:port address, or the global server:port, if
-that."
-  (let ((p4-config-file (p4-find-p4-config-file)))
-    (if (not p4-config-file)
-	(getenv "P4PORT")
-      (p4-get-config-info p4-config-file "P4PORT"))))
+  "Return the current P4 port."
+  (p4-with-temp-buffer '("set")
+    (when (re-search-forward "^P4PORT=\\(\\S-+\\)" nil t)
+      (match-string 1))))
+
+(defun p4-opened-files ()
+  "Return a list of opened files (with names in depot format)."
+  (p4-output-matches '("opened") "^\\(.*\\)#[0-9]+ - " 1))
 
 (defun p4-save-opened-files ()
-  (let ((output-buffer (p4-depot-output "opened"))
-	opened)
-    (with-current-buffer output-buffer
-		(save-excursion
-      (goto-char (point-min))
-      (while (re-search-forward "^\\(.*\\)#[0-9]+ - " nil t)
-	(setq opened (cons (match-string 1) opened)))))
-    (kill-buffer output-buffer)
-    (setq opened (mapcar 'cdr (p4-map-depot-files opened)))
-    (save-window-excursion
-      (map-y-or-n-p
-       (function
-	(lambda (buffer)
-	  (and (buffer-modified-p buffer)
-	       (not (buffer-base-buffer buffer))
-	       (buffer-file-name buffer)
-	       (member (buffer-file-name buffer) opened)
-	       (format "Save file %s? "
-		       (buffer-file-name buffer)))))
-       (function
-	(lambda (buffer)
-	  (set-buffer buffer)
-	  (save-buffer)))
-       (buffer-list)
-       '("buffer" "buffers" "save")))))
+  "Prompt the user to save each opened file with unsaved changes."
+  (save-window-excursion
+    (map-y-or-n-p
+     (lambda (buffer)
+       (and buffer
+            (buffer-modified-p buffer)
+            (not (buffer-base-buffer buffer))
+            (buffer-file-name buffer)
+            (format "Save file %s? " (buffer-file-name buffer))))
+     (lambda (buffer)
+       (with-current-buffer buffer
+         (save-buffer)))
+     (mapcar (lambda (f) (get-file-buffer (cdr f)))
+             (p4-map-depot-files (p4-opened-files)))
+     '("buffer" "buffers" "save"))))
 
 (defun p4-empty-diff-p ()
   "Return t if there exists a file opened for edit with an empty diff"
