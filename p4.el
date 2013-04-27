@@ -21,6 +21,8 @@
 ;;    along with this program; if not, write to the Free Software
 ;;    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
+;;; Commentary:
+
 ;; NOTES:
 ;; ------
 ;;
@@ -32,13 +34,12 @@
 ;; This creates a binary file p4.elc in the path. Add the path to your
 ;; load-path variable in .emacs like this:
 ;;
-;; (setq load-path (cons "/full/path/to/dir/containing/file" load-path))
+;; (push "/full/path/to/dir/containing/file" load-path)
 ;;
-;; Then add the library like this:
+;; Then load the library and assign the keymap like this:
 ;;
 ;; (require 'p4)
 ;; (define-key global-map "\C-cp" 'p4-prefix-map)
-;;
 
 ;;; Code:
 
@@ -52,8 +53,6 @@
 
 (defvar p4-emacs-version "10.8" "The Current P4-Emacs Integration Revision.")
 
-;; Find out what type of emacs we are running in. We will be using this
-;; quite a few times in this program.
 (defvar p4-running-emacs nil
   "If the current Emacs is not XEmacs, then, this is non-nil.")
 (defvar p4-running-xemacs nil
@@ -64,7 +63,6 @@
 
 (defgroup p4 nil "Perforce VC System." :group 'tools)
 
-;; This can be set to wherever 'p4' lies using p4-set-p4-executable
 (eval-and-compile
   (defun p4-windows-os ()
     (memq system-type '(ms-dos windows-nt)))
@@ -94,11 +92,17 @@ To set this, use the function  `p4-set-p4-executable' or `customize'"
 systems."
     :type 'string
     :group 'p4))
-;; This is a string with default arguments to pass to "p4 diff",
-;; "p4 diff2", "p4 describe", etc.
+
 (defcustom p4-default-diff-options "-du"
-  "Type of p4 diff output to be displayed. \(regular or context or
-unified.\)"
+  "Options to pass to \"diff\", \"diff2\", and \"describe\" commands.
+Set to:
+-dn     (RCS)
+-dc[n]  (context; optional argument specifies number of context lines)
+-ds     (summary)
+-du[n]  (unified; optional argument specifies number of context lines)
+-db     (ignore whitespace changes)
+-dw     (ignore whitespace)
+-dl     (ignore line endings)"
   :type 'string
   :group 'p4)
 
@@ -108,13 +112,11 @@ file."
   :type 'string
   :group 'p4)
 
-;; Set this variable to nil to turn off colorized diff buffers.
 (defcustom p4-colorized-diffs t
   "Set this to nil to disable colorized diffs."
   :type 'boolean
   :group 'p4)
 
-;; Set whether P4CONFIG should be used exclusively for VC checking
 (defcustom p4-use-p4config-exclusively nil
   "Whether P4 mode should use P4CONFIG exclusively to check whether a file
 is under P4 version control. If set to nil, `p4-check-mode' is always
@@ -125,13 +127,11 @@ This provides for a much faster `p4-find-file-hook'."
   :type 'boolean
   :group 'p4)
 
-;; Auto-refresh?
 (defcustom p4-auto-refresh t
   "Set this to automatically refresh p4 submitted files in buffers."
   :type 'boolean
   :group 'p4)
 
-;; Check for empty diffs at submit time
 (defcustom p4-check-empty-diffs nil
   "Set this to check for files with empty diffs before submitting."
   :type 'boolean
@@ -143,7 +143,6 @@ command."
   :type 'boolean
   :group 'p4)
 
-;; Follow Symlinks?
 (defcustom p4-follow-symlinks nil
   "When set, p4 will call `file-truename' on all opened files."
   :type 'boolean
@@ -156,8 +155,6 @@ command."
 
 (defvar p4-output-buffer-name "*P4 Output*" "P4 Output Buffer.")
 
-;; Set this variable in .emacs if you want p4-set-client-name to complete
-;; your client name for you.
 (defvar p4-my-clients nil
   "This variable holds the alist of p4 clients that the function
 `p4-set-client-name' can complete on.
@@ -165,14 +162,11 @@ command."
 Set this variable *only* if you don't want P4 to complete on all the clients
 in the P4 server.
 
-This is a alist, and should be set using the function
+This is an alist, and should be set using the function
 `p4-set-my-clients'. For example, in your .emacs:
 
-\(load-library \"p4\"\)
+\(require 'p4\)
 \(p4-set-my-clients \'(client1 client2 client3)\)")
-
-;; Set this variable in .emacs if you want to alter the completion
-;; behavior of p4-set-client-name.
 
 (defcustom p4-strict-complete t
   "Set this variable in .emacs \(or using `customize'\) if you want to alter
@@ -189,15 +183,14 @@ the completion behavior of `p4-set-client-name'.
 (defcustom p4-sendmail-program (if (boundp 'sendmail-program)
 				   sendmail-program
 				 nil)
-  "The sendmail program. To set this use `customize'."
+  "The sendmail program."
   :type 'string
   :group 'p4)
 
 (defcustom p4-user-email (if (boundp 'user-mail-address)
 			     user-mail-address nil)
   "The e-mail address of the current user. This is used with the
-notification system, and must be set if notification should take place. To
-set this, use `customize'."
+notification system, and must be set if notification should take place."
   :type 'string
   :group 'p4)
 
@@ -208,65 +201,65 @@ within emacs."
   :type 'boolean
   :group 'p4)
 
-;; This can be set with p4-toggle-vc-mode
+;; This is also set by the command `p4-toggle-vc-mode'.
 (defcustom p4-do-find-file t
   "If non-nil, the `p4-find-file-hook' will run when opening files."
   :type 'boolean
   :group 'p4)
 
 (defface p4-diff-file-face
-	    '((((class color) (background light)) (:background "gray90"))
-	      (((class color) (background dark)) (:background "gray10")))
-	    "Face used for file pathnames in difference buffers."
-	    :group 'p4-faces)
+  '((((class color) (background light)) (:background "gray90"))
+    (((class color) (background dark)) (:background "gray10")))
+  "Face used for file pathnames in difference buffers."
+  :group 'p4-faces)
 
 (defface p4-diff-head-face
-	    '((((class color) (background light)) (:background "gray95"))
-	      (((class color) (background dark)) (:background "gray5")))
-	    "Face used for ?"
-	    :group 'p4-faces)
+  '((((class color) (background light)) (:background "gray95"))
+    (((class color) (background dark)) (:background "gray5")))
+  "Face used for ?"
+  :group 'p4-faces)
 
 (defface p4-diff-inserted-face
-	    '((((class color) (background light)) (:foreground "blue"))
-	      (((class color) (background dark)) (:foreground "cyan")))
-	    "Face used for new (inserted) text in difference buffers.
+  '((((class color) (background light)) (:foreground "blue"))
+    (((class color) (background dark)) (:foreground "cyan")))
+  "Face used for new (inserted) text in difference buffers.
 When the newer revision contains text not in the older revision, that text will
 be marked with this face."
-	    :group 'p4-faces)
+  :group 'p4-faces)
 
 (defface p4-diff-deleted-face
-	    '((((class color) (background light)) (:foreground "red"))
-	      (((class color) (background dark)) (:foreground "pink")))
-	    "Face used for old (deleted) text in difference buffers.
+  '((((class color) (background light)) (:foreground "red"))
+    (((class color) (background dark)) (:foreground "pink")))
+  "Face used for old (deleted) text in difference buffers.
 When the older revision contains text not in the newer revision, that text will
 be marked with this face."
-	    :group 'p4-faces)
+  :group 'p4-faces)
 
 (defface p4-diff-changed-face
-	    '((((class color) (background light)) (:foreground "dark green"))
-	      (((class color) (background dark)) (:foreground "light green")))
-	    "Face used for changed text in difference buffers.
+  '((((class color) (background light)) (:foreground "dark green"))
+    (((class color) (background dark)) (:foreground "light green")))
+  "Face used for changed text in difference buffers.
 When a section of text is in both the newer and older revision, but differs
 between them, that text will be marked with this face."
-	    :group 'p4-faces)
+  :group 'p4-faces)
 
 (defface p4-depot-branched-face
-	    '((((class color) (background light)) (:foreground "blue4"))
-	      (((class color) (background dark)) (:foreground "sky blue")))
-	    "Face used for branched files."
-	    :group 'p4-faces)
+  '((((class color) (background light)) (:foreground "blue4"))
+    (((class color) (background dark)) (:foreground "sky blue")))
+  "Face used for branched files."
+  :group 'p4-faces)
 
 (defface p4-depot-added-face
-	    '((((class color) (background light)) (:foreground "blue"))
-	      (((class color) (background dark)) (:foreground "cyan")))
-	    "Face used for files added to the depot."
-	    :group 'p4-faces)
+  '((((class color) (background light)) (:foreground "blue"))
+    (((class color) (background dark)) (:foreground "cyan")))
+  "Face used for files added to the depot."
+  :group 'p4-faces)
 
 (defface p4-depot-deleted-face
-	    '((((class color) (background light)) (:foreground "red"))
-	      (((class color) (background dark)) (:foreground "pink")))
-	    "Face used for files deleted from the depot."
-	    :group 'p4-faces)
+  '((((class color) (background light)) (:foreground "red"))
+    (((class color) (background dark)) (:foreground "pink")))
+  "Face used for files deleted from the depot."
+  :group 'p4-faces)
 
 ;; Tell Emacs about this new kind of minor mode
 (defvar p4-mode nil "Is this file under p4?")
@@ -306,8 +299,7 @@ between them, that text will be marked with this face."
 (put 'p4-form-current-args 'permanent-local t)
 (set-default 'p4-form-current-args nil)
 
-;; To check if the current buffer's modeline and menu need to be altered
-(defvar p4-vc-check nil)
+(defvar p4-vc-check nil "Buffer is known to be under control of P4?")
 (make-variable-buffer-local 'p4-vc-check)
 (put 'p4-vc-check 'permanent-local t)
 (set-default 'p4-vc-check nil)
@@ -487,16 +479,11 @@ arguments to p4 commands."
       (setq buffer-read-only nil))
     buffer))
 
-;; A generic function that we use to execute p4 commands
-;; If executing the p4 command fails with a "password invalid" error
-;; and no-login is false, p4-login will be called to let the user
-;; login. The failed command will then be retried.
 (defun p4-exec-p4 (output-buffer args &optional dummy)
   "Internal function called by various p4 commands.
 Executes p4 in the current buffer's current directory
 with output to a dedicated output buffer.
-If successful, adds the P4 menu to the current buffer.
-Does auto re-highlight management (whatever that is)."
+If successful, adds the P4 menu to the current buffer."
   (let ((result (apply 'call-process (p4-check-p4-executable) nil
 		       output-buffer
 		       nil		; update display?
@@ -539,12 +526,11 @@ the last popped element to restore the window configuration."
     (set-window-configuration (car p4-window-config-stack))
     (setq p4-window-config-stack (cdr p4-window-config-stack))))
 
+(defalias 'p4-toggle-vc-mode-off 'p4-toggle-vc-mode)
+(defalias 'p4-toggle-vc-mode-on 'p4-toggle-vc-mode)
 
 ;; The menu definition is in the XEmacs format. Emacs parses and converts
 ;; this definition to its own menu creation commands.
-
-(defalias 'p4-toggle-vc-mode-off 'p4-toggle-vc-mode)
-(defalias 'p4-toggle-vc-mode-on 'p4-toggle-vc-mode)
 
 (defvar p4-menu-spec
   '(["Specify Arguments..." universal-argument t]
@@ -622,48 +608,44 @@ the last popped element to restore the window configuration."
 		    (easy-menu-create-menu "P4" p4-menu-spec)
 		    "PCL-CVS")
 
-  (defun p4-depot-output (command &optional args)
-    "Executes p4 command inside a buffer.
+(defun p4-depot-output (command &optional args)
+  "Executes p4 command inside a buffer.
 Returns the buffer."
-    (let ((buffer (p4-get-writable-output-buffer)))
-      (p4-exec-p4 buffer (cons command args) t)
-      buffer))
+  (let ((buffer (p4-get-writable-output-buffer)))
+    (p4-exec-p4 buffer (cons command args) t)
+    buffer))
 
-  (defun p4-check-p4-executable ()
-    "Check if the `p4-executable' is nil, and if so, prompt the user for a
+(defun p4-check-p4-executable ()
+  "Check if the `p4-executable' is nil, and if so, prompt the user for a
 valid `p4-executable'."
-    (interactive)
-    (if (not p4-executable)
-	(call-interactively 'p4-set-p4-executable)
-      p4-executable))
+  (interactive)
+  (if (not p4-executable)
+      (call-interactively 'p4-set-p4-executable)
+    p4-executable))
 
-  (defun p4-menu-add ()
-    "To add the P4 menu bar button for files that are already not in
+(defun p4-menu-add ()
+  "To add the P4 menu bar button for files that are already not in
 the P4 depot or in the current client view.."
-    (interactive)
-    (cond (p4-running-xemacs
-	   (if (not (boundp 'p4-mode))
-	       (setq p4-mode nil))
-	   (easy-menu-add (p4-mode-menu "P4"))))
-    t)
+  (interactive)
+  (cond (p4-running-xemacs
+         (if (not (boundp 'p4-mode))
+             (setq p4-mode nil))
+         (easy-menu-add (p4-mode-menu "P4"))))
+  t)
 
-  ;; To set the path to the p4 executable
-  (defun p4-set-p4-executable (p4-exe-name)
-    "Set the path to the correct P4 Executable.
+(defun p4-set-p4-executable (p4-exe-name)
+  "Set the path to the correct P4 executable.
 
-To set this as a part of the .emacs, add the following to your .emacs:
+Argument P4-EXE-NAME The new value of the p4 executable, with full path.
 
-\(load-library \"p4\"\)
-\(p4-set-p4-executable \"/my/path/to/p4\"\)
-
-Argument P4-EXE-NAME The new value of the p4 executable, with full path."
+To set the executable for future sessions, customize the variable
+`p4-executable' instead."
     (interactive "fFull path to your P4 executable: " )
     (setq p4-executable p4-exe-name)
     p4-executable)
 
-;; The kill-buffer hook for p4.
 (defun p4-kill-buffer-hook ()
-  "To Remove a file and its associated buffer from our global list of P4
+  "Remove a file and its associated buffer from our global list of P4
 controlled files."
   (if p4-vc-check
       (p4-refresh-refresh-list (p4-buffer-file-name)
@@ -679,7 +661,7 @@ controlled files."
     (concat text
 	    (with-temp-buffer
 	      (if (and p4-include-help-to-command-docstring
-			   (stringp p4-executable)
+                       (stringp p4-executable)
 		       (file-executable-p p4-executable)
 		       (zerop (call-process p4-executable nil t nil "help" cmd)))
 		  (buffer-substring (point-min) (point-max))
@@ -802,7 +784,6 @@ controlled files."
     (display-buffer buffer)
     process))
 
-;; The p4 edit command
 (defp4cmd p4-edit (show-output)
   "edit" "To open the current depot file for edit, type \\[p4-edit].\n"
   (interactive (list p4-verbose))
@@ -823,7 +804,6 @@ controlled files."
   (p4-check-mode)
   (p4-update-opened-list))
 
-;; The p4 reopen command
 (defp4cmd p4-reopen (show-output)
   "reopen"
   "To change the type or changelist number of an opened file, type \\[p4-reopen].
@@ -841,7 +821,6 @@ command if t.\n"
   (p4-check-mode)
   (p4-update-opened-list))
 
-;; The p4 revert command
 (defp4cmd p4-revert (show-output)
   "revert" "To revert all change in the current file, type \\[p4-revert].\n"
   (interactive (list p4-verbose))
@@ -866,7 +845,6 @@ command if t.\n"
 	    (p4-check-mode))
 	  (p4-update-opened-list)))))
 
-;; The p4 lock command
 (defp4cmd p4-lock ()
   "lock" "To lock an opened file against changelist submission, type \\[p4-lock].\n"
   (interactive)
@@ -878,7 +856,6 @@ command if t.\n"
     (p4-simple-command-and-revert-buffer "lock" args)
     (p4-update-opened-list)))
 
-;; The p4 unlock command
 (defp4cmd p4-unlock ()
   "unlock" "To release a locked file but leave open, type \\[p4-unlock].\n"
   (interactive)
@@ -890,7 +867,6 @@ command if t.\n"
     (p4-simple-command-and-revert-buffer "unlock" args)
     (p4-update-opened-list)))
 
-;; The p4 diff command
 (defp4cmd p4-diff ()
   "diff" "To diff the current file and topmost depot version, type \\[p4-diff].\n"
   (interactive)
@@ -914,7 +890,6 @@ command if t.\n"
 	(t
 	 rev)))
 
-;; The p4 diff2 command
 (defp4cmd p4-diff2 (version1 version2)
   "diff2" "Display diff of two depot files.
 
@@ -946,8 +921,6 @@ When visiting a depot file, type \\[p4-diff2] and enter the versions.\n"
 				     (list diff-version1
 					   diff-version2))
 		     "*P4 diff2*" 'p4-diff-mode 'p4-activate-diff-buffer)))
-
-;; p4-ediff for all those who diff using ediff
 
 (defun p4-ediff ()
   "Use ediff to compare file with its original client version."
@@ -1010,7 +983,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
                                        (kill-buffer ,buffer-version-2)
                                        (p4-menu-add))
                                      ediff-cleanup-hook))))))))
-;; The p4 add command
+
 (defp4cmd p4-add ()
   "add" "To add the current file to the depot, type \\[p4-add].\n"
   (interactive)
@@ -1031,8 +1004,6 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
       (p4-check-mode)))
   (p4-update-opened-list))
 
-
-;; The p4 delete command
 (defp4cmd p4-delete ()
   "delete" "To delete the current file from the depot, type \\[p4-delete].\n"
   (interactive)
@@ -1047,7 +1018,6 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
   (p4-check-mode)
   (p4-update-opened-list))
 
-;; The p4 filelog command
 (defp4cmd p4-filelog ()
   "filelog"
   "To view a history of the change made to the current file, type \\[p4-filelog].\n"
@@ -1150,8 +1120,8 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
       (setq buffer-invisibility-spec (list))
       (p4-move-buffer-point-to-top buffer))))
 
-;; Scan specified region for references to change numbers
-;; and make the change numbers clickable.
+;; Scan specified region for references to change numbers and make the
+;; change numbers clickable.
 (defun p4-find-change-numbers (buffer start end)
   (with-current-buffer buffer
 	(save-excursion
@@ -1169,7 +1139,6 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
 	  (p4-create-active-link ch-start ch-end (list (cons 'change ch-str)))
 	  (goto-char next)))))))
 
-;; The p4 files command
 (defp4cmd p4-files ()
   "files" "List files in the depot. Type, \\[p4-files].\n"
   (interactive)
@@ -1226,9 +1195,9 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
 (defun p4-canonize-client-root (p4-client-root)
   "Canonizes client root"
   (let ((len (length p4-client-root)))
-    ;; For Windows, since the client root may be terminated with
-    ;; a \ as in c:\ or drive:\foo\bar\, we need to strip the
-    ;; trailing \ .
+    ;; For Windows, since the client root may be terminated with a
+    ;; backslash as in c:\ or drive:\foo\bar\, we need to strip the
+    ;; trailing backslash.
     (if (and (p4-windows-os)
 	     (> len 1)
 	     (equal (substring p4-client-root (1- len) len) "\\"))
@@ -1304,7 +1273,6 @@ name and a client name."
 				      prop-list)))
 	  (p4-create-active-link start end prop-list))))))
 
-;; The p4 print command
 (defp4cmd p4-print ()
   "print" "To print a depot file to a buffer, type \\[p4-print].\n"
   (interactive)
@@ -1323,7 +1291,7 @@ name and a client name."
     (p4-activate-print-buffer "*P4 print*" t)))
 
 ;; Insert text in a buffer, but make sure that the inserted text doesn't
-;; inherit any properties from surrounding text. This is needed for xemacs
+;; inherit any properties from surrounding text. This is needed for XEmacs
 ;; because the insert function makes the inserted text inherit properties.
 (defun p4-insert-no-properties (str)
   (let ((start (point))
@@ -1651,7 +1619,6 @@ type and jump to the current line in the revision buffer. \\[p4-blame]"
 	  (switch-to-buffer-other-window  buffer)
 	  (p4-goto-line (+ 2 src-line)))))
 
-;; The p4 refresh command
 (defp4cmd p4-refresh ()
   "sync" "Refresh the contents of an unopened file. \\[p4-refresh].
 
@@ -1669,7 +1636,6 @@ This is equivalent to \"sync -f\"
 		       (p4-refresh-files-in-buffers)
 		       ))))
 
-;; The p4 get/sync command
 (defalias 'p4-sync 'p4-get)
 
 (defp4cmd p4-get (&rest args)
@@ -1680,33 +1646,28 @@ This is equivalent to \"sync -f\"
 		    (p4-make-output-buffer (concat "*P4 Get: (" (p4-current-client) ")*")) 'p4-basic-list-mode
 		    'p4-refresh-files-in-buffers))
 
-;; The p4 have command
 (defp4cmd p4-have (&rest args)
   "have" "To list revisions last gotten, type \\[p4-have].\n"
   (interactive (p4-read-args* "p4 have: " nil (p4-buffer-file-name-2)))
   (p4-call-command "have" args (concat "*P4 Have: (" (p4-current-client) ") " (car args) "*")
 		   'p4-basic-list-mode))
 
-;; The p4 changes command
 (defp4cmd p4-changes (&rest args)
   "changes" "To list changes, type \\[p4-changes].\n"
   (interactive (p4-read-args* "p4 changes: " nil "-m" "200" "..."))
   (p4-file-change-log "changes" args))
 
-;; The p4 help command
 (defp4cmd p4-help (&rest args)
   "help" "To print help message, type \\[p4-help].
 Argument ARG command for which help is needed."
   (interactive (p4-read-args "p4 help: "))
   (p4-call-command "help" args "*P4 help*"))
 
-;; The p4 info command
 (defp4cmd p4-info ()
   "info" "To print out client/server information, type \\[p4-info].\n"
   (interactive)
   (p4-call-command "info" nil "*P4 info*"))
 
-;; The p4 integrate command
 (defp4cmd p4-integ (&rest args)
   "integ" "To schedule integrations between branches, type \\[p4-integ].\n"
   (interactive (p4-read-args "p4 integ: " nil "-b "))
@@ -2088,7 +2049,6 @@ character events"
       (forward-line -1))
     (move-to-column c)))
 
-
 (defun p4-buffer-set-face-property (regexp face-property)
   (save-excursion
     (goto-char (point-min))
@@ -2156,8 +2116,6 @@ character events"
 				 (list (cons 'client cur-client)))))
     ))
 
-
-;; The p4 describe command
 (defp4cmd p4-describe ()
   "describe" "To get a description for a change number, type \\[p4-describe].\n"
   (interactive)
@@ -2166,14 +2124,12 @@ character events"
 				  (concat p4-default-diff-options " ")))))
     (p4-describe-internal arg-string)))
 
-;; Internal version of the p4 describe command
 (defun p4-describe-internal (arg-string)
   (p4-call-command "describe" arg-string
 		   (concat "*P4 describe: " (p4-list-to-string arg-string) "*")
 		   'p4-diff-mode
 		   'p4-activate-diff-buffer))
 
-;; The p4 opened command
 (defp4cmd p4-opened (&rest args)
   "opened"
   "To display list of files opened for pending change, type \\[p4-opened].\n"
@@ -2202,7 +2158,6 @@ character events"
 	(p4-create-active-link start end (list (cons property str)))))
     (setq buffer-read-only t))))
 
-;; The p4 users command
 (defp4cmd p4-users (&rest args)
   "users" "To display list of known users, type \\[p4-users].\n"
   (interactive (p4-read-args* "p4 users: " "user"))
@@ -2217,25 +2172,21 @@ character events"
 		   (lambda ()
 		     (p4-regexp-create-links "*P4 groups*" "^\\(.*\\)\n" 'group))))
 
-;; The p4 jobs command
 (defp4cmd p4-jobs (&rest args)
   "jobs" "To display list of jobs, type \\[p4-jobs].\n"
   (interactive (p4-read-args* "p4 jobs: "))
   (p4-call-command "jobs" args "*P4 jobs*"))
 
-;; The p4 fix command
 (defp4cmd p4-fix (&rest args)
   "fix" "To mark jobs as being fixed by a changelist number, type \\[p4-fix].\n"
   (interactive (p4-read-args "p4 fix: " "job"))
   (p4-call-command "fix" args p4-output-buffer-name))
 
-;; The p4 fixes command
 (defp4cmd p4-fixes (&rest args)
   "fixes" "To list what changelists fix what jobs, type \\[p4-fixes].\n"
   (interactive (p4-read-args* "p4 fixes: "))
   (p4-call-command "fixes" args "*P4 fixes*"))
 
-;; The p4 where command
 (defp4cmd p4-where ()
   "where"
   "To show how local file names map into depot names, type \\[p4-where].\n"
@@ -2347,7 +2298,6 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
 	     (p4-check-p4-executable)
 	     current-command))))
 
-;; The p4 change command
 (defp4cmd p4-change ()
   "change" "To edit the change specification, type \\[p4-change].\n"
   (interactive)
@@ -2361,7 +2311,6 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
       (p4-form-command "change" "Description:\n\t"
 		       change-buf-name nil args))))
 
-;; The p4 client command
 (defp4cmd p4-client (&rest args)
   "client" "To edit a client specification, type \\[p4-client].\n"
   (interactive (p4-read-args* "p4 client: " "client"))
@@ -2414,7 +2363,6 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
 		   (lambda ()
 		     (p4-regexp-create-links "*P4 labels*" "^Label \\([^ ]+\\).*\n" 'label))))
 
-;; The p4 labelsync command
 (defp4cmd p4-labelsync ()
   "labelsync"
   "To synchronize a label with the current client contents, type \\[p4-labelsync].\n"
@@ -2432,7 +2380,6 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
       (setq lst (cdr lst)))
     (reverse res)))
 
-;; The p4 submit command
 (defp4cmd p4-submit (&optional arg)
   "submit" "To submit a pending change to the depot, type \\[p4-submit].\n"
   (interactive "P")
@@ -2456,34 +2403,29 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
 	  (p4-form-command "change" "Description:\n\t"
 				    submit-buf-name "submit" args)))))
 
-;; The p4 user command
 (defp4cmd p4-user (&rest args)
   "user" "To create or edit a user specification, type \\[p4-user].\n"
   (interactive (p4-make-list-from-string
 		(p4-read-arg-string "p4 user: " nil "user")))
   (p4-form-command "user" nil nil nil args))
 
-;; The p4 group command
 (defp4cmd p4-group (&rest args)
   "group" "To create or edit a group specification, type \\[p4-group].\n"
   (interactive (p4-make-list-from-string
 		(p4-read-arg-string "p4 group: " nil "group")))
   (p4-form-command "group" nil nil nil args))
 
-;; The p4 job command
 (defp4cmd p4-job (&rest args)
   "job" "To create or edit a job, type \\[p4-job].\n"
   (interactive (p4-make-list-from-string
 		(p4-read-arg-string "p4 job: " nil "job")))
   (p4-form-command "job" "Description:\n\t" nil nil args))
 
-;; The p4 jobspec command
 (defp4cmd p4-jobspec ()
   "jobspec" "To edit the job template, type \\[p4-jobspec].\n"
   (interactive)
   (p4-form-command "jobspec"))
 
-;; A function to set the current P4 client name
 (defun p4-set-client-name (p4-new-client-name)
   "To set the current value of P4CLIENT, type \\[p4-set-client-name].
 
@@ -2560,7 +2502,7 @@ Argument CLIENT-LIST is the 'list' of clients.
 
 To set your clients using your .emacs, use the following:
 
-\(load-library \"p4\"\)
+\(require 'p4\)
 \(p4-set-my-clients \'(client1 client2 client3)\)"
   (setq p4-my-clients nil)
   (let (p4-tmp-client-var)
@@ -2570,7 +2512,6 @@ To set your clients using your .emacs, use the following:
       (setq p4-my-clients (append p4-my-clients
 				  (list (list p4-tmp-client-var)))))))
 
-;; A function to get the current P4PORT
 (defun p4-get-p4-port ()
   "To get the current value of the environment variable P4PORT, type \
 \\[p4-get-p4-port].
@@ -2582,7 +2523,6 @@ P4."
     (message "P4PORT is [local: %s], [global: %s]" port (getenv "P4PORT"))
     port))
 
-;; A function to set the current P4PORT
 (defun p4-set-p4-port (p4-new-p4-port)
   "To set the current value of P4PORT, type \\[p4-set-p4-port].
 
@@ -2606,7 +2546,6 @@ the current value of P4PORT."
     (setenv "P4PORT" p4-new-p4-port)
     (message "P4PORT changed to %s" p4-new-p4-port)))
 
-;; The find-file hook for p4.
 (defun p4-find-file-hook ()
   "To check while loading the file, if it is a P4 version controlled file."
   (if (or (getenv "P4CONFIG") (getenv "P4CLIENT"))
@@ -2624,7 +2563,6 @@ the current value of P4PORT."
 	    (disable-timeout p4-file-refresh-timer))
 	(setq p4-file-refresh-timer nil))))
 
-;; Set keymap. We use the C-x p Keymap for all perforce commands
 (defvar p4-prefix-map
   (let ((map (make-sparse-keymap)))
     (define-key map "a" 'p4-add)
@@ -2676,8 +2614,6 @@ the current value of P4PORT."
 
 (fset 'p4-prefix-map p4-prefix-map)
 
-;; For users interested in notifying a change, a notification list can be
-;; set up using this function.
 (defun p4-set-notify-list (p4-new-notify-list &optional p4-supress-stat)
   "To set the current value of P4NOTIFY, type \\[p4-set-notify-list].
 
@@ -2705,7 +2641,6 @@ message. "
 	(message "Notification list changed from '%s' to '%s'"
 		 p4-old-notify-list p4-notify-list))))
 
-;; To get the current notification list.
 (defun p4-get-notify-list ()
   "To get the current value of the environment variable P4NOTIFY,
 type \\[p4-get-notify-list].
@@ -2787,7 +2722,6 @@ list."
 	(goto-char (point-max))
 	(insert "\np4-do-notify: Notification list not set."))))))
 
-;; Function to return the current version.
 (defun p4-emacs-version ()
   "Return the current Emacs-P4 Integration version."
   (interactive)
@@ -2855,7 +2789,6 @@ list."
 	  (setq files (cons (cons elt nil) files))))
     files))
 
-;; A function to check if the file being opened is version controlled by p4.
 (defun p4-is-vc (&optional file-mode-cache filename)
   "If a file is controlled by P4 then return version else return nil."
   (if (not filename)
@@ -2957,17 +2890,12 @@ actually up-to-date, if in buffers, or need refreshing."
 	    (p4-check-mode file-mode-cache)))
 	(p4-refresh-refresh-list buffile bufname)))))
 
-;; Force mode line updation for different Emacs versions
 (defun p4-force-mode-line-update ()
-  "To Force the mode line update for different flavors of Emacs."
+  "Force the mode line update for different flavors of Emacs."
   (cond (p4-running-xemacs
 	 (redraw-modeline))
 	(p4-running-emacs
 	 (force-mode-line-update))))
-
-;; In case, the P4 server is not available, or when operating off-line, the
-;; p4-find-file-hook becomes a pain... this functions toggles the use of the
-;; hook when opening files.
 
 (defun p4-toggle-vc-mode ()
   "In case, the P4 server is not available, or when working off-line, toggle
@@ -3310,7 +3238,6 @@ file name selection.")
 (defalias 'p4-users-completion (p4-completion-builder "users"))
 (defalias 'p4-groups-completion (p4-completion-builder "groups"))
 
-
 (defun p4-read-arg-string (prompt &optional initial type)
   (let ((minibuffer-local-completion-map
 	 (copy-keymap minibuffer-local-completion-map)))
@@ -3391,13 +3318,13 @@ file name selection.")
 	  (t
 	   (setq completion (p4-file-name-completion string
 						     predicate action))))
-    (cond ((null action) ;; try-completion
+    (cond ((null action)                ; try-completion
 	   (if (stringp completion)
 	       (concat first-part completion)
 	     completion))
-	  ((eq action t) ;; all-completions
+	  ((eq action t)                ; all-completions
 	   completion)
-	  (t             ;; exact match
+	  (t                            ; exact match
 	   completion))))
 
 (defun p4-list-completion (string lst predicate action)
@@ -3441,13 +3368,13 @@ file name selection.")
 	     (t
 	      (setq completion
 		    (,completion-function string predicate action))))
-       (cond ((null action);; try-completion
+       (cond ((null action)             ; try-completion
 	      (if (stringp completion)
 		  (concat first-part completion)
 		completion))
-	     ((eq action t);; all-completions
+	     ((eq action t)             ; all-completions
 	      completion)
-	     (t;; exact match
+	     (t                         ; exact match
 	      completion)))))
 
 (defalias 'p4-branch-string-completion (p4-string-completion-builder
@@ -3484,8 +3411,6 @@ file name selection.")
 	(p4-noinput-buffer-action "print" nil t (list file))
 	(p4-activate-print-buffer file t)))))
 
-
-;; A function to get the current P4 client name
 (defun p4-get-client-name ()
   "To get the current value of the environment variable P4CLIENT,
 type \\[p4-get-client-name].
@@ -3662,11 +3587,8 @@ that."
 (define-derived-mode p4-basic-list-mode p4-basic-mode "P4 Basic List"
   (setq font-lock-defaults '(p4-basic-list-font-lock-keywords t)))
 
-;; Now add a hook to find-file-hooks
 (add-hook 'find-file-hooks 'p4-find-file-hook)
-;; .. and one to kill-buffer-hook
 (add-hook 'kill-buffer-hook 'p4-kill-buffer-hook)
-
 
 (provide 'p4)
 
