@@ -1,14 +1,11 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
-;;
-;; $Id: p4.el,v 1.76 2005/03/27 16:41:29 petero2 Exp $
 
-;;; Commentary:
-;;
-;;    Applied the GNU G.P.L. to this file - rv 3/27/1997
-
-;;    Programs for  Emacs <-> Perforce Integration.
-;;    Copyright (C) 1996, 1997	Eric Promislow
-;;    Copyright (C) 1997-2004	Rajesh Vaidheeswarran
+;;    Copyright (c) 1996-1997 Eric Promislow
+;;    Copyright (c) 1997-2004 Rajesh Vaidheeswarran
+;;    Copyright (c) 2005      Peter Osterlund
+;;    Copyright (c) 2009      Fujii Hironori
+;;    Copyright (c) 2012      Jason Filsinger
+;;    Copyright (c) 2013      Gareth Rees <gdr@garethrees.org>
 ;;
 ;;    This program is free software; you can redistribute it and/or modify
 ;;    it under the terms of the GNU General Public License as published by
@@ -23,11 +20,6 @@
 ;;    You should have received a copy of the GNU General Public License
 ;;    along with this program; if not, write to the Free Software
 ;;    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-
-;; LCD Archive Entry:
-;; p4|Rajesh Vaidheeswarran|rv@NoSpAm.lOsEtHiS.dsmit.com|
-;; P4 SCM Integration into Emacs/XEmacs|
-;; 2004/06/11|10.7|not_assigned_yet|
 
 ;; NOTES:
 ;; ------
@@ -58,7 +50,7 @@
 (eval-when-compile
   (require 'cl))
 
-(defvar p4-emacs-version "10.7" "The Current P4-Emacs Integration Revision.")
+(defvar p4-emacs-version "10.8" "The Current P4-Emacs Integration Revision.")
 
 ;; Find out what type of emacs we are running in. We will be using this
 ;; quite a few times in this program.
