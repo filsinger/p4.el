@@ -471,25 +471,16 @@ arguments to p4 commands."
       (setq buffer-read-only nil))
     buffer))
 
-(defun p4-exec-p4 (output-buffer args &optional dummy)
-  "Internal function called by various p4 commands.
-Executes p4 in the current buffer's current directory
-with output to a dedicated output buffer.
-If successful, adds the P4 menu to the current buffer."
-  (let ((result (apply 'call-process (p4-check-p4-executable) nil
-		       output-buffer
-		       nil		; update display?
-		       args)))
-    (p4-menu-add)
-    result))
+(defun p4-run (args)
+  "Run p4 ARGS in the current buffer and place point at the start
+of the output. Return the status of the command."
+  (save-excursion
+    (apply 'call-process (p4-check-p4-executable) nil t nil args)))
 
 (defmacro p4-with-temp-buffer (args &rest body)
-  "Run p4 ARGS in a temporary buffer, place point at the
-beginning of the output, and evaluate BODY."
-  `(with-temp-buffer
-     (when (zerop (apply 'call-process (p4-check-p4-executable) nil t nil ,args))
-       (goto-char (point-min))
-       ,@body)))
+  "Run p4 ARGS in a temporary buffer, place point at the start of
+the output, and evaluate BODY if the command completed successfully."
+  `(with-temp-buffer (when (zerop (p4-run ,args)) ,@body)))
 
 (put 'p4-with-temp-buffer 'lisp-indent-function 1)
 
@@ -672,40 +663,31 @@ controlled files."
 		      (p4-help-text help-cmd help-txt))
 		body))))
 
-(defun p4-noinput-buffer-action (cmd
-				 dummy
-				 show-output
-				 &optional arguments)
+(defun p4-noinput-buffer-action (cmd show-output &optional args)
   "Internal function called by various p4 commands."
-  (p4-exec-p4 (p4-get-writable-output-buffer)
-	      (append (list cmd) arguments)
-	      t)
-  (p4-partial-cache-cleanup cmd)
-  (when show-output
-    (p4-push-window-config)
-    (display-buffer p4-output-buffer-name)))
+  (let ((buffer (p4-make-output-buffer p4-output-buffer-name)))
+    (with-current-buffer buffer
+      (setq buffer-read-only nil)
+      (p4-run (cons cmd args))
+      (p4-partial-cache-cleanup cmd)
+      (when show-output
+        (p4-push-window-config)
+        (display-buffer buffer)))
+    buffer))
 
 (defun p4-simple-command (cmd args)
-  (let* ((buffer (p4-make-output-buffer "*P4*"))
-	 (inhibit-read-only t)
-	 (ret (p4-exec-p4 buffer (cons cmd args))))
-    (p4-partial-cache-cleanup cmd)
+  (let ((buffer (p4-make-output-buffer p4-output-buffer-name)))
     (with-current-buffer buffer
-      (if (and
-	   (zerop ret)
-	   (= (count-lines (point-min) (point-max)) 1)
-	   (not (save-excursion
-		  (goto-char (point-min))
-		  (looking-at "==== "))))
-	  (message (buffer-substring (point-min)
-				     (save-excursion
-				       (goto-char (point-min))
-				       (end-of-line)
-				       (point))))
-	(p4-push-window-config)
-	(display-buffer buffer)))
-    (unless (zerop ret)
-      (error "P4 exits abnormally"))))
+      (setq buffer-read-only nil)
+      (let ((status (p4-run (cons cmd args))))
+        (p4-partial-cache-cleanup cmd)
+        (cond ((not (zerop status)) (error "P4 exits abnormally"))
+              ((and (eql (count-lines (point-min) (point-max)) 1)
+                    (not (looking-at "==== ")))
+               (message (buffer-substring (point) (line-end-position))))
+              (t
+               (p4-push-window-config)
+               (display-buffer buffer)))))))
 
 (defun p4-simple-command-and-revert-buffer (cmd args)
   (p4-simple-command cmd args)
@@ -896,7 +878,7 @@ When visiting a depot file, type \\[p4-diff2] and enter the versions.\n"
   (if current-prefix-arg
       (call-interactively 'p4-ediff2)
     (progn
-      (p4-noinput-buffer-action "print" nil nil
+      (p4-noinput-buffer-action "print" nil
 				(list "-q"
 				      (concat (p4-buffer-file-name) "#have")))
       (let ((local (current-buffer))
@@ -933,10 +915,10 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
          (bufname2 (concat "*P4 ediff " basename "#" version2  "*"))
          (diff-version1 (p4-get-file-rev file-name version1))
          (diff-version2 (p4-get-file-rev file-name version2)))
-    (p4-noinput-buffer-action "print" nil nil (list "-q" diff-version1))
+    (p4-noinput-buffer-action "print" nil (list "-q" diff-version1))
     (set-buffer p4-output-buffer-name)
     (rename-buffer bufname1 t)
-    (p4-noinput-buffer-action "print" nil nil (list "-q" diff-version2))
+    (p4-noinput-buffer-action "print" nil (list "-q" diff-version2))
     (set-buffer p4-output-buffer-name)
     (rename-buffer bufname2 t)
     (let ((buffer-version-1 (get-buffer-create bufname1))
@@ -1225,7 +1207,7 @@ name and a client name."
 	(setq arg-string (p4-make-list-from-string
 			  (p4-read-arg-string "p4 print: " arg-string)))
       (setq arg-string (list arg-string)))
-    (p4-noinput-buffer-action "print" nil t arg-string)
+    (p4-noinput-buffer-action "print" t arg-string)
     (p4-activate-print-buffer "*P4 print*" t)))
 
 ;; Insert text in a buffer, but make sure that the inserted text doesn't
@@ -1336,8 +1318,7 @@ name and a client name."
 (defconst P4-FILE 3)
 
 (defun p4-blame ()
-  "To Print a depot file with revision history to a buffer,
-type \\[p4-blame]"
+  "Print a depot file with revision history to a buffer."
   (interactive)
   (let ((arg-string (p4-buffer-file-name-2))
 	(rev (get-char-property (point) 'rev))
@@ -1353,11 +1334,11 @@ type \\[p4-blame]"
 (defalias 'p4-print-with-rev-history 'p4-blame)
 
 (defun p4-blame-line ()
-  "To Print a depot file with revision history to a buffer,
-type and jump to the current line in the revision buffer. \\[p4-blame]"
+  "Print a depot file with revision history to a buffer,
+type and jump to the current line in the revision buffer."
   (interactive)
   (let ((arg-string (p4-buffer-file-name-2))
-					(src-line (line-number-at-pos (point)))
+        (src-line (line-number-at-pos (point)))
 	(rev (get-char-property (point) 'rev))
 	(change (get-char-property (point) 'change)))
     (cond (rev
@@ -1368,7 +1349,6 @@ type and jump to the current line in the revision buffer. \\[p4-blame]"
 	(setq arg-string (p4-read-arg-string "p4 print-revs: " arg-string)))
     (p4-blame-int arg-string src-line)))
 
-
 (defun p4-blame-int (file-spec &optional src-line)
   (let ((file-name file-spec)
 	(buffer (p4-get-writable-output-buffer))
@@ -1378,39 +1358,28 @@ type and jump to the current line in the revision buffer. \\[p4-blame]"
 	change ch-alist fullname head-rev headseen)
 
     ;; we asked for blame constrained by a change number
-    (if (string-match "\\(.*\\)@\\([0-9]+\\)" file-spec)
-	(progn
-	  (setq file-name (match-string 1 file-spec))
-	  (setq change (string-to-number (match-string 2 file-spec)))))
+    (when (string-match "\\(.*\\)@\\([0-9]+\\)$" file-spec)
+      (setq file-name (match-string 1 file-spec))
+      (setq change (string-to-number (match-string 2 file-spec))))
 
     ;; we asked for blame constrained by a revision
-    (if (string-match "\\(.*\\)#\\([0-9]+\\)" file-spec)
-	(progn
-	  (setq file-name (match-string 1 file-spec))
-	  (setq head-rev (string-to-number (match-string 2 file-spec)))))
+    (when (string-match "\\(.*\\)#\\([0-9]+\\)$" file-spec)
+      (setq file-name (match-string 1 file-spec))
+      (setq head-rev (string-to-number (match-string 2 file-spec))))
 
     ;; make sure the filespec is unambiguous
-    (with-temp-buffer
-      (p4-exec-p4 t (list "files" file-name) t)
-      (if (> (count-lines (point-min) (point-max)) 1)
-	  (error "File pattern maps to more than one file.")))
+    (p4-with-temp-buffer (list "files" file-name)
+      (when (> (count-lines (point-min) (point-max)) 1)
+        (error "File pattern maps to more than one file.")))
 
-    ;; get the file change history:
-    (p4-exec-p4 buffer (list "filelog" "-i" file-spec) t)
-    (setq fullname (p4-read-depot-output buffer)
-	  cur-file  fullname
-	  head-name fullname)
-
-    ;; parse the history:
-    (with-current-buffer buffer
-		(save-excursion
-      (goto-char (point-min))
-      (while (< (point) (point-max))
-
+    ;; parse the filelog
+    (p4-with-temp-buffer (list "filelog" "-i" file-spec)
+      (while (not (eobp))
 	;; record the current file name (and the head file name,
 	;; if we have not yet seen one):
-	(if (looking-at "^\\(//.*\\)$")
-	    (setq cur-file (match-string 1)))
+	(when (looking-at "^//.*$")
+          (setq cur-file (match-string 0))
+          (when (null fullname) (setq fullname cur-file head-name cur-file)))
 
 	;; a non-branch change:
 	(if (looking-at p4-blame-change-regex)
@@ -1425,39 +1394,34 @@ type and jump to the current line in the revision buffer. \\[p4-blame]"
 	       ;;   [remember, branches complicate this]:
 	       ((or (and change   (< change ch))
 		    (and head-rev (< head-rev rev)
-			 (string= head-name cur-file))) nil)
+			 (string= head-name cur-file))))
 
 	       ;; file has been deleted, can't assign blame:
 	       ((string= op "delete")
-		(if (not headseen) (goto-char (point-max))))
+		(unless headseen (goto-char (point-max))))
 
 	       ;; OK, we actually want to look at this one:
 	       (t
-		(setq ch-alist
-		      (cons
-		       (cons ch (list rev date author cur-file)) ch-alist))
-		(if (not head-rev) (setq head-rev rev))
-		(setq headseen t)) ))
+		(push (cons ch (list rev date author cur-file)) ch-alist)
+		(unless head-rev (setq head-rev rev))
+		(setq headseen t))))
 
 	  ;; not if we have entered a branch (this used to be used, isn't
 	  ;; right now - maybe again later:
 	  (if (and headseen (looking-at p4-blame-branch-regex))
-	      (setq branch-p t)) )
-	(forward-line))))
+	      (setq branch-p t)))
+	(forward-line)))
 
-    (if (< (length ch-alist) 1)
-	(error "Head revision not available"))
+    (or ch-alist (error "Head revision not available"))
 
     (let ((base-ch (int-to-string (caar ch-alist)))
 	  (ch-buffer (get-buffer-create "p4-ch-buf"))
 	  (tmp-alst (copy-alist ch-alist)))
-      (p4-exec-p4 ch-buffer
-		  (list "print" "-q" (concat cur-file "@" base-ch)) t)
       (with-current-buffer ch-buffer
-		(save-excursion
-	(goto-char (point-min))
-	(while (re-search-forward ".*\n" nil t)
-	  (replace-match (concat base-ch "\n")))))
+        (p4-run (list "print" "-q" (concat cur-file "@" base-ch)))
+        (save-excursion
+          (while (re-search-forward ".*\n" nil t)
+            (replace-match (concat base-ch "\n")))))
       (while (> (length tmp-alst) 1)
 	(let ((ch-1 (car (car  tmp-alst)))
 	      (ch-2 (car (cadr tmp-alst)))
@@ -1465,97 +1429,98 @@ type and jump to the current line in the revision buffer. \\[p4-blame]"
 	      (file2 (nth P4-FILE (cdr (cadr tmp-alst))))
 	      ins-string)
 	  (setq ins-string (format "%d\n" ch-2))
-	  (with-current-buffer buffer (erase-buffer))
-	  (p4-exec-p4 buffer (list "diff2"
-				   (format "%s@%d" file1 ch-1)
-				   (format "%s@%d" file2 ch-2)) t)
-	  (with-current-buffer buffer
-		  (save-excursion
-	    (goto-char (point-max))
-	    (while (re-search-backward p4-blame-revision-regex nil t)
-	      (let ((la (string-to-number (match-string 1)))
-		    (lb (string-to-number (match-string 2)))
-		    (op (match-string 3))
-		    (ra (string-to-number (match-string 4)))
-		    (rb (string-to-number (match-string 5))))
-		(if (= lb 0)
-		    (setq lb la))
-		(if (= rb 0)
-		    (setq rb ra))
-		(cond ((string= op "a")
-		       (setq la (1+ la)))
-		      ((string= op "d")
-		       (setq ra (1+ ra))))
-		(with-current-buffer ch-buffer
-		  (save-excursion
-		  (p4-goto-line la)
-		  (let ((beg (point)))
-		    (forward-line (1+ (- lb la)))
-		    (delete-region beg (point)))
-		  (while (<= ra rb)
-		    (insert ins-string)
-		    (setq ra (1+ ra)))))))))
+          (p4-with-temp-buffer (list "diff2"
+                                     (format "%s@%d" file1 ch-1)
+                                     (format "%s@%d" file2 ch-2))
+            (save-excursion
+              (goto-char (point-max))
+              (while (re-search-backward p4-blame-revision-regex nil t)
+                (let ((la (string-to-number (match-string 1)))
+                      (lb (string-to-number (match-string 2)))
+                      (op (match-string 3))
+                      (ra (string-to-number (match-string 4)))
+                      (rb (string-to-number (match-string 5))))
+                  (if (= lb 0)
+                      (setq lb la))
+                  (if (= rb 0)
+                      (setq rb ra))
+                  (cond ((string= op "a")
+                         (setq la (1+ la)))
+                        ((string= op "d")
+                         (setq ra (1+ ra))))
+                  (with-current-buffer ch-buffer
+                    (save-excursion
+                      (p4-goto-line la)
+                      (let ((beg (point)))
+                        (forward-line (1+ (- lb la)))
+                        (delete-region beg (point)))
+                      (while (<= ra rb)
+                        (insert ins-string)
+                        (setq ra (1+ ra)))))))))
 	  (setq tmp-alst (cdr tmp-alst))))
-      (p4-noinput-buffer-action "print" nil t
+      (p4-noinput-buffer-action "print" t
 				(list (format "%s#%d" fullname head-rev)))
       (p4-font-lock-buffer p4-output-buffer-name)
-      (let (line cnum (old-cnum 0) change-data
-	    xth-rev xth-date xth-auth xth-file)
+      (let (cnum (old-cnum 0) change-data xth-rev xth-date xth-auth xth-file
+            lines)
+        (with-current-buffer ch-buffer
+          (while (re-search-forward "^[0-9]+$" nil t)
+            (push (string-to-number (match-string 0)) lines))
+          (setq lines (nreverse lines)))
+        (kill-buffer ch-buffer)
 	(with-current-buffer buffer
 	  (save-excursion
-	  (p4-goto-line 2)
-	  (move-to-column 0)
-	  (p4-insert-no-properties "Change  Rev       Date  Author\n")
-	  (while (setq line (p4-read-depot-output ch-buffer))
-	    (setq cnum (string-to-number line))
-	    (if (= cnum old-cnum)
-		(p4-insert-no-properties (format "%29s : " ""))
+            (p4-goto-line 2)
+            (move-to-column 0)
+            (p4-insert-no-properties "Change  Rev       Date  Author\n")
+            (while lines
+              (setq cnum (pop lines))
+              (if (= cnum old-cnum)
+                  (p4-insert-no-properties (format "%29s : " ""))
 
-	      ;; extract the change data from our alist: remember,
-	      ;; `eq' works for integers so we can use assq here:
-	      (setq change-data (cdr (assq cnum ch-alist))
-		    xth-rev     (nth P4-REV  change-data)
-		    xth-date    (nth P4-DATE change-data)
-		    xth-auth    (nth P4-AUTH change-data)
-		    xth-file    (nth P4-FILE change-data))
+                ;; extract the change data from our alist: remember,
+                ;; `eq' works for integers so we can use assq here:
+                (setq change-data (cdr (assq cnum ch-alist))
+                      xth-rev     (nth P4-REV  change-data)
+                      xth-date    (nth P4-DATE change-data)
+                      xth-auth    (nth P4-AUTH change-data)
+                      xth-file    (nth P4-FILE change-data))
 
-	      (p4-insert-no-properties
-	       (format "%6d %4d %10s %7s: " cnum xth-rev xth-date xth-auth))
-	      (move-to-column 0)
-	      (if (looking-at p4-blame-index-regex)
-		  (let ((nth-cnum (match-string 1))
-			(nth-revn (match-string 2))
-			(nth-user (match-string 4)))
-		    (p4-create-active-link (match-beginning 1)
-					   (match-end 1)
-					   (list (cons 'change nth-cnum)))
-		    ;; revision needs to be linked to a file now that we
-		    ;; follow integrations (branches):
-		    (p4-create-active-link (match-beginning 2)
-					   (match-end 2)
-					   (list (cons 'rev  nth-revn)
-						 (cons 'link-depot-name xth-file)))
-		    (p4-create-active-link (match-beginning 4)
-					   (match-end 4)
-					   (list (cons 'user nth-user)))
-		    ;; truncate the user name:
-		    (let ((start (+ (match-beginning 4) 7))
-			  (end (match-end 4)))
-		      (if (> end start)
-			  (delete-region start end))))))
-	    (setq old-cnum cnum)
-	    (forward-line)))))
-
-      (kill-buffer ch-buffer))
+                (p4-insert-no-properties
+                 (format "%6d %4d %10s %7s: " cnum xth-rev xth-date xth-auth))
+                (move-to-column 0)
+                (if (looking-at p4-blame-index-regex)
+                    (let ((nth-cnum (match-string 1))
+                          (nth-revn (match-string 2))
+                          (nth-user (match-string 4)))
+                      (p4-create-active-link (match-beginning 1)
+                                             (match-end 1)
+                                             (list (cons 'change nth-cnum)))
+                      ;; revision needs to be linked to a file now that we
+                      ;; follow integrations (branches):
+                      (p4-create-active-link (match-beginning 2)
+                                             (match-end 2)
+                                             (list (cons 'rev  nth-revn)
+                                                   (cons 'link-depot-name xth-file)))
+                      (p4-create-active-link (match-beginning 4)
+                                             (match-end 4)
+                                             (list (cons 'user nth-user)))
+                      ;; truncate the user name:
+                      (let ((start (+ (match-beginning 4) 7))
+                            (end (match-end 4)))
+                        (if (> end start)
+                            (delete-region start end))))))
+              (setq old-cnum cnum)
+              (forward-line))))))
     (let ((buffer-name (concat "*P4 print-revs " file-name "*")))
       (p4-activate-print-buffer buffer-name nil)
       (with-current-buffer buffer-name
-		(save-excursion
-	(setq truncate-lines t)
-	(use-local-map p4-print-rev-mode-map))))
-	(when src-line
-	  (switch-to-buffer-other-window  buffer)
-	  (p4-goto-line (+ 2 src-line)))))
+        (save-excursion
+          (setq truncate-lines t)
+          (use-local-map p4-print-rev-mode-map))))
+    (when src-line
+      (switch-to-buffer-other-window  buffer)
+      (p4-goto-line (+ 2 src-line)))))
 
 (defp4cmd p4-refresh ()
   "sync" "Refresh the contents of an unopened file. \\[p4-refresh].
@@ -1643,10 +1608,9 @@ This command will execute the integrate/delete commands automatically.
   (let (from-file to-file)
     (setq from-file (p4-read-arg-string "rename from: " (p4-buffer-file-name-2)))
     (setq to-file (p4-read-arg-string "rename to: " (p4-buffer-file-name-2)))
-    (p4-noinput-buffer-action "integ" nil t (list from-file to-file))
-    (p4-exec-p4 (p4-get-writable-output-buffer)
-		(list "delete" from-file)
-		nil)))
+    (with-current-buffer
+        (p4-noinput-buffer-action "integ" t (list from-file to-file))
+      (p4-run (list "delete" from-file)))))
 
 (defun p4-scroll-down-1-line ()
   "Scroll down one line"
@@ -1841,7 +1805,7 @@ character events"
 	(filename (p4-buffer-file-name-2)))
     (cond ((and (not action) rev)
 	   (let ((fn1 (concat filename "#" rev)))
-	     (p4-noinput-buffer-action "print" nil t (list fn1))
+	     (p4-noinput-buffer-action "print" t (list fn1))
 	     (p4-activate-print-buffer "*P4 print*" t)))
 	  (action
 	   (let ((rev2 (int-to-string (1- (string-to-number rev)))))
@@ -2331,13 +2295,15 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
 			(p4-read-arg-string "p4 submit: " nil)))))
       (setq args (p4-filter-out (lambda (x) (string= x "-c")) args))
       (p4-save-opened-files)
-      (if (or (not (and p4-check-empty-diffs (p4-empty-diff-p)))
-	      (progn
-		(ding t)
-		(yes-or-no-p
-		 "File with empty diff opened for edit. Submit anyway? ")))
+      (let ((empty-buf (and p4-check-empty-diffs (p4-empty-diff-buffer))))
+        (when (or (not empty-buf)
+                  (save-window-excursion
+                    (pop-to-buffer empty-buf)
+                    (ding t)
+                    (yes-or-no-p
+                     "File with empty diff opened for edit. Submit anyway? ")))
 	  (p4-form-command "change" "Description:\n\t"
-				    submit-buf-name "submit" args)))))
+                           submit-buf-name "submit" args))))))
 
 (defp4cmd p4-user (&rest args)
   "user" "To create or edit a user specification, type \\[p4-user].\n"
@@ -3019,30 +2985,6 @@ So the 'no match' answer is different from 'not in cache'."
 	((string= type "group")
 	 (setq p4-groups-completion-cache nil))))
 
-(defun p4-read-depot-output (buffer &optional regexp)
-  "Reads first line of BUFFER and returns it.
-Read lines are deleted from buffer.
-
-If optional REGEXP is passed in, return the substring of the first line that
-matched the REGEXP."
-
-  (with-current-buffer buffer
-	(save-excursion
-    (goto-char (point-min))
-    (forward-line)
-
-    (let ((line (buffer-substring (point-min) (point))))
-      (if (string= line "")
-	  nil
-	(delete-region (point-min) (point))
-	(if (and regexp (string-match regexp line))
-	    (setq line (substring line (match-beginning 1) (match-end 1))))
-
-	;; remove trailing newline
-	(if (equal (substring line (1- (length line)) (length line)) "\n")
-	    (substring line 0 (1- (length line)))
-	  line))))))
-
 (defun p4-completion-helper (spec cmd var regexp)
   "Run p4 CMD, collect strings from output matching group 1 in REGEXP,
 push SPEC onto the front of the list, assign the list to VAR, and
@@ -3311,7 +3253,7 @@ file name selection.")
 	  (switch-to-buffer-other-window file)
 	(get-buffer-create file)
 	(set-buffer file)
-	(p4-noinput-buffer-action "print" nil t (list file))
+	(p4-noinput-buffer-action "print" t (list file))
 	(p4-activate-print-buffer file t)))))
 
 (defun p4-get-client-name ()
@@ -3372,32 +3314,15 @@ Emacs P4."
              (p4-map-depot-files (p4-opened-files)))
      '("buffer" "buffers" "save"))))
 
-(defun p4-empty-diff-p ()
-  "Return t if there exists a file opened for edit with an empty diff"
-  (let ((buffer (get-buffer-create "p4-edp-buf"))
-	opened empty-diff)
-    (p4-exec-p4 buffer (list "opened") t)
+(defun p4-empty-diff-buffer ()
+  "If there exist any files opened for edit with an empty diff,
+return a buffer listing those files. Otherwise, return NIL."
+  (let ((buffer (get-buffer-create "*P4 diff -sr*")))
     (with-current-buffer buffer
-	  (save-excursion
-      (goto-char (point-min))
-      (while (re-search-forward "^\\(.*\\)#[0-9]* - edit.*" nil t)
-	(setq opened (cons (match-string 1) opened)))))
-    (if opened
-	(progn
-	  (with-current-buffer buffer (erase-buffer))
-	  (p4-exec-p4 buffer (list "diff") t)
-	  (with-current-buffer buffer
-		(save-excursion
-	    (goto-char (point-max))
-	    (insert "====\n")
-	    (goto-char (point-min))
-	    (while (re-search-forward "^==== \\([^#\n]+\\)#.*\n====" nil t)
-	      (if (member (match-string 1) opened)
-		  (progn
-		    (setq empty-diff t)
-		    (goto-char (point-max)))))))))
-    (kill-buffer buffer)
-    empty-diff))
+      (erase-buffer)
+      (p4-run (list "diff" "-sr"))
+      (unless (looking-at "File(s) not opened")
+        buffer))))
 
 (defp4cmd p4-passwd ()
   "passwd" "To set the user's password on the server, type \\[p4-passwd].\n"
