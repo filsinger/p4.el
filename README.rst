@@ -13,7 +13,7 @@ Installation
 ------------
 Download `p4.el`_. Then, in your `.emacs`:
 
-1. Add the location of `p4.el` to your `load-path` if necessary:
+1. Add the location of `p4.el` to your `load-path` if necessary::
 
     (push "/full/path/to/dir/containing/file" load-path)
 
