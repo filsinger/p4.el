@@ -266,20 +266,32 @@ between them, that text will be marked with this face."
     (setq minor-mode-map-alist
 	  (cons '(p4-offline-mode . p4-minor-map) minor-mode-map-alist)))
 
-(defvar p4-form-current-command nil)
-(make-variable-buffer-local 'p4-form-current-command)
-(put 'p4-form-current-command 'permanent-local t)
-(set-default 'p4-form-current-command nil)
-
-(defvar p4-form-current-args nil)
-(make-variable-buffer-local 'p4-form-current-args)
-(put 'p4-form-current-args 'permanent-local t)
-(set-default 'p4-form-current-args nil)
-
 (defvar p4-vc-check nil "Buffer is known to be under control of P4?")
 (make-variable-buffer-local 'p4-vc-check)
 (put 'p4-vc-check 'permanent-local t)
-(set-default 'p4-vc-check nil)
+
+(defvar p4-process-args nil "List of P4 command and arguments.")
+(make-variable-buffer-local 'p4-process-args)
+(put 'p4-process-args 'permanent-local t)
+
+(defvar p4-process-callback nil
+  "Function run when P4 command completes successfully.")
+(make-variable-buffer-local 'p4-process-callback)
+(put 'p4-process-callback 'permanent-local t)
+
+(defvar p4-process-after-show-callback nil
+  "Function run when P4 command completes successfully.")
+(make-variable-buffer-local 'p4-process-after-show-callback)
+(put 'p4-process-after-show-callback 'permanent-local t)
+
+(defvar p4-form-commit-command nil
+  "P4 command to run when committing this form.")
+(make-variable-buffer-local 'p4-form-commit-command)
+(put 'p4-form-commit-command 'permanent-local t)
+
+(defvar p4-form-committed nil "Form successfully committed?")
+(make-variable-buffer-local 'p4-form-committed)
+(put 'p4-form-committed 'permanent-local t)
 
 (defvar p4-set-client-hooks nil
   "List of functions to be called after a p4 client is changed.
@@ -677,7 +689,16 @@ buffers."
           (p4-check-mode))
         (p4-update-opened-list)))))
 
-(defun p4-call-command-process-sentinel (process message)
+(defun p4-process-show-output ()
+  "Show the current buffer to the user.
+Return NIL if shown in minibuffer, or non-NIL if it was shown in a window."
+  (goto-char (point-min))
+  (if (eql (count-lines (point-min) (point-max)) 1)
+      (progn (message (buffer-substring (point) (line-end-position))) nil)
+    (p4-push-window-config)
+    (display-buffer buffer)))
+
+(defun p4-process-sentinel (process message)
   (let ((inhibit-read-only t)
 	(buffer (process-buffer process)))
     (when (buffer-live-p buffer)
@@ -692,13 +713,9 @@ buffers."
               (t
                (when p4-process-callback (funcall p4-process-callback))
                (set-buffer-modified-p nil)
-               (goto-char (point-min))
-               (if (eql (count-lines (point-min) (point-max)) 1)
-                   (message (buffer-substring (point) (line-end-position)))
-                 (p4-push-window-config)
-                 (display-buffer buffer)
-                 (when p4-process-after-show-callback
-                   (funcall p4-process-after-show-callback)))))))))
+               (and (p4-process-show-output)
+                    p4-process-after-show-callback
+                    (funcall p4-process-after-show-callback))))))))
 
 (defun p4-process-restart ()
   "Start a background Perforce process in the current buffer with
@@ -706,7 +723,7 @@ command and arguments taken from the local variable p4-process-args."
   (set-process-sentinel
    (apply 'start-process "P4" (current-buffer) (p4-check-p4-executable)
           p4-process-args)
-   'p4-call-command-process-sentinel))
+   'p4-process-sentinel))
 
 (defun p4-process-buffer-name (args)
   "Return a suitable buffer name for the P4 command."
@@ -721,16 +738,13 @@ command and arguments taken from the local variable p4-process-args."
 cmd is the P4 command to run.
 args is a list of arguments to pass to the P4 command.
 mode is an optional function run when creating the output buffer.
-callback is an optional function run when the P4 command completes successful.
+callback is an optional function run when the P4 command completes successfully.
 after-show-callback is an optional function run after displaying the output."
   (with-current-buffer
       (p4-make-output-buffer (p4-process-buffer-name (cons cmd args)) mode)
-    (set (make-local-variable 'p4-process-args) (cons cmd args))
-    (put 'p4-process-args 'permanent-local t)
-    (set (make-local-variable 'p4-process-callback) callback)
-    (put 'p4-process-callback 'permanent-local t)
-    (set (make-local-variable 'p4-process-after-show-callback) after-show-callback)
-    (put 'p4-process-after-show-callback 'permanent-local t)
+    (setq p4-process-args (cons cmd args)
+          p4-process-callback callback
+          p4-process-after-show-callback after-show-callback)
     (p4-process-restart)))
 
 (defp4cmd p4-edit ()
@@ -860,11 +874,13 @@ buffer and the P4 output buffer."
       (when (buffer-live-p orig-buffer)
         (p4-fontify-print-buffer t)
         (lexical-let ((depot-buffer (current-buffer)))
-          (labels ((cleanup-hook () (p4-pop-window-config pop-count))
-                   (startup-hook ()
-                      (make-local-variable 'ediff-cleanup-hook)
-                      (add-hook 'ediff-cleanup-hook #'cleanup-hook)))
-            (ediff-buffers orig-buffer depot-buffer (list #'startup-hook))))))))
+          (ediff-buffers
+           orig-buffer depot-buffer
+           (list (lambda ()
+                   (make-local-variable 'ediff-cleanup-hook)
+                   (add-hook 'ediff-cleanup-hook 
+                             (lambda ()
+                               (p4-pop-window-config pop-count)))))))))))
 
 (defun p4-ediff ()
   "Use ediff to compare file with its original client version."
@@ -2026,122 +2042,81 @@ character events"
 					(p4-buffer-file-name-2)))))
     (p4-call-command "where" args)))
 
-(defun p4-check-cmd-line-switch (args)
-  (when (or (member "-i" args)
-	    (member "-o" args))
-    (error "Do not specify -i or -o switches.")))
+(defun p4-form-callback (regexp cmd)
+  (goto-char (point-min))
+  (insert "# Created using " (p4-emacs-version) ".\n"
+          "# Type C-c C-c to submit changes and exit buffer.\n"
+          "# Type C-x k to kill current changes.\n"
+          "#\n")
+  (when regexp (re-search-forward regexp))
+  (p4-form-mode)
+  (select-window (get-buffer-window buffer))
+  (setq p4-form-commit-command cmd)
+  (setq p4-form-committed nil)
+  (setq buffer-offer-save t)
+  (set-buffer-modified-p nil)
+  (setq buffer-read-only nil)
+  (message "C-c C-c to finish editing and exit buffer."))
 
-(defun p4-form-command (p4-this-command &optional
-					p4-regexp
-					p4-this-buffer
-					p4-out-command
-					p4-in-args
-					p4-out-args)
-  "Internal function to call an asynchronous process with a local buffer,
-instead of calling an external client editor to run within emacs.
+(defun p4-form-command (cmd &optional args regexp commit-cmd)
+  "Start a form-editing session.
+cmd is the P4 command to run \(it must take -o and output a form\).
+args is a list of arguments to pass to the P4 command.
+regexp is an optional regular expression to set the cursor on.
+commit-cmd is the command that will be called when
+`p4-form-commit' is called \(it must take -i and a form on
+standard input\). If not supplied, cmd is reused."
+  (when (member "-i" args) (error "Do not specify the -i flag."))
+  (when (member "-o" args) (error "Do not specify the -o flag."))
 
-Arguments:
-P4-THIS-COMMAND is the command that called this internal function.
-
-P4-REGEXP is the optional regular expression to search for to set the cursor
-on.
-
-P4-THIS-BUFFER is the optional buffer to create. (Default is *P4 <command>*).
-
-P4-OUT-COMMAND is the optional command that will be used as the command to
-be called when `p4-form-commit' is called.
-
-P4-IN-ARGS is the optional argument passed that will be used as the list of
-arguments to the P4-THIS-COMMAND.
-
-P4-OUT-ARGS is the optional argument passed that will be used as the list of
-arguments to P4-OUT-COMMAND."
-  (p4-check-cmd-line-switch p4-in-args)
-  (p4-check-cmd-line-switch p4-out-args)
-  (let ((dir default-directory))
-    (if p4-this-buffer
-	(set-buffer (get-buffer-create p4-this-buffer))
-      (set-buffer (get-buffer-create (concat "*P4 " p4-this-command "*"))))
-    (setq p4-form-current-command p4-this-command)
-    (cd dir))
-  (if (zerop (apply 'call-process-region (point-min) (point-max)
-		    (p4-check-p4-executable) t t nil
-		    p4-form-current-command "-o"
-		    p4-in-args))
-      (progn
-	(goto-char (point-min))
-	(insert (concat "# Created using " (p4-emacs-version) ".\n"
-			"# Type C-c C-c to submit changes and exit buffer.\n"
-			"# Type C-x k to kill current changes.\n"
-			"#\n"))
-	(if p4-regexp (re-search-forward p4-regexp))
-	(p4-form-mode)
-	(p4-push-window-config)
-	(switch-to-buffer-other-window (current-buffer))
-	(if p4-out-command
-	    (setq p4-form-current-command p4-out-command))
-	(setq p4-form-current-args p4-out-args)
-	(setq buffer-offer-save t)
-
-	(set-buffer-modified-p nil)
-	(message "C-c C-c to finish editing and exit buffer."))
-    (error "%s %s -o failed to complete successfully."
-	   (p4-check-p4-executable) p4-form-current-command)))
+  ;; Is there already an uncommitted form with the same name? If so,
+  ;; just switch to it.
+  (lexical-let* ((args (cons "-o" args))
+                 (regexp regexp)
+                 (commit-cmd (or commit-cmd cmd))
+                 (buf (get-buffer (p4-process-buffer-name (cons cmd args)))))
+    (if (and buf (with-current-buffer buf (not p4-form-committed)))
+        (if (get-buffer-window buf)
+            (select-window (get-buffer-window buf))
+          (switch-to-buffer-other-window buf))
+      (p4-call-command cmd args nil nil
+                       (lambda () (p4-form-callback regexp commit-cmd))))))
 
 (defun p4-form-commit ()
-  "Internal function called by `p4-form-command' to process the
-buffer after editing is done using the minor mode key mapped to `C-c C-c'."
+  "Commit the form in the current buffer to the server."
   (interactive)
-  (message "p4 %s ..." p4-form-current-command)
-  (let* ((buffer (p4-make-output-buffer "*P4*"))
-	 (inhibit-read-only t)
-	 (current-command p4-form-current-command)
-	 (current-args p4-form-current-args)
-	 (ret (apply 'call-process-region (point-min)
-		     (point-max) (p4-check-p4-executable)
-		     nil buffer nil
-		     current-command "-i"
-		     current-args)))
-    (with-current-buffer buffer
-      (if (= (count-lines (point-min) (point-max)) 1)
-	  (message (buffer-substring (point-min)
-				     (save-excursion
-				       (goto-char (point-min))
-				       (end-of-line)
-				       (point))))
-	(p4-push-window-config)
-	(display-buffer buffer)))
-    (if (zerop ret)
-	(progn
-	  (kill-buffer nil)
-	  (p4-partial-cache-cleanup current-command)
-	  (if (equal current-command "submit")
-	      (progn
-		(p4-refresh-files-in-buffers)
-		(p4-check-mode-all-buffers))))
-      (error "%s %s -i failed to complete successfully."
-	     (p4-check-p4-executable)
-	     current-command))))
+  (when p4-form-committed (error "Form already committed successfully."))
+  (let* ((cmd p4-form-commit-command)
+         (args '("-i"))
+         (buffer (p4-make-output-buffer (p4-process-buffer-name (cons cmd args)))))
+    (if (zerop (apply 'call-process-region (point-min)
+                      (point-max) (p4-check-p4-executable)
+                      nil buffer nil
+                      cmd args))
+        (progn
+          (setq p4-form-committed t)
+          (with-current-buffer buffer
+            (p4-process-show-output)
+            (p4-quit-current-buffer)
+            (p4-partial-cache-cleanup cmd)
+            (when (string= cmd "submit")
+              (p4-refresh-files-in-buffers)
+              (p4-check-mode-all-buffers))))
+      (error "%s -i failed to complete successfully." cmd))))
 
 (defp4cmd p4-change ()
   "change" "To edit the change specification, type \\[p4-change].\n"
   (interactive)
-  (let (args
-	(change-buf-name "*P4 New Change*"))
-    (if (buffer-live-p (get-buffer change-buf-name))
-	(switch-to-buffer-other-window (get-buffer change-buf-name))
+  (let (args)
       (if current-prefix-arg
 	  (setq args (p4-make-list-from-string
 		      (p4-read-arg-string "p4 change: " nil))))
-      (p4-form-command "change" "Description:\n\t"
-		       change-buf-name nil args))))
+      (p4-form-command "change" args "Description:\n\t")))
 
 (defp4cmd p4-client (&rest args)
   "client" "To edit a client specification, type \\[p4-client].\n"
   (interactive (p4-read-args* "p4 client: " "client"))
-  (let ((client-buf-name "*P4 client*"))
-    (p4-form-command "client" "\\(Description\\|View\\):\n\t"
-		     client-buf-name nil args)))
+  (p4-form-command "client" args "\\(Description\\|View\\):\n\t"))
 
 (defp4cmd p4-clients (&rest args)
   "clients" "To list all clients, type \\[p4-clients].\n"
@@ -2157,10 +2132,7 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
 		 (p4-read-arg-string "p4 branch: " nil "branch"))))
   (if (or (null args) (equal args (list "")))
       (error "Branch must be specified!")
-    (p4-form-command "branch" "Description:\n\t"
-		     (concat "*P4 Branch: "
-			     (car (reverse args)) "*")
-		     "branch" args)))
+    (p4-form-command "branch" args "Description:\n\t")))
 
 (defp4cmd p4-branches (&rest args)
   "branches" "To list all branches, type \\[p4-branches].\n"
@@ -2176,10 +2148,7 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
 		 (p4-read-arg-string "p4 label: " nil "label"))))
   (if (or (null args) (equal args (list "")))
       (error "label must be specified!")
-    (p4-form-command "label" "Description:\n\t"
-		     (concat "*P4 label: "
-			     (car (reverse args)) "*")
-		     "label" args)))
+    (p4-form-command "label" args "Description:\n\t")))
 
 (defp4cmd p4-labels ()
   "labels" "To display list of defined labels, type \\[p4-labels].\n"
@@ -2208,44 +2177,40 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
   "submit" "To submit a pending change to the depot, type \\[p4-submit].\n"
   (interactive "P")
   (let (args
-	(submit-buf-name "*P4 Submit*")
 	(change-list (if (integerp arg) arg)))
-    (if (buffer-live-p (get-buffer submit-buf-name))
-	(switch-to-buffer-other-window (get-buffer submit-buf-name))
-      (if change-list
-	  (setq args (list "-c" (int-to-string change-list)))
-	(if current-prefix-arg
-	    (setq args (p4-make-list-from-string
-			(p4-read-arg-string "p4 submit: " nil)))))
-      (setq args (p4-filter-out (lambda (x) (string= x "-c")) args))
-      (p4-save-opened-files)
-      (let ((empty-buf (and p4-check-empty-diffs (p4-empty-diff-buffer))))
-        (when (or (not empty-buf)
-                  (save-window-excursion
-                    (pop-to-buffer empty-buf)
-                    (ding t)
-                    (yes-or-no-p
-                     "File with empty diff opened for edit. Submit anyway? ")))
-	  (p4-form-command "change" "Description:\n\t"
-                           submit-buf-name "submit" args))))))
+    (if change-list
+        (setq args (list "-c" (int-to-string change-list)))
+      (if current-prefix-arg
+          (setq args (p4-make-list-from-string
+                      (p4-read-arg-string "p4 submit: " nil)))))
+    (setq args (p4-filter-out (lambda (x) (string= x "-c")) args))
+    (p4-save-opened-files)
+    (let ((empty-buf (and p4-check-empty-diffs (p4-empty-diff-buffer))))
+      (when (or (not empty-buf)
+                (save-window-excursion
+                  (pop-to-buffer empty-buf)
+                  (ding t)
+                  (yes-or-no-p
+                   "File with empty diff opened for edit. Submit anyway? ")))
+        (p4-form-command "change" args "Description:\n\t" "submit")))))
 
 (defp4cmd p4-user (&rest args)
   "user" "To create or edit a user specification, type \\[p4-user].\n"
   (interactive (p4-make-list-from-string
 		(p4-read-arg-string "p4 user: " nil "user")))
-  (p4-form-command "user" nil nil nil args))
+  (p4-form-command "user" args))
 
 (defp4cmd p4-group (&rest args)
   "group" "To create or edit a group specification, type \\[p4-group].\n"
   (interactive (p4-make-list-from-string
 		(p4-read-arg-string "p4 group: " nil "group")))
-  (p4-form-command "group" nil nil nil args))
+  (p4-form-command "group" args))
 
 (defp4cmd p4-job (&rest args)
   "job" "To create or edit a job, type \\[p4-job].\n"
   (interactive (p4-make-list-from-string
 		(p4-read-arg-string "p4 job: " nil "job")))
-  (p4-form-command "job" "Description:\n\t" nil nil args))
+  (p4-form-command "job" args "Description:\n\t"))
 
 (defp4cmd p4-jobspec ()
   "jobspec" "To edit the job template, type \\[p4-jobspec].\n"
