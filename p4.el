@@ -698,6 +698,18 @@ Return NIL if shown in minibuffer, or non-NIL if it was shown in a window."
     (p4-push-window-config)
     (display-buffer buffer)))
 
+(defun p4-process-show-error (&rest args)
+  "Show the contents of the current buffer as an error message.
+If there's no content in the buffer, pass args to error instead."
+  (goto-char (point-min))
+  (cond ((eobp) (apply 'error args))
+        ((eql (count-lines (point-min) (point-max)) 1)
+         (error (buffer-substring (point) (line-end-position))))
+        (t
+         (p4-push-window-config)
+         (display-buffer buffer)
+         (apply 'error args))))
+
 (defun p4-process-sentinel (process message)
   (let ((inhibit-read-only t)
 	(buffer (process-buffer process)))
@@ -709,7 +721,7 @@ Return NIL if shown in minibuffer, or non-NIL if it was shown in a window."
                (delete-region (point-min) (point-max))
                (p4-process-restart))
               ((not (string-equal message "finished\n"))
-               (error "Process %s %s" (process-name process) message))
+               (p4-process-show-error "Process %s %s" (process-name process) message))
               (t
                (when p4-process-callback (funcall p4-process-callback))
                (set-buffer-modified-p nil)
@@ -2105,7 +2117,7 @@ standard input\). If not supplied, cmd is reused."
             (when (string= cmd "submit")
               (p4-refresh-files-in-buffers)
               (p4-check-mode-all-buffers))))
-      (error "%s -i failed to complete successfully." cmd))))
+      (p4-process-show-error "%s -i failed to complete successfully." cmd))))
 
 (defp4cmd p4-change ()
   "change" "To edit the change specification, type \\[p4-change].\n"
