@@ -11,9 +11,9 @@ Introduction
 
 Installation
 ------------
-Download `p4.el`_. Then, in your `.emacs`:
+Download `p4.el`_. Then, in your ``.emacs``:
 
-1. Add the location of `p4.el` to your `load-path` if necessary::
+1. Ensure the directory containing ``p4.el`` is on your ``load-path``::
 
     (push "/full/path/to/dir/containing/file" load-path)
 
@@ -21,7 +21,7 @@ Download `p4.el`_. Then, in your `.emacs`:
 
     (require 'p4)
 
-3. Create a global keybinding for the Emacs/P4 keymap. Traditionally this goes on `C-x p`::
+3. Create a global keybinding for the Emacs/P4 keymap. Traditionally this goes on ``C-x p``::
 
     (define-key global-map "\C-xp" 'p4-prefix-map)
 
