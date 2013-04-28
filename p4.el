@@ -553,7 +553,7 @@ restore the window configuration."
      (and (p4-buffer-file-name-2) (or (not p4-mode) buffer-read-only))]
     ["Submit Changes"  p4-submit t]
     ["--" nil nil]
-    ["Sync/Get Files from Depot" p4-get t]
+    ["Sync Files with Depot" p4-sync t]
     ["--" nil nil]
     ["Show Opened Files"	p4-opened t]
     ["Filelog" p4-filelog (p4-buffer-file-name-2)]
@@ -1488,24 +1488,22 @@ type and jump to the current line in the revision buffer."
 
 (defp4cmd p4-refresh ()
   "sync" "Refresh the contents of an unopened file. \\[p4-refresh].
-
-This is equivalent to \"sync -f\"
-"
+Runs \"sync -f\"."
   (interactive)
   (let ((args (p4-buffer-file-name)))
     (if (or current-prefix-arg (not args))
 	(setq args (p4-make-list-from-string
-		    (p4-read-arg-string "p4 refresh: ")))
+		    (p4-read-arg-string "p4 sync -f: ")))
       (setq args (list args)))
-    (p4-call-command "refresh" args 'p4-basic-list-mode
+    (p4-call-command "sync" (cons "-f" args) 'p4-basic-list-mode
                      'p4-refresh-files-in-buffers)))
 
-(defalias 'p4-sync 'p4-get)
+(defp4cmd p4-sync (&rest args)
+  "sync" "To synchronise the local view with the depot, type \\[p4-sync].\n"
+  (interactive (p4-read-args* "p4 sync: "))
+  (p4-call-command "sync" args 'p4-basic-list-mode 'p4-refresh-files-in-buffers))
 
-(defp4cmd p4-get (&rest args)
-  "sync" "To synchronise the local view with the depot, type \\[p4-get].\n"
-  (interactive (p4-read-args* "p4 get: "))
-  (p4-call-command "get" args 'p4-basic-list-mode 'p4-refresh-files-in-buffers))
+(defalias 'p4-get 'p4-sync)
 
 (defp4cmd p4-have (&rest args)
   "have" "To list revisions last gotten, type \\[p4-have].\n"
