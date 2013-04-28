@@ -3086,7 +3086,12 @@ return a buffer listing those files. Otherwise, return NIL."
     (with-current-buffer buffer
       (erase-buffer)
       (p4-run (list "diff" "-sr"))
-      (unless (looking-at "File(s) not opened")
+      ;; The output of p4 diff -sr can be:
+      ;; "File(s) not opened on this client." if no files opened at all.
+      ;; "File(s) not opened for edit." if some files opened (but none for edit)
+      ;; Nothing if files opened for edit (but all have changes).
+      ;; List of filesnames (otherwise).
+      (unless (or (eobp) (looking-at "File(s) not opened"))
         buffer))))
 
 (defp4cmd p4-passwd ()
