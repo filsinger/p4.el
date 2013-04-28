@@ -129,12 +129,6 @@ This provides for a much faster `p4-find-file-hook'."
   :type 'boolean
   :group 'p4)
 
-(defcustom p4-verbose t
-  "When set, p4 will pop up the output buffer with the result of the
-command."
-  :type 'boolean
-  :group 'p4)
-
 (defcustom p4-follow-symlinks nil
   "When set, p4 will call `file-truename' on all opened files."
   :type 'boolean
@@ -749,9 +743,9 @@ command and arguments taken from the local variable p4-process-args."
     (set (make-local-variable 'p4-process-callback) callback)
     (p4-process-restart)))
 
-(defp4cmd p4-edit (show-output)
+(defp4cmd p4-edit ()
   "edit" "To open the current depot file for edit, type \\[p4-edit].\n"
-  (interactive (list p4-verbose))
+  (interactive)
   (let ((args (p4-buffer-file-name))
 	refresh-after)
     (if (or current-prefix-arg (not args))
@@ -765,14 +759,10 @@ command and arguments taken from the local variable p4-process-args."
       (setq args (list args)))
     (p4-call-command "edit" args nil (p4-refresh-callback t refresh-after))))
 
-(defp4cmd p4-reopen (show-output)
+(defp4cmd p4-reopen ()
   "reopen"
-  "To change the type or changelist number of an opened file, type \\[p4-reopen].
-
-Argument SHOW-OUTPUT displays the *P4 Output* buffer on executing the
-command if t.\n"
-
-  (interactive (list p4-verbose))
+  "To change the type or changelist number of an opened file, type \\[p4-reopen]."
+  (interactive)
   (let ((args (if (p4-buffer-file-name-2)
 		  (p4-buffer-file-name-2)
 		"")))
@@ -780,9 +770,9 @@ command if t.\n"
 		(p4-read-arg-string "p4 reopen: " (cons args 0))))
     (p4-call-command "reopen" args (p4-refresh-callback t))))
 
-(defp4cmd p4-revert (show-output)
+(defp4cmd p4-revert ()
   "revert" "To revert all change in the current file, type \\[p4-revert].\n"
-  (interactive (list p4-verbose))
+  (interactive)
   (let ((args (p4-buffer-file-name))
 	refresh-after)
     (if (or current-prefix-arg (not args))
@@ -2779,8 +2769,8 @@ making the file writable and write protected."
   (cond
    (p4-mode
     (if buffer-read-only
-	(p4-edit p4-verbose)
-      (p4-revert p4-verbose)))
+	(p4-edit)
+      (p4-revert)))
    (p4-offline-mode
 	(setq buffer-read-only (not buffer-read-only)) ;; this used to be  (toggle-read-only), but toggle-read-only shouldnt be called from elsip... lets hope this works.
     (if buffer-file-name
