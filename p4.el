@@ -549,7 +549,7 @@ restore the window configuration."
      (and (p4-buffer-file-name-2) (or (not p4-mode) (not buffer-read-only)))]
     ["Delete File from Depot"  p4-delete
      (and (p4-buffer-file-name-2) (or (not p4-mode) buffer-read-only))]
-    ["Rename Depot File" p4-rename
+    ["Move Depot File" p4-move
      (and (p4-buffer-file-name-2) (or (not p4-mode) buffer-read-only))]
     ["Submit Changes"  p4-submit t]
     ["--" nil nil]
@@ -1080,7 +1080,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
 (defvar p4-server-version-cache nil
   "Association list mapping P4PORT to P4 server version on that port.")
 
-(defun p4-get-server-version ()
+(defun p4-server-version ()
   "Return the version number of the P4 server, or NIL if unknown."
   (let ((p4-port (p4-current-server-port)))
     (or (cdr (assoc p4-port p4-server-version-cache))
@@ -1131,7 +1131,7 @@ name and a client name."
 	 (re-client-root (regexp-quote client-root))
 	 files)
     (p4-with-temp-buffer (cons "where" file-list)
-      (if (< (p4-get-server-version) 98)
+      (if (< (p4-server-version) 98)
 	  (while (re-search-forward
 		  (concat "^\\([^\n]+\\) //" re-current-client "\\(.*\\)$")
                   nil t)
@@ -1555,15 +1555,20 @@ Argument ARG command for which help is needed."
     (select-window (get-buffer-window buffer))
     (goto-char (point-max))))
 
-(defp4cmd p4-rename ()
-  "rename" "To rename a file in the depot, type \\[p4-rename].
-This command will execute the integrate/delete commands automatically."
+(defp4cmd p4-move ()
+  "move" "To move a file in the depot, type \\[p4-move].
+If the \"move\" command is unavailable, use \"integrate\"
+followed by \"delete\"."
   (interactive)
   (lexical-let
-      ((from-file (p4-read-arg-string "rename from: " (p4-buffer-file-name-2)))
-       (to-file (p4-read-arg-string "rename to: " (p4-buffer-file-name-2))))
-    (p4-call-command "integ" (list from-file to-file) nil
-                     (lambda () (p4-call-command "delete" (list from-file))))))
+      ((from-file (p4-read-arg-string "move from: " (p4-buffer-file-name-2)))
+       (to-file (p4-read-arg-string "move to: " (p4-buffer-file-name-2))))
+    (if (< (p4-server-version) 2009)
+        (p4-call-command "integ" (list from-file to-file) nil
+                         (lambda () (p4-call-command "delete" (list from-file))))
+      (p4-call-command "move" (list from-file to-file)))))
+
+(defalias 'p4-rename 'p4-move)
 
 (defun p4-scroll-down-1-line ()
   "Scroll down one line"
@@ -2379,7 +2384,7 @@ the current value of P4PORT."
     (define-key map "l" 'p4-label)
     (define-key map "L" 'p4-labels)
     (define-key map "\C-l" 'p4-labelsync)
-    (define-key map "m" 'p4-rename)
+    (define-key map "m" 'p4-move)
     (define-key map "o" 'p4-opened)
     (define-key map "p" 'p4-print)
     (define-key map "P" 'p4-set-p4-port)
