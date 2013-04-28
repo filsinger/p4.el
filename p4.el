@@ -491,7 +491,7 @@ re-run the command."
           (when incomplete
             (p4-login)
             (delete-region (point-min) (point-max))))))
-    status)))
+    status))
 
 (defmacro p4-with-temp-buffer (args &rest body)
   "Run p4 ARGS in a temporary buffer, place point at the start of
