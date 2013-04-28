@@ -2182,7 +2182,7 @@ standard input\). If not supplied, cmd is reused."
         (setq args (list "-c" (int-to-string change-list)))
       (if current-prefix-arg
           (setq args (p4-make-list-from-string
-                      (p4-read-arg-string "p4 submit: " nil)))))
+                      (p4-read-arg-string "p4 change: " nil)))))
     (setq args (p4-filter-out (lambda (x) (string= x "-c")) args))
     (p4-save-opened-files)
     (let ((empty-buf (and p4-check-empty-diffs (p4-empty-diff-buffer))))
