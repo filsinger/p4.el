@@ -164,8 +164,6 @@ the completion behavior of `p4-set-client-name'.
 (if (not (getenv "P4PORT"))
     (setenv "P4PORT" "perforce:1666"))
 
-(defvar p4-notify-list (getenv "P4NOTIFY") "The P4 Notify List.")
-
 (defcustom p4-sendmail-program (if (boundp 'sendmail-program)
 				   sendmail-program
 				 nil)
@@ -178,13 +176,6 @@ the completion behavior of `p4-set-client-name'.
   "The e-mail address of the current user. This is used with the
 notification system, and must be set if notification should take place."
   :type 'string
-  :group 'p4)
-
-(defcustom p4-notify nil
-  "If this is t then the users in the notification list set by
-`p4-set-notify-list' will get a notification of any P4 change submitted from
-within emacs."
-  :type 'boolean
   :group 'p4)
 
 ;; This is also set by the command `p4-toggle-vc-mode'.
@@ -596,9 +587,6 @@ restore the window configuration."
     ["Get Current P4 Server/Port"	 p4-get-p4-port
      p4-do-find-file]
     ["--" nil nil]
-    ["Set P4 Notification List"  p4-set-notify-list
-     p4-mode]
-    ["Get P4 Notification List"  p4-get-notify-list p4-notify]
     )
   "The P4 menu definition")
 
@@ -2130,9 +2118,7 @@ buffer after editing is done using the minor mode key mapped to `C-c C-c'."
 	  (if (equal current-command "submit")
 	      (progn
 		(p4-refresh-files-in-buffers)
-		(p4-check-mode-all-buffers)
-		(if p4-notify
-		    (p4-notify p4-notify-list)))))
+		(p4-check-mode-all-buffers))))
       (error "%s %s -i failed to complete successfully."
 	     (p4-check-p4-executable)
 	     current-command))))
@@ -2429,7 +2415,6 @@ the current value of P4PORT."
     (define-key map "L" 'p4-labels)
     (define-key map "\C-l" 'p4-labelsync)
     (define-key map "m" 'p4-rename)
-    (define-key map "n" 'p4-notify)
     (define-key map "o" 'p4-opened)
     (define-key map "p" 'p4-print)
     (define-key map "P" 'p4-set-p4-port)
@@ -2453,114 +2438,6 @@ the current value of P4PORT."
   "The Prefix for P4 Library Commands.")
 
 (fset 'p4-prefix-map p4-prefix-map)
-
-(defun p4-set-notify-list (p4-new-notify-list &optional p4-supress-stat)
-  "To set the current value of P4NOTIFY, type \\[p4-set-notify-list].
-
-This will change the current notify list from the existing list to the new
-given value.
-
-An empty string will disable notification.
-
-Argument P4-NEW-NOTIFY-LIST is new value of the notification list.
-Optional argument P4-SUPRESS-STAT when t will suppress display of the status
-message. "
-
-  (interactive (list (let
-			 ((symbol (read-string
-				   "Change Notification List to: "
-				   p4-notify-list)))
-		       (if (equal symbol "")
-			   nil
-			 symbol))))
-  (let ((p4-old-notify-list p4-notify-list))
-    (setenv "P4NOTIFY" p4-new-notify-list)
-    (setq p4-notify-list p4-new-notify-list)
-    (setq p4-notify (not (null p4-new-notify-list)))
-    (if (not p4-supress-stat)
-	(message "Notification list changed from '%s' to '%s'"
-		 p4-old-notify-list p4-notify-list))))
-
-(defun p4-get-notify-list ()
-  "To get the current value of the environment variable P4NOTIFY,
-type \\[p4-get-notify-list].
-
-   This will be the current notification list that is in use for mailing
-   change notifications through Emacs P4."
-
-  (interactive)
-  (message "P4NOTIFY is %s" p4-notify-list))
-
-(defun p4-notify (users)
-  "To notify a list of users of a change submission manually, type
-\\[p4-notify].
-
-To do auto-notification, set the notification list with `p4-set-notify-list'
-and on each submission, the users in the list will be notified of the
-change.
-
-Since this uses the sendmail program, it is mandatory to set the correct
-path to the sendmail program in the variable `p4-sendmail-program'.
-
-Also, it is mandatory to set the user's email address in the variable
-`p4-user-email'.
-
-Argument USERS The users to notify to. The default value is the notification
-list."
-  (interactive (list (let
-			 ((symbol (read-string "Notify whom? "
-					       p4-notify-list)))
-		       (if (equal symbol "")
-			   nil
-			 symbol))))
-  (p4-set-notify-list users t)
-  (if (and p4-sendmail-program p4-user-email)
-      (p4-do-notify)
-    (message "Please set p4-sendmail-program and p4-user-email variables.")))
-
-(defun p4-do-notify ()
-  "This is the internal notification function called by `p4-notify'."
-  (save-excursion
-    (if (and p4-notify-list (not (equal p4-notify-list "")))
-	(with-current-buffer (p4-get-writable-output-buffer)
-		(save-excursion
-	  (goto-char (point-min))
-	  (if (re-search-forward "[0-9]+.*submitted" (point-max) t)
-	      (let (p4-matched-change)
-		(setq p4-matched-change (substring (match-string 0) 0 -10))
-		(set-buffer (get-buffer-create "*P4 Notify*"))
-		(delete-region (point-min) (point-max))
-		(call-process-region (point-min) (point-max)
-				     (p4-check-p4-executable)
-				     t t nil
-				     "describe" "-s"
-				     p4-matched-change)
-		(switch-to-buffer "*P4 Notify*")
-		(goto-char (point-min))
-		(let (p4-chg-desc)
-		  (if (re-search-forward "^Change.*$" (point-max) t)
-		      (setq p4-chg-desc (match-string 0))
-		    (setq p4-chg-desc (concat
-				       "Notification of Change "
-				       p4-matched-change)))
-		  (goto-char (point-min))
-		  (insert
-		   "From: " p4-user-email "\n"
-		   "To: P4 Notification Recipients:;\n"
-		   "Subject: " p4-chg-desc "\n")
-		  (call-process-region (point-min) (point-max)
-				       p4-sendmail-program t t nil
-				       "-odi" "-oi" p4-notify-list)
-
-		  (kill-buffer nil)))
-	    (with-current-buffer (p4-get-writable-output-buffer)
-			(save-excursion
-	      (goto-char (point-max))
-	      (insert "\np4-do-notify: No Change Submissions found."))))))
-      (with-current-buffer (p4-get-writable-output-buffer)
-		  (save-excursion
-	(goto-char (point-max))
-	(insert "\np4-do-notify: Notification list not set."))))))
 
 (defun p4-emacs-version ()
   "Describe the (X)Emacs-P4 Integration version."
