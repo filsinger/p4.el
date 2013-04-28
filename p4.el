@@ -686,8 +686,7 @@ buffers."
             (progn
               (p4-refresh-files-in-buffers)
               (p4-check-mode-all-buffers))
-          (p4-check-mode))
-        (p4-update-opened-list)))))
+          (p4-check-mode))))))
 
 (defun p4-process-show-output ()
   "Show the current buffer to the user.
@@ -799,6 +798,9 @@ after-show-callback is an optional function run after displaying the output."
 	  (setq args (p4-make-list-from-string
 		      (p4-read-arg-string "p4 revert: " args)))
 	  (setq refresh-after t))
+      (when (p4-with-temp-buffer (list "-s" "opened" args)
+              (not (re-search-forward "^info: " nil t)))
+        (error "%s - not opened on this client." args))
       (setq args (list args)))
     (when (yes-or-no-p "Really revert changes? ")
       (p4-call-command "revert" args nil (p4-refresh-callback t)))))
@@ -1998,16 +2000,7 @@ character events"
   "opened"
   "To display list of files opened for pending change, type \\[p4-opened].\n"
   (interactive (p4-read-args* "p4 opened: "))
-  (p4-opened-internal args))
-
-(defun p4-opened-internal (args)
-  (let ((p4-client (p4-current-client)))
-    (p4-call-command "opened" args 'p4-basic-list-mode)))
-
-(defun p4-update-opened-list ()
-  ;; (when (get-buffer-window (concat "*Opened Files: " (p4-current-client) "*"))
-  ;;   (p4-opened-internal nil))
-  )
+  (p4-call-command "opened" args 'p4-basic-list-mode))
 
 (defun p4-regexp-create-links (regexp property)
   (let ((inhibit-read-only t))
