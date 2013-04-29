@@ -259,12 +259,13 @@ between them, that text will be marked with this face."
 ;; Local variables in all buffers.
 (defvar p4-vc-revision nil "P4 revision to which this buffer's file is synced.")
 (defvar p4-vc-status nil
-  "P4 status for this buffer:
+  "P4 status for this buffer. A symbol:
 NIL if file is not known to be under control of P4.
-'have if file is synced but not opened.
-'edit if file is opened for edit.
-'add if file is opened for add.
-'branch if file opened for integration.")
+`add' if file is opened for add.
+`branch' if file opened for integration.
+`delete' if file is opened for delete.
+`edit' if file is opened for edit.
+`sync' if file is synced but not opened.")
 
 ;; Local variables in P4 process buffers.
 (defvar p4-process-args nil "List of P4 command and arguments.")
@@ -665,10 +666,8 @@ buffers."
                 (all-buffers all-buffers))
     (lambda ()
       (with-current-buffer buffer
-        (when revert (revert-buffer t (not (buffer-modified-p))))
-        (if all-buffers
-            (p4-refresh-buffers)
-          (p4-update-status))))))
+        (p4-refresh-buffer revert)
+        (when all-buffers (p4-refresh-buffers))))))
 
 (defun p4-process-show-output ()
   "Show the current buffer to the user and maybe kill it.
@@ -2334,30 +2333,6 @@ the current value of P4PORT."
 	    (setq p4-cfg-dir parent-dir)))
 	found))))
 
-(defun p4-get-add-branch-files (&optional name-list)
-  (let (files depot-map)
-    (p4-with-temp-buffer (cons "opened" name-list)
-      (while (re-search-forward "^\\([^#\n]+\\)#[0-9]+ - \\(add\\|branch\\) " nil t)
-        (push (cons (match-string 1) (capitalize (match-string 2))) files)))
-    (setq depot-map (p4-map-depot-files (mapcar 'car files)))
-    (mapcar (lambda (x) (cons (cdr (assoc (car x) depot-map))
-			      (cdr x))) files)))
-
-(defun p4-get-have-files (file-list)
-  (let (files depot-map elt)
-    (p4-with-temp-buffer (cons "have" file-list)
-      (while (re-search-forward "^\\([^#\n]+\\)#\\([0-9]+\\) - " nil t)
-        (push (cons (match-string 1) (match-string 2)) files)))
-    (setq depot-map (p4-map-depot-files (mapcar 'car files)))
-    (setq files (mapcar (lambda (x) (cons (cdr (assoc (car x) depot-map))
-					  (cdr x))) files))
-    (while file-list
-      (setq elt (car file-list))
-      (setq file-list (cdr file-list))
-      (if (not (assoc elt files))
-	  (setq files (cons (cons elt nil) files))))
-    files))
-
 (defun p4-update-mode (buffer status revision)
   "Turn p4-mode on or off in `buffer' according to P4 status.
 Argument `status' is one of the following symbols, based on the
@@ -2365,6 +2340,7 @@ file that the buffer is visiting:
 `NIL' -- not known to be under P4 control;
 `add' -- opened for add;
 `branch' -- opened for integrate;
+`delete' -- opened for delete;
 `edit' -- opened for edit;
 `sync' -- under P4 control but not opened.
 Argument `revision' is the revision number of the file on the
@@ -2400,7 +2376,7 @@ client, or NIL if this is not known."
         (goto-char (point-min))
         (cond ((not (string-equal message "finished\n")))
               ((not (buffer-live-p p4-process-buffer)))
-              ((looking-at "^info: //[^#\n]+#\\([0-9]+\\) - \\(add\\|branch\\|edit\\) ")
+              ((looking-at "^info: //[^#\n]+#\\([0-9]+\\) - \\(add\\|branch\\|delete\\|edit\\) ")
                (p4-update-mode p4-process-buffer (intern (match-string 2))
                                (string-to-int (match-string 1))))
               ((looking-at "^error: .* - file(s) not opened on this client")
@@ -2430,21 +2406,28 @@ on, then `p4-mode-hook' will be run."
         (setq p4-process-args args
               p4-process-buffer buffer)))))
 
+(defun p4-refresh-buffer (&optional prompt)
+  "Refresh the current buffer if it is under P4 control.
+With optional argument `prompt', offer to revert it if modified."
+  (let ((unmodified (not (buffer-modified-p))))
+    (cond ((not buffer-file-name))
+          ((and unmodified
+                (not (verify-visited-file-modtime))
+                (file-readable-p buffer-file-name))
+           (revert-buffer t))
+          ((and (file-readable-p buffer-file-name)
+                (or unmodified prompt))
+           (revert-buffer t unmodified))
+          (t (p4-update-status)))))
+
 (defun p4-refresh-buffers ()
-  "Check to see if all the files that are under P4 version control are
-actually up-to-date, if in buffers, or need refreshing."
+  "Refresh all buffers that are known to be under P4 control."
   (interactive)
   (when (or p4-auto-refresh p4-do-find-file)
     (dolist (buffer (buffer-list))
       (with-current-buffer buffer
-        (when (and p4-auto-refresh
-                   p4-vc-status
-                   buffer-file-name
-                   (not (buffer-modified-p))
-                   (not (verify-visited-file-modtime))
-                   (file-readable-p buffer-file-name))
-          (revert-buffer t))
-        (p4-update-status)))))
+        (when p4-vc-status
+          (p4-refresh-buffer))))))
 
 (defun p4-force-mode-line-update ()
   "Force the mode line update for different flavors of Emacs."
