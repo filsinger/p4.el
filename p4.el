@@ -1973,9 +1973,9 @@ character events"
           "# Type C-c C-c to submit changes and exit buffer.\n"
           "# Type C-x k to kill current changes.\n"
           "#\n")
-  (when regexp (re-search-forward regexp))
   (p4-form-mode)
   (select-window (get-buffer-window buffer))
+  (when regexp (re-search-forward regexp nil t))
   (setq p4-form-commit-command cmd)
   (setq p4-form-committed nil)
   (setq buffer-offer-save t)
@@ -2418,7 +2418,7 @@ If the asynchronous update completes successfully, then
 `p4-vc-revision' and `p4-vc-status' will be set in this buffer,
 `p4-mode' will be set appropriately, and if `p4-mode' is turned
 on, then `p4-mode-hook' will be run."
-  (when p4-do-find-file
+  (when (and p4-do-find-file buffer-file-name)
     (let ((buffer (current-buffer))
           (args (list "-s" "opened" (p4-buffer-file-name))))
       (with-current-buffer (p4-make-output-buffer (p4-process-buffer-name args))
@@ -2434,14 +2434,14 @@ on, then `p4-mode-hook' will be run."
 actually up-to-date, if in buffers, or need refreshing."
   (interactive)
   (when (or p4-auto-refresh p4-do-find-file)
-    (dolist (buffer (list-buffers))
+    (dolist (buffer (buffer-list))
       (with-current-buffer buffer
         (when (and p4-auto-refresh
                    p4-vc-status
-                   (buffer-file-name)
+                   buffer-file-name
                    (not (buffer-modified-p))
                    (not (verify-visited-file-modtime))
-                   (file-readable-p (buffer-file-name)))
+                   (file-readable-p buffer-file-name))
           (revert-buffer t))
         (p4-update-status)))))
 
