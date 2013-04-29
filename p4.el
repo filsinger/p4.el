@@ -505,41 +505,45 @@ restore the window configuration."
   '(["Specify Arguments..." universal-argument t]
     ["--" nil nil]
     ["Add Current to P4" p4-add
-     (and (p4-buffer-file-name) (not p4-mode))]
-    ["Check out/Edit"    p4-edit
-     (and (p4-buffer-file-name-2) (or (not p4-mode) buffer-read-only))]
-    ["Re-open"	       p4-reopen
-     (and (p4-buffer-file-name-2) (or (not p4-mode) (not buffer-read-only)))]
-    ["Revert File"  p4-revert
-     (and (p4-buffer-file-name-2) (or (not p4-mode) (not buffer-read-only)))]
-    ["Delete File from Depot"  p4-delete
-     (and (p4-buffer-file-name-2) (or (not p4-mode) buffer-read-only))]
+     (and buffer-file-name (or (not p4-do-find-file) (not p4-vc-status)))]
+    ["Check out/Edit" p4-edit
+     (and buffer-file-name (or (not p4-do-find-file) (eq p4-vc-status 'sync)))]
+    ["Re-open" p4-reopen
+     (and buffer-file-name (or (not p4-do-find-file) (eq p4-vc-status 'edit)))]
+    ["Revert File" p4-revert
+     (and buffer-file-name (or (not p4-do-find-file) (memq p4-vc-status '(add branch edit delete))))]
+    ["Delete File from Depot" p4-delete
+     (and buffer-file-name (or (not p4-do-find-file) (eq p4-vc-status 'sync)))]
     ["Move Depot File" p4-move
-     (and (p4-buffer-file-name-2) (or (not p4-mode) buffer-read-only))]
+     (and buffer-file-name (or (not p4-do-find-file) (eq p4-vc-status 'edit)))]
     ["Submit Changes"  p4-submit t]
     ["--" nil nil]
     ["Sync Files with Depot" p4-sync t]
     ["--" nil nil]
-    ["Show Opened Files"	p4-opened t]
-    ["Filelog" p4-filelog (p4-buffer-file-name-2)]
+    ["Show Opened Files" p4-opened t]
+    ["Filelog" p4-filelog
+     (and buffer-file-name (or (not p4-do-find-file) p4-vc-status))]
     ["Changes" p4-changes t]
     ["Describe Change" p4-describe t]
     ["--" nil nil]
-    ["Diff 2 Versions" p4-diff2 (p4-buffer-file-name-2)]
-    ["Diff Current" p4-diff t]
+    ["Diff 2 Versions" p4-diff2
+     (and buffer-file-name (or (not p4-do-find-file) p4-vc-status))]
+    ["Diff Current" p4-diff
+     (and buffer-file-name (or (not p4-do-find-file) (eq p4-vc-status 'edit)))]
     ["Diff All Opened Files" p4-diff-all-opened t]
-    ["Diff Current with Ediff"   p4-ediff
-     (and (p4-buffer-file-name) (not buffer-read-only) p4-mode)]
-    ["Diff 2 Versions with Ediff"   p4-ediff2 (p4-buffer-file-name-2)]
+    ["Diff Current with Ediff" p4-ediff
+     (and buffer-file-name (or (not p4-do-find-file) (eq p4-vc-status 'edit)))]
+    ["Diff 2 Versions with Ediff" p4-ediff2
+     (and buffer-file-name (or (not p4-do-find-file) p4-vc-status))]
     ["--" nil nil]
     ["Schedule Integrations" p4-integ t]
     ["Resolve Conflicts" p4-resolve t]
     ["--" nil nil]
-    ["Print" p4-print (p4-buffer-file-name-2)]
+    ["Print" p4-print
+     (and buffer-file-name (or (not p4-do-find-file) p4-vc-status))]
     ["Print with Revision History" p4-blame
-     (p4-buffer-file-name-2)]
-    ["Find File using Depot Spec" p4-depot-find-file
-     p4-do-find-file]
+     (and buffer-file-name (or (not p4-do-find-file) p4-vc-status))]
+    ["Find File using Depot Spec" p4-depot-find-file t]
     ["--" nil nil]
     ["Edit a Branch Specification" p4-branch t]
     ["Edit a Label Specification" p4-label t]
@@ -547,21 +551,14 @@ restore the window configuration."
     ["Edit a User Specification" p4-user t]
     ["--" nil nil]
     ["Show Version" p4-emacs-version t]
-    ["Disable P4 VC Check"  p4-toggle-vc-mode-off
-     p4-do-find-file]
-    ["Enable P4 VC Check"	 p4-toggle-vc-mode-on
-     (not p4-do-find-file)]
+    ["Disable P4 VC Check" p4-toggle-vc-mode-off p4-do-find-file]
+    ["Enable P4 VC Check" p4-toggle-vc-mode-on (not p4-do-find-file)]
     ["--" nil nil]
-    ["Set P4 Config"  p4-set-client-config p4-do-find-file]
-    ["Get Current P4 Config"  p4-get-client-config
-     p4-do-find-file]
-    ["--" nil nil]
-    ["Set P4 Client"  p4-set-client-name p4-do-find-file]
-    ["Get Current P4 Client"  p4-get-client-name
-     p4-do-find-file]
-    ["--" nil nil]
-    ["Set P4 Server/Port"	 p4-set-p4-port p4-do-find-file]
-    ["Show client/server info" p4-info]
+    ["Set P4 Config" p4-set-client-config t]
+    ["Set P4 Client" p4-set-client-name t]
+    ["Set P4 Port" p4-set-p4-port t]
+    ["Show client info" p4-set t]
+    ["Show server info" p4-info t]
     ["--" nil nil]
     )
   "The P4 menu definition")
@@ -725,7 +722,7 @@ command and arguments taken from the local variable `p4-process-args'."
         (format "*P4 %s*" s)
       (format "*P4 %s...%s*" (substring s 0 20) (substring s (- l 20) l)))))
 
-(defun p4-call-command (cmd args &optional mode callback after-show-callback no-auto-login)
+(defun p4-call-command (cmd &optional args mode callback after-show-callback no-auto-login)
   "Start a Perforce command in the background.
 `cmd' is the P4 command to run.
 `args' is a list of arguments to pass to the P4 command.
@@ -1452,9 +1449,14 @@ Argument ARG command for which help is needed."
   (p4-call-command "help" args))
 
 (defp4cmd p4-info ()
-  "info" "To print out client/server information, type \\[p4-info].\n"
+  "info" "To print out server information, type \\[p4-info].\n"
   (interactive)
-  (p4-call-command "info" nil))
+  (p4-call-command "info"))
+
+(defp4cmd p4-set ()
+  "set" "To print out client information, type \\[p4-set].\n"
+  (interactive)
+  (p4-call-command "set"))
 
 (defp4cmd p4-integ (&rest args)
   "integ" "To schedule integrations between branches, type \\[p4-integ].\n"
@@ -2165,16 +2167,6 @@ the current client."
     (setenv "P4CLIENT" p4-new-client-name)
     (message "P4CLIENT changed to %s" p4-new-client-name)
     (run-hooks 'p4-set-client-hooks)))
-
-(defun p4-get-client-config ()
-  "To get the current value of the environment variable P4CONFIG,
-type \\[p4-get-client-config].
-
-This will be the current configuration that is in use for access through
-Emacs P4."
-
-  (interactive)
-  (message "P4CONFIG is %s" (getenv "P4CONFIG")))
 
 (defun p4-set-client-config (p4config)
   "To set the P4CONFIG variable, for use with the current versions of the p4
