@@ -443,13 +443,6 @@ arguments to p4 commands."
       (cd dir)
       (current-buffer))))
 
-(defun p4-get-writable-output-buffer ()
-  "Do not use this function. Old code assumes output buffer is writable."
-  (let ((buffer (p4-make-output-buffer p4-output-buffer-name)))
-    (with-current-buffer buffer
-      (setq buffer-read-only nil))
-    buffer))
-
 (defvar p4-no-session-regexp
   (concat "\\(?:error: \\)?"
           "\\(?:Perforce password (P4PASSWD) invalid or unset\\|"
