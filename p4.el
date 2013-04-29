@@ -678,13 +678,19 @@ buffers."
           (p4-update-status))))))
 
 (defun p4-process-show-output ()
-  "Show the current buffer to the user.
-Return NIL if shown in minibuffer, or non-NIL if it was shown in a window."
+  "Show the current buffer to the user and maybe kill it.
+Return NIL if it was shown in minibuffer and killed, or non-NIL
+if it was shown in a window."
   (goto-char (point-min))
-  (if (eql (count-lines (point-min) (point-max)) 1)
-      (progn (message (buffer-substring (point) (line-end-position))) nil)
-    (p4-push-window-config)
-    (display-buffer buffer)))
+  (let ((lines (count-lines (point-min) (point-max))))
+    (if (or p4-process-after-show-callback (> lines 1))
+        (progn
+          (p4-push-window-config)
+          (display-buffer buffer))
+      (when (eql lines 1)
+        (message (buffer-substring (point) (line-end-position))))
+      (kill-buffer)
+      nil)))
 
 (defun p4-process-show-error (&rest args)
   "Show the contents of the current buffer as an error message.
@@ -720,9 +726,9 @@ If there's no content in the buffer, pass `args' to error instead."
               (t
                (when p4-process-callback (funcall p4-process-callback))
                (set-buffer-modified-p nil)
-               (and (p4-process-show-output)
-                    p4-process-after-show-callback
-                    (funcall p4-process-after-show-callback))))))))
+               (p4-process-show-output)
+               (when p4-process-after-show-callback
+                 (funcall p4-process-after-show-callback))))))))
 
 (defun p4-process-restart ()
   "Start a background Perforce process in the current buffer with
