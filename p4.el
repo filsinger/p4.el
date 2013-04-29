@@ -151,23 +151,6 @@ the completion behavior of `p4-set-client-name'.
   :type 'boolean
   :group 'p4)
 
-(if (not (getenv "P4PORT"))
-    (setenv "P4PORT" "perforce:1666"))
-
-(defcustom p4-sendmail-program (if (boundp 'sendmail-program)
-				   sendmail-program
-				 nil)
-  "The sendmail program."
-  :type 'string
-  :group 'p4)
-
-(defcustom p4-user-email (if (boundp 'user-mail-address)
-			     user-mail-address nil)
-  "The e-mail address of the current user. This is used with the
-notification system, and must be set if notification should take place."
-  :type 'string
-  :group 'p4)
-
 ;; This is also set by the command `p4-toggle-vc-mode'.
 (defcustom p4-do-find-file t
   "If non-nil, the `p4-find-file-hook' will run when opening files."
@@ -573,8 +556,7 @@ restore the window configuration."
      p4-do-find-file]
     ["--" nil nil]
     ["Set P4 Server/Port"	 p4-set-p4-port p4-do-find-file]
-    ["Get Current P4 Server/Port"	 p4-get-p4-port
-     p4-do-find-file]
+    ["Show client/server info" p4-info]
     ["--" nil nil]
     )
   "The P4 menu definition")
@@ -584,7 +566,7 @@ restore the window configuration."
 
 (easy-menu-add-item nil '("tools")
 		    (easy-menu-create-menu "P4" p4-menu-spec)
-		    "PCL-CVS")
+		    "Version Control")
 
 (defun p4-executable ()
   "Check if the `p4-executable' is nil, and if so, prompt the user for a
@@ -2223,39 +2205,15 @@ To set your clients using your .emacs, use the following:
       (setq p4-my-clients (append p4-my-clients
 				  (list (list p4-tmp-client-var)))))))
 
-(defun p4-get-p4-port ()
-  "To get the current value of the environment variable P4PORT, type \
-\\[p4-get-p4-port].
-
-This will be the current server/port that is in use for access through Emacs
-P4."
-  (interactive)
-  (let ((port (p4-current-server-port)))
-    (message "P4PORT is [local: %s], [global: %s]" port (getenv "P4PORT"))
-    port))
-
-(defun p4-set-p4-port (p4-new-p4-port)
-  "To set the current value of P4PORT, type \\[p4-set-p4-port].
-
-This will change the current server from the previous server to the new
-given value.
-
-Argument P4-NEW-P4-PORT The new server:port to set to. The default value is
-the current value of P4PORT."
-  (interactive (list (let
-			 ((symbol (read-string "Change server:port to: "
-					       (getenv "P4PORT"))))
-		       (if (equal symbol "")
-			   (getenv "P4PORT")
-			 symbol))))
-  (if (or (null p4-new-p4-port) (equal p4-new-p4-port "nil"))
-      (progn
-	(setenv "P4PORT" nil)
-	(if (not (getenv "P4CONFIG"))
-	    (message
-	     "P4 Version check disabled. Set a valid server:port to enable.")))
-    (setenv "P4PORT" p4-new-p4-port)
-    (message "P4PORT changed to %s" p4-new-p4-port)))
+(defun p4-set-p4-port (new-p4-port)
+  "To set the P4PORT environment variable, type \\[p4-set-p4-port]."
+  (interactive
+   (list
+    (read-string "Change server:port to: " (getenv "P4PORT"))))
+  (setenv "P4PORT" new-p4-port)
+  (if new-p4-port
+      (message "P4PORT unset.")
+    (message "P4PORT=%s" new-p4-port)))
 
 (defvar p4-prefix-map
   (let ((map (make-sparse-keymap)))
