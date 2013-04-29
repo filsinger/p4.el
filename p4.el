@@ -2140,6 +2140,9 @@ standard input\). If not supplied, cmd is reused."
           (setq args (p4-make-list-from-string
                       (p4-read-arg-string "p4 change: " nil)))))
     (setq args (p4-filter-out (lambda (x) (string= x "-c")) args))
+    (p4-with-temp-buffer (list "-s" "opened")
+      (unless (re-search-forward "^info: " nil t)
+        (error "Files not opened on this client.")))
     (p4-save-opened-files)
     (let ((empty-buf (and p4-check-empty-diffs (p4-empty-diff-buffer))))
       (when (or (not empty-buf)
