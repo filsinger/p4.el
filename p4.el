@@ -430,7 +430,12 @@ arguments to p4 commands."
 (defvar p4-no-session-regexp
   (concat "\\(?:error: \\)?"
           "\\(?:Perforce password (P4PASSWD) invalid or unset\\|"
-          "Your session has expired, please login again\\)"))
+          "Your session has expired, please login again\\)")
+  "Regular expression matching output from P4 when you are logged out.")
+
+(defvar p4-empty-diff-regexp
+  "\\(?:==== .* ====\\|--- .*\n\\+\\+\\+ .*\\)\n\\'"
+  "Regular expression matching p4 diff output when there are no changes.")
 
 (defun p4-run (args)
   "Run p4 ARGS in the current buffer, with output after point.
@@ -767,9 +772,18 @@ If `no-auto-login' is non-NIL, don't try logging in if logged out."
   (p4-buffer-file-name-args)
   (t)
   (unless args-orig
-    (p4-with-temp-buffer (list "-s" "opened" (first args))
-      (unless (re-search-forward "^info: " nil t)
-        (error "%s - not opened on this client." (first args)))))
+    (let* ((diff-args (append (cons "diff" (p4-make-list-from-string p4-default-diff-options)) args)))
+      (with-current-buffer 
+          (p4-make-output-buffer (p4-process-buffer-name diff-args))
+        (p4-run diff-args)
+        (cond ((looking-at ".* - file(s) not opened on this client")
+               (p4-process-show-error))
+              ((looking-at p4-empty-diff-regexp)
+               (kill-buffer))
+              (t
+               (p4-activate-diff-buffer)
+               (p4-push-window-config)
+               (display-buffer (current-buffer)))))))
   (when (yes-or-no-p "Really revert changes? ")
     (p4-call-command cmd args nil (p4-refresh-callback t))))
 
