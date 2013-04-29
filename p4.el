@@ -626,12 +626,11 @@ To set the executable for future sessions, customize
 (defmacro defp4cmd (name arglist help-cmd help-text &rest body)
   `(defun ,name ,arglist ,(p4-help-text help-cmd help-text) ,@body))
 
-(defmacro defp4cmd* (name extra-arglist cmd help-text args-default interactive-form &rest body)
+(defmacro defp4cmd* (name extra-arglist help-text args-default interactive-form &rest body)
   "Define an interactive P4 command.
 
 `name' -- command name
 `extra-arglist' -- extra optional arguments (in addition to `args')
-`cmd' -- the P4 command to prompt about and get help on
 `help-text' -- text to prepend to the P4 help
 `args-default' -- form that evaluates to default list of P4 command arguments
 `interactive-form' -- list of forms evaluating to extra interactive arguments
@@ -641,19 +640,25 @@ Inside `interactive-form': `args' is the result of evaluating
 `args-default', and `args-string' consists of these arguments
 joined by spaces.
 
-Inside `body': `cmd' is the P4 command, `args-orig' is the list
-of P4 command arguments passed to the command, and `args' is the
-actual list of P4 command arguments (either `args-orig' if
-non-NIL, or the result of evaluating `args-default' otherwise.
-Note that `args-default' thus appears twice in the expansion."
-  `(defp4cmd ,name (&optional args-orig ,@extra-arglist) ,cmd ,help-text
+Inside `body': `cmd' is `name' converted to a string, `args-orig'
+is the list of P4 command arguments passed to the command, and
+`args' is the actual list of P4 command arguments (either
+`args-orig' if non-NIL, or the result of evaluating
+`args-default' otherwise. Note that `args-default' thus appears
+twice in the expansion."
+  `(defp4cmd
+     ,(intern (format "p4-%s" name))
+     (&optional args-orig ,@extra-arglist)
+     ,(format "%s" name)
+     ,help-text
      (interactive
       (when current-prefix-arg
         (let* ((args ,args-default)
                (args-string (mapconcat 'identity args " ")))
-          (list (p4-read-args (format "p4 %s: " ,cmd) args-string)
+          (list (p4-read-args (format "p4 %s: " ',name) args-string)
                 ,@interactive-form))))
-     (let ((cmd ,cmd) (args (or args-orig ,args-default)))
+     (let ((cmd (format "%s" ',name))
+           (args (or args-orig ,args-default)))
        ,@body)))
 
 (defun p4-refresh-callback (&optional revert all-buffers)
@@ -765,22 +770,19 @@ If `no-auto-login' is non-NIL, don't try logging in if logged out."
             (if change (list (concat f "@" change))
               (list f))))))))
 
-(defp4cmd* p4-edit (refresh-after)
-  "edit"
+(defp4cmd* edit (refresh-after)
   "To open the current depot file for edit, type \\[p4-edit].\n"
   (p4-buffer-file-name-args)
   (t)
   (p4-call-command cmd args nil (p4-refresh-callback t refresh-after)))
 
-(defp4cmd* p4-reopen ()
-  "reopen"
+(defp4cmd* reopen ()
   "To change the type or changelist number of an opened file, type \\[p4-reopen]."
   (p4-buffer-file-name-args)
   nil
   (p4-call-command cmd args nil (p4-refresh-callback t)))
 
-(defp4cmd* p4-revert (refresh-after)
-  "revert"
+(defp4cmd* revert (refresh-after)
   "To revert all change in the current file, type \\[p4-revert].\n"
   (p4-buffer-file-name-args)
   (t)
@@ -791,22 +793,19 @@ If `no-auto-login' is non-NIL, don't try logging in if logged out."
   (when (yes-or-no-p "Really revert changes? ")
     (p4-call-command cmd args nil (p4-refresh-callback t))))
 
-(defp4cmd* p4-lock ()
-  "lock"
+(defp4cmd* lock ()
   "To lock an opened file against changelist submission, type \\[p4-lock].\n"
   (p4-buffer-file-name-args)
   nil
   (p4-call-command cmd args nil (p4-refresh-callback t)))
 
-(defp4cmd* p4-unlock ()
-  "unlock"
+(defp4cmd* unlock ()
   "To release a locked file but leave open, type \\[p4-unlock].\n"
   (p4-buffer-file-name-args)
   nil
   (p4-call-command cmd args nil (p4-refresh-callback t)))
 
-(defp4cmd* p4-diff ()
-  "diff"
+(defp4cmd* diff ()
   "To diff the current file and topmost depot version, type \\[p4-diff].\n"
   (cons p4-default-diff-options (p4-buffer-file-name-args))
   nil
@@ -912,23 +911,20 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
     (p4-call-command "print" (list diff-version1)
                      nil nil (p4-activate-ediff2-callback diff-version2))))
 
-(defp4cmd* p4-add (refresh-after)
-  "add"
+(defp4cmd* add (refresh-after)
   "To add the current file to the depot, type \\[p4-add].\n"
   (p4-buffer-file-name-args)
   (t)
   (p4-call-command cmd args nil (p4-refresh-callback nil refresh-after)))
 
-(defp4cmd* p4-delete ()
-  "delete"
+(defp4cmd* delete ()
   "To delete the current file from the depot, type \\[p4-delete].\n"
   (p4-buffer-file-name-args)
   nil
   (when (yes-or-no-p "Really delete from depot? ")
     (p4-call-command cmd args nil (p4-refresh-callback))))
 
-(defp4cmd* p4-filelog ()
-  "filelog"
+(defp4cmd* filelog ()
   "To view a history of the change made to the current file, type \\[p4-filelog].\n"
   (p4-buffer-file-name-args)
   nil
@@ -1039,8 +1035,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
 	  (p4-create-active-link ch-start ch-end (list (cons 'change ch-str)))
 	  (goto-char next))))))
 
-(defp4cmd* p4-files ()
-  "files"
+(defp4cmd* files ()
   "To list files in the depot, type \\[p4-files].\n"
   (p4-buffer-file-name-args)
   nil
@@ -1138,8 +1133,7 @@ name and a client name."
 				      prop-list)))
 	  (p4-create-active-link start end prop-list))))))
 
-(defp4cmd* p4-print ()
-  "print"
+(defp4cmd* print ()
   "To print a depot file to a buffer, type \\[p4-print].\n"
   (p4-buffer-file-revision-args)
   nil
@@ -1237,8 +1231,7 @@ argument delete-filespec is non-NIL, remove the first line."
 (defconst P4-AUTH 2)
 (defconst P4-FILE 3)
 
-(defp4cmd* p4-annotate ()
-  "annotate"
+(defp4cmd* annotate ()
   "Print a depot file with revision history to a buffer."
   (p4-buffer-file-revision-args)
   nil
@@ -1247,13 +1240,11 @@ argument delete-filespec is non-NIL, remove the first line."
 (defalias 'p4-blame 'p4-annotate)
 (defalias 'p4-print-with-rev-history 'p4-annotate)
 
-(defp4cmd* p4-annotate-line ()
-  "annotate"
+(defun p4-annotate-line ()
   "Print a depot file with revision history to a buffer,
 and jump to the current line in the revision buffer."
-  (p4-buffer-file-revision-args)
-  nil
-  (p4-blame-int (car args) (line-number-at-pos (point))))
+  (p4-blame-int (car (p4-buffer-file-revision-args))
+                (line-number-at-pos (point))))
 
 (defalias 'p4-blame-line 'p4-annotate-line)
 
@@ -1433,16 +1424,14 @@ and jump to the current line in the revision buffer."
       (switch-to-buffer-other-window  buffer)
       (p4-goto-line (+ 2 src-line)))))
 
-(defp4cmd* p4-refresh ()
-  "sync"
+(defp4cmd* refresh ()
   "Refresh the contents of an unopened file. \\[p4-refresh].
 Runs \"sync -f\"."
   (cons "-f" (p4-buffer-file-name-args))
   nil
-  (p4-call-command cmd args 'p4-basic-list-mode 'p4-refresh-buffers))
+  (p4-call-command "sync" args 'p4-basic-list-mode 'p4-refresh-buffers))
 
-(defp4cmd* p4-sync ()
-  "sync"
+(defp4cmd* sync ()
   "To synchronise the local view with the depot, type \\[p4-sync].\n"
   nil
   nil
@@ -1450,15 +1439,13 @@ Runs \"sync -f\"."
 
 (defalias 'p4-get 'p4-sync)
 
-(defp4cmd* p4-have ()
-  "have"
+(defp4cmd* have ()
   "To list revisions last gotten, type \\[p4-have].\n"
   (p4-buffer-file-name-args)
   nil
   (p4-call-command cmd args 'p4-basic-list-mode))
 
-(defp4cmd* p4-changes ()
-  "changes"
+(defp4cmd* changes ()
   "To list changes, type \\[p4-changes].\n"
   '("-m" "200" "...")
   nil
@@ -1480,8 +1467,7 @@ Argument ARG command for which help is needed."
   (interactive (p4-read-args "p4 integ: " "-b "))
   (p4-call-command "integ" args 'p4-basic-list-mode))
 
-(defp4cmd* p4-resolve ()
-  "resolve"
+(defp4cmd* resolve ()
   "To merge open files with other revisions or files, type \\[p4-resolve].\n"
   nil
   nil
@@ -1930,8 +1916,7 @@ character events"
 (defun p4-describe-internal (args)
   (p4-call-command "describe" args 'p4-diff-mode 'p4-activate-diff-buffer))
 
-(defp4cmd* p4-opened ()
-  "opened"
+(defp4cmd* opened ()
   "To list opened files, type \\[p4-opened].\n"
   nil
   nil
@@ -1959,8 +1944,7 @@ character events"
 		   (lambda ()
 		     (p4-regexp-create-links "^\\(.*\\)\n" 'group))))
 
-(defp4cmd* p4-jobs ()
-  "jobs"
+(defp4cmd* jobs ()
   "To display list of jobs, type \\[p4-jobs].\n"
   nil
   nil
@@ -1971,15 +1955,13 @@ character events"
   (interactive (p4-read-args "p4 fix: " nil "job"))
   (p4-call-command "fix" args))
 
-(defp4cmd* p4-fixes ()
-  "fixes"
+(defp4cmd* fixes ()
   "To list fixes, type \\[p4-fixes].\n"
   nil
   nil
   (p4-call-command cmd args))
 
-(defp4cmd* p4-where ()
-  "where"
+(defp4cmd* where ()
   "To show how local file names map into depot names, type \\[p4-where].\n"
   (p4-buffer-file-name-args)
   nil
@@ -2046,8 +2028,7 @@ standard input\). If not supplied, cmd is reused."
               (p4-refresh-buffers))))
       (p4-process-show-error "%s -i failed to complete successfully." cmd))))
 
-(defp4cmd* p4-change ()
-  "change"
+(defp4cmd* change ()
   "To edit the change specification, type \\[p4-change].\n"
   nil
   nil
@@ -2058,8 +2039,7 @@ standard input\). If not supplied, cmd is reused."
   (interactive (p4-read-args* "p4 client: " nil "client"))
   (p4-form-command "client" args "\\(Description\\|View\\):\n\t"))
 
-(defp4cmd* p4-clients ()
-  "clients"
+(defp4cmd* clients ()
   "To list clients, type \\[p4-clients].\n"
   nil
   nil
@@ -2076,8 +2056,7 @@ standard input\). If not supplied, cmd is reused."
       (error "Branch must be specified!")
     (p4-form-command "branch" args "Description:\n\t")))
 
-(defp4cmd* p4-branches (&rest args)
-  "branches"
+(defp4cmd* branches (&rest args)
   "To list all branches, type \\[p4-branches].\n"
   nil
   nil
@@ -2092,8 +2071,7 @@ standard input\). If not supplied, cmd is reused."
       (p4-form-command "label" args "Description:\n\t")
     (error "label must be specified!")))
 
-(defp4cmd* p4-labels ()
-  "labels"
+(defp4cmd* labels ()
   "To list labels, type \\[p4-labels].\n"
   nil
   nil
@@ -3014,8 +2992,7 @@ return a buffer listing those files. Otherwise, return NIL."
       (p4-call-command "passwd" (list "-O" old-pw "-P" new-pw2))
     (error "Passwords don't match")))
 
-(defp4cmd* p4-login (&optional args)
-  "login"
+(defp4cmd* login (&optional args)
   "To login by obtaining a session ticket, type \\[p4-login].\n"
   nil
   nil
@@ -3030,8 +3007,7 @@ return a buffer listing those files. Otherwise, return NIL."
         (replace-match ""))
       (message "%s" (buffer-substring (point-min) (1- (point-max)))))))
 
-(defp4cmd* p4-logout ()
-  "logout"
+(defp4cmd* logout ()
   "To logout by removing a session ticket, type \\[p4-logout].\n"
   nil
   nil
