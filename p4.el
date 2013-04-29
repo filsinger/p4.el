@@ -109,16 +109,6 @@ file."
   :type 'boolean
   :group 'p4)
 
-(defcustom p4-use-p4config-exclusively nil
-  "Whether P4 mode should use P4CONFIG exclusively to check whether a file
-is under P4 version control. If set to nil, `p4-check-mode' is always
-called; otherwise, it checks to see if the file named by P4CONFIG exists in
-this or a parent directory, and if so, only then runs p4-check-mode.
-
-This provides for a much faster `p4-find-file-hook'."
-  :type 'boolean
-  :group 'p4)
-
 (defcustom p4-auto-refresh t
   "Set this to automatically refresh p4 submitted files in buffers."
   :type 'boolean
@@ -266,37 +256,37 @@ between them, that text will be marked with this face."
     (setq minor-mode-map-alist
 	  (cons '(p4-offline-mode . p4-minor-map) minor-mode-map-alist)))
 
-(defvar p4-vc-check nil "Buffer is known to be under control of P4?")
-(make-variable-buffer-local 'p4-vc-check)
-(put 'p4-vc-check 'permanent-local t)
+;; Local variables in all buffers.
+(defvar p4-vc-revision nil "P4 revision to which this buffer's file is synced.")
+(defvar p4-vc-status nil
+  "P4 status for this buffer:
+NIL if file is not known to be under control of P4.
+'have if file is synced but not opened.
+'edit if file is opened for edit.
+'add if file is opened for add.
+'branch if file opened for integration.")
 
+;; Local variables in P4 process buffers.
 (defvar p4-process-args nil "List of P4 command and arguments.")
-(make-variable-buffer-local 'p4-process-args)
-(put 'p4-process-args 'permanent-local t)
-
 (defvar p4-process-callback nil
   "Function run when P4 command completes successfully.")
-(make-variable-buffer-local 'p4-process-callback)
-(put 'p4-process-callback 'permanent-local t)
-
 (defvar p4-process-after-show-callback nil
   "Function run when P4 command completes successfully.")
-(make-variable-buffer-local 'p4-process-after-show-callback)
-(put 'p4-process-after-show-callback 'permanent-local t)
-
 (defvar p4-process-no-auto-login nil
   "If non-NIL, don't automatically prompt user to log in.")
-(make-variable-buffer-local 'p4-process-no-auto-login)
-(put 'p4-process-no-auto-login 'permanent-local t)
+(defvar p4-process-buffer nil "Original buffer that prompted this process.")
 
+;; Local variables in P4 form buffers.
 (defvar p4-form-commit-command nil
   "P4 command to run when committing this form.")
-(make-variable-buffer-local 'p4-form-commit-command)
-(put 'p4-form-commit-command 'permanent-local t)
-
 (defvar p4-form-committed nil "Form successfully committed?")
-(make-variable-buffer-local 'p4-form-committed)
-(put 'p4-form-committed 'permanent-local t)
+
+(dolist (var '(p4-vc-revision p4-vc-status p4-process-args
+               p4-process-callback p4-process-after-show-callback
+               p4-process-no-auto-login p4-form-commit-command
+               p4-form-committed))
+  (make-variable-buffer-local var)
+  (put var 'permanent-local t))
 
 (defvar p4-set-client-hooks nil
   "List of functions to be called after a p4 client is changed.
@@ -314,19 +304,6 @@ check for dirty caches."
 (defcustom p4-cleanup-cache t "`p4-cache-cleanup' will cleanup the
 branches/clients/dirs/labels caches once in a while if this is non-nil."
   :type 'boolean
-  :group 'p4)
-
-(defvar p4-all-buffer-files nil "An associated list of all buffers and
-their files under p4 version control. This is to enable autorefreshing of
-p4 submitted files being visited by the buffer.")
-
-(defvar p4-file-refresh-timer nil "Timer object that will be set to refresh
-the files in Emacs buffers that have been modified by a `p4-submit'.")
-
-(defcustom p4-file-refresh-timer-time 60 "seconds after which
-`p4-file-refresh' will check for modified files in Emacs buffers. Set this
-variable to 0 to disable periodic refreshing."
-  :type 'integer
   :group 'p4)
 
 (defvar p4-window-config-stack nil
@@ -488,7 +465,7 @@ re-run the command."
       (save-excursion
         (save-restriction
           (narrow-to-region (point) (point))
-          (setq status (apply 'call-process (p4-check-p4-executable) nil t nil args))
+          (setq status (apply 'call-process (p4-executable) nil t nil args))
           (goto-char (point-min))
           (setq incomplete (looking-at p4-no-session-regexp))
           (when incomplete
@@ -615,40 +592,20 @@ restore the window configuration."
 		    (easy-menu-create-menu "P4" p4-menu-spec)
 		    "PCL-CVS")
 
-(defun p4-check-p4-executable ()
+(defun p4-executable ()
   "Check if the `p4-executable' is nil, and if so, prompt the user for a
 valid `p4-executable'."
   (interactive)
-  (if (not p4-executable)
-      (call-interactively 'p4-set-p4-executable)
-    p4-executable))
+  (or p4-executable (call-interactively 'p4-set-p4-executable)))
 
-(defun p4-menu-add ()
-  "To add the P4 menu bar button for files that are already not in
-the P4 depot or in the current client view.."
-  (interactive)
-  (when (featurep 'xemacs)
-    (unless (boundp 'p4-mode) (setq p4-mode nil))
-    (easy-menu-add (p4-mode-menu "P4")))
-  t)
-
-(defun p4-set-p4-executable (p4-exe-name)
-  "Set the path to the correct P4 executable.
-
-Argument P4-EXE-NAME The new value of the p4 executable, with full path.
-
-To set the executable for future sessions, customize the variable
+(defun p4-set-p4-executable (filename)
+  "Set `p4-executable' to the argument `filename'.
+To set the executable for future sessions, customize
 `p4-executable' instead."
-    (interactive "fFull path to your P4 executable: " )
-    (setq p4-executable p4-exe-name)
-    p4-executable)
-
-(defun p4-kill-buffer-hook ()
-  "Remove a file and its associated buffer from our global list of P4
-controlled files."
-  (if p4-vc-check
-      (p4-refresh-refresh-list (p4-buffer-file-name)
-			       (buffer-name))))
+    (interactive "fFull path to your P4 executable: ")
+    (if (file-executable-p filename)
+        (setq p4-executable filename)
+      (error "%s is not an executable file." filename)))
 
 (eval-and-compile
   (defvar p4-include-help-to-command-docstring
@@ -712,10 +669,8 @@ buffers."
       (with-current-buffer buffer
         (when revert (revert-buffer t (not (buffer-modified-p))))
         (if all-buffers
-            (progn
-              (p4-refresh-files-in-buffers)
-              (p4-check-mode-all-buffers))
-          (p4-check-mode))))))
+            (p4-refresh-buffers)
+          (p4-update-status))))))
 
 (defun p4-process-show-output ()
   "Show the current buffer to the user.
@@ -768,7 +723,7 @@ If there's no content in the buffer, pass `args' to error instead."
   "Start a background Perforce process in the current buffer with
 command and arguments taken from the local variable `p4-process-args'."
   (set-process-sentinel
-   (apply 'start-process "P4" (current-buffer) (p4-check-p4-executable)
+   (apply 'start-process "P4" (current-buffer) (p4-executable)
           p4-process-args)
    'p4-process-sentinel))
 
@@ -874,7 +829,7 @@ When visiting a depot file, type \\[p4-diff2] and enter the versions.\n"
    (let ((rev (get-char-property (point) 'rev)))
      (if (and (not rev) (p4-buffer-file-name-2))
 	 (let ((rev-num 0))
-	   (setq rev (p4-is-vc nil (p4-buffer-file-name-2)))
+	   (setq rev p4-vc-revision)
 	   (if rev
 	       (setq rev-num (string-to-number rev)))
 	   (if (> rev-num 1)
@@ -940,7 +895,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
    (let ((rev (get-char-property (point) 'rev)))
      (if (and (not rev) (p4-buffer-file-name-2))
 	 (let ((rev-num 0))
-	   (setq rev (p4-is-vc nil (p4-buffer-file-name-2)))
+	   (setq rev p4-vc-revision)
 	   (if rev
 	       (setq rev-num (string-to-number rev)))
 	   (if (> rev-num 1)
@@ -1484,14 +1439,14 @@ and jump to the current line in the revision buffer."
 Runs \"sync -f\"."
   (cons "-f" (p4-buffer-file-name-args))
   nil
-  (p4-call-command cmd args 'p4-basic-list-mode 'p4-refresh-files-in-buffers))
+  (p4-call-command cmd args 'p4-basic-list-mode 'p4-refresh-buffers))
 
 (defp4cmd* p4-sync ()
   "sync"
   "To synchronise the local view with the depot, type \\[p4-sync].\n"
   nil
   nil
-  (p4-call-command cmd args 'p4-basic-list-mode 'p4-refresh-files-in-buffers))
+  (p4-call-command cmd args 'p4-basic-list-mode 'p4-refresh-buffers))
 
 (defalias 'p4-get 'p4-sync)
 
@@ -1533,7 +1488,7 @@ Argument ARG command for which help is needed."
   (let (buffer (buf-name "*p4 resolve*"))
     (setq buffer (get-buffer buf-name))
     (if (and (buffer-live-p buffer)
-	     (not (comint-check-proc buffer)))
+             (not (comint-check-proc buffer)))
 	(save-excursion
 	  (let ((cur-dir default-directory))
 	    (set-buffer buffer)
@@ -1541,7 +1496,7 @@ Argument ARG command for which help is needed."
 	    (goto-char (point-max))
 	    (insert "\n--------\n\n"))))
     (setq args (cons cmd args))
-    (setq buffer (apply 'make-comint "p4 resolve" p4-executable nil args))
+    (setq buffer (apply 'make-comint "p4 resolve" (p4-executable) nil args))
     (set-buffer buffer)
     (comint-mode)
     (display-buffer buffer)
@@ -2078,7 +2033,7 @@ standard input\). If not supplied, cmd is reused."
          (args '("-i"))
          (buffer (p4-make-output-buffer (p4-process-buffer-name (cons cmd args)))))
     (if (zerop (apply 'call-process-region (point-min)
-                      (point-max) (p4-check-p4-executable)
+                      (point-max) (p4-executable)
                       nil buffer nil
                       cmd args))
         (progn
@@ -2088,8 +2043,7 @@ standard input\). If not supplied, cmd is reused."
             (p4-quit-current-buffer)
             (p4-partial-cache-cleanup cmd)
             (when (string= cmd "submit")
-              (p4-refresh-files-in-buffers)
-              (p4-check-mode-all-buffers))))
+              (p4-refresh-buffers))))
       (p4-process-show-error "%s -i failed to complete successfully." cmd))))
 
 (defp4cmd* p4-change ()
@@ -2325,23 +2279,6 @@ the current value of P4PORT."
     (setenv "P4PORT" p4-new-p4-port)
     (message "P4PORT changed to %s" p4-new-p4-port)))
 
-(defun p4-find-file-hook ()
-  "To check while loading the file, if it is a P4 version controlled file."
-  (if (or (getenv "P4CONFIG") (getenv "P4CLIENT"))
-      (p4-detect-p4)))
-
-(defun p4-refresh-refresh-list (buffile bufname)
-  "Refresh the list of files to be refreshed."
-  (setq p4-all-buffer-files (delete (list buffile bufname)
-				    p4-all-buffer-files))
-  (unless p4-all-buffer-files
-    (if (featurep 'xemacs)
-        (when p4-file-refresh-timer
-          (disable-timeout p4-file-refresh-timer))
-      (when (timerp p4-file-refresh-timer)
-        (cancel-timer p4-file-refresh-timer)))
-    (setq p4-file-refresh-timer nil)))
-
 (defvar p4-prefix-map
   (let ((map (make-sparse-keymap)))
     (define-key map "a" 'p4-add)
@@ -2418,11 +2355,6 @@ the current value of P4PORT."
 	    (setq p4-cfg-dir parent-dir)))
 	found))))
 
-(defun p4-detect-p4 ()
-  (if (or (not p4-use-p4config-exclusively)
-	  (p4-find-p4-config-file))
-      (p4-check-mode)))
-
 (defun p4-get-add-branch-files (&optional name-list)
   (let (files depot-map)
     (p4-with-temp-buffer (cons "opened" name-list)
@@ -2447,102 +2379,93 @@ the current value of P4PORT."
 	  (setq files (cons (cons elt nil) files))))
     files))
 
-(defun p4-is-vc (&optional file-mode-cache filename)
-  "If filename is controlled by P4 then return its version else return nil."
-  (if (not filename)
-      (setq filename (p4-buffer-file-name)))
-  (let (version done)
-    (let ((el (assoc filename file-mode-cache)))
-      (setq done el)
-      (setq version (cdr el)))
-    (when (and (not done) filename)
-      (p4-with-temp-buffer (list "have" filename)
-        (when (re-search-forward "^//[^#\n]+#\\([0-9]+\\) - " nil t)
-          (setq version (match-string 1)))
-        (setq done version)))
-    (if (and (not done) (not file-mode-cache))
-	(progn
-	  (setq file-mode-cache
-		(p4-get-add-branch-files (and filename (list filename))))
-	  (setq version (cdr (assoc filename file-mode-cache)))))
-    version))
+(defun p4-update-mode (buffer status revision)
+  "Turn p4-mode on or off in `buffer' according to P4 status.
+Argument `status' is one of the following symbols, based on the
+file that the buffer is visiting:
+`NIL' -- not known to be under P4 control;
+`add' -- opened for add;
+`branch' -- opened for integrate;
+`edit' -- opened for edit;
+`sync' -- under P4 control but not opened.
+Argument `revision' is the revision number of the file on the
+client, or NIL if this is not known."
+  (with-current-buffer buffer
+    (setq p4-vc-status status
+          p4-vc-revision revision)
+    (let ((new-mode (case status 
+                      (sync (format " P4:%d" revision))
+                      ((add branch edit) (format " P4:%s" status))
+                      (t nil))))
+      (when (and new-mode (not p4-mode))
+        (run-hooks 'p4-mode-hook))
+      (setq p4-mode new-mode))))
 
-(defun p4-check-mode (&optional file-mode-cache)
-  "Check to see whether we should export the menu map to this buffer.
+(defun p4-update-status-sentinel-2 (process message)
+  (let ((buffer (process-buffer process)))
+    (when (buffer-live-p buffer)
+      (with-current-buffer buffer
+        (goto-char (point-min))
+        (cond ((not (string-equal message "finished\n")))
+              ((not (buffer-live-p p4-process-buffer)))
+              ((looking-at "^info: //[^#\n]+#\\([0-9]+\\) - ")
+               (p4-update-mode p4-process-buffer 'sync
+                               (string-to-int (match-string 1))))
+              (t (p4-update-mode p4-process-buffer nil nil)))
+        (kill-buffer)))))
 
-Turning on P4 mode calls the hooks in the variable `p4-mode-hook' with
-no args."
-  (setq p4-mode nil)
-  (if p4-do-find-file
-      (progn
-	(setq p4-vc-check (p4-is-vc file-mode-cache))
-	(if p4-vc-check
-	    (progn
-	      (p4-menu-add)
-	      (setq p4-mode (concat " P4:" p4-vc-check))))
-	(p4-force-mode-line-update)
-	(let ((buffile (p4-buffer-file-name))
-	      (bufname (buffer-name)))
-	  (if (and p4-vc-check (not (member (list buffile bufname)
-					    p4-all-buffer-files)))
-	      (add-to-list 'p4-all-buffer-files (list buffile bufname))))
-	(if (and (not p4-file-refresh-timer) (not (= p4-file-refresh-timer-time 0)))
-	    (setq p4-file-refresh-timer
-		  (if (featurep 'xemacs)
-                      (add-timeout p4-file-refresh-timer-time
-                                   'p4-refresh-files-in-buffers nil
-                                   p4-file-refresh-timer-time)
-                    (run-at-time nil p4-file-refresh-timer-time
-                                 'p4-refresh-files-in-buffers))))
-	;; run hooks
-	(and p4-vc-check (run-hooks 'p4-mode-hook))
-	p4-vc-check)))
+(defun p4-update-status-sentinel-1 (process message)
+  (let ((buffer (process-buffer process)))
+    (when (buffer-live-p buffer)
+      (with-current-buffer buffer
+        (goto-char (point-min))
+        (cond ((not (string-equal message "finished\n")))
+              ((not (buffer-live-p p4-process-buffer)))
+              ((looking-at "^info: //[^#\n]+#\\([0-9]+\\) - \\(add\\|branch\\|edit\\) ")
+               (p4-update-mode p4-process-buffer (intern (match-string 2))
+                               (string-to-int (match-string 1))))
+              ((looking-at "^error: .* - file(s) not opened on this client")
+               (let ((args (append '("-s" "have") (cddr p4-process-args))))
+                 (with-current-buffer
+                     (p4-make-output-buffer (p4-process-buffer-name args))
+                   (set-process-sentinel
+                    (apply 'start-process "P4" (current-buffer)
+                           (p4-executable) args)
+                    'p4-update-status-sentinel-2)))))
+        (kill-buffer)))))
 
-(defun p4-refresh-files-in-buffers (&optional arg)
+(defun p4-update-status ()
+  "Start an asynchronous update of the P4 status of the current buffer.
+If the asynchronous update completes successfully, then
+`p4-vc-revision' and `p4-vc-status' will be set in this buffer,
+`p4-mode' will be set appropriately, and if `p4-mode' is turned
+on, then `p4-mode-hook' will be run."
+  (when p4-do-find-file
+    (let ((buffer (current-buffer))
+          (args (list "-s" "opened" (p4-buffer-file-name))))
+      (with-current-buffer (p4-make-output-buffer (p4-process-buffer-name args))
+        (set-process-sentinel
+         (apply 'start-process "P4" (current-buffer)
+                (p4-executable) args)
+         'p4-update-status-sentinel-1)
+        (setq p4-process-args args
+              p4-process-buffer buffer)))))
+
+(defun p4-refresh-buffers ()
   "Check to see if all the files that are under P4 version control are
 actually up-to-date, if in buffers, or need refreshing."
   (interactive)
-  (let ((p4-all-my-files p4-all-buffer-files) buffile bufname thiselt)
-    (while p4-all-my-files
-      (setq thiselt (car p4-all-my-files))
-      (setq p4-all-my-files (cdr p4-all-my-files))
-      (setq buffile (car thiselt))
-      (setq bufname (cadr thiselt))
-      (if (buffer-live-p (get-buffer bufname))
-	  (save-excursion
-	    (let ((buf (get-buffer bufname)))
-	      (set-buffer buf)
-	      (if p4-auto-refresh
-		  (if (not (buffer-modified-p buf))
-		      (if (not (verify-visited-file-modtime buf))
-			  (if (file-readable-p buffile)
-			      (revert-buffer t t)
-			    (p4-check-mode))))
-		(if (file-readable-p buffile)
-		    (find-file-noselect buffile t)
-		  (p4-check-mode)))
-	      (setq buffer-read-only (not (file-writable-p
-					   (p4-buffer-file-name))))))
-	(p4-refresh-refresh-list buffile bufname)))))
-
-(defun p4-check-mode-all-buffers ()
-  "Call p4-check-mode for all buffers under P4 version control"
-  (let ((p4-all-my-files p4-all-buffer-files) buffile bufname thiselt
-	file-mode-cache)
-    (if (and p4-all-my-files p4-do-find-file)
-	(setq file-mode-cache
-	      (append (p4-get-add-branch-files)
-		      (p4-get-have-files (mapcar 'car p4-all-my-files)))))
-    (while p4-all-my-files
-      (setq thiselt (car p4-all-my-files))
-      (setq p4-all-my-files (cdr p4-all-my-files))
-      (setq buffile (car thiselt))
-      (setq bufname (cadr thiselt))
-      (if (buffer-live-p (get-buffer bufname))
-	  (with-current-buffer (get-buffer bufname)
-		  (save-excursion
-	    (p4-check-mode file-mode-cache)))
-	(p4-refresh-refresh-list buffile bufname)))))
+  (when (or p4-auto-refresh p4-do-find-file)
+    (dolist (buffer (list-buffers))
+      (with-current-buffer buffer
+        (when (and p4-auto-refresh
+                   p4-vc-status
+                   (buffer-file-name)
+                   (not (buffer-modified-p))
+                   (not (verify-visited-file-modtime))
+                   (file-readable-p (buffer-file-name)))
+          (revert-buffer t))
+        (p4-update-status)))))
 
 (defun p4-force-mode-line-update ()
   "Force the mode line update for different flavors of Emacs."
@@ -2555,9 +2478,7 @@ actually up-to-date, if in buffers, or need refreshing."
 the VC check on/off when opening files."
   (interactive)
   (setq p4-do-find-file (not p4-do-find-file))
-  (message (concat "P4 mode check " (if p4-do-find-file
-					"enabled."
-				      "disabled."))))
+  (message "P4 mode check %s" (if p4-do-find-file "enabled." "disabled.")))
 
 ;; Wrap C-x C-q to allow p4-edit/revert and also to ensure that
 ;; we don't stomp on vc-toggle-read-only.
@@ -3103,7 +3024,7 @@ return a buffer listing those files. Otherwise, return NIL."
     (with-temp-buffer
       (insert pw)
       (apply 'call-process-region (point-min) (point-max)
-             (p4-check-p4-executable) t t nil cmd args)
+             (p4-executable) t t nil cmd args)
       (goto-char (point-min))
       (when (re-search-forward "Enter password:.*\n" nil t)
         (replace-match ""))
@@ -3146,8 +3067,7 @@ return a buffer listing those files. Otherwise, return NIL."
 (define-derived-mode p4-basic-list-mode p4-basic-mode "P4 Basic List"
   (setq font-lock-defaults '(p4-basic-list-font-lock-keywords t)))
 
-(add-hook 'find-file-hooks 'p4-find-file-hook)
-(add-hook 'kill-buffer-hook 'p4-kill-buffer-hook)
+(add-hook 'find-file-hooks 'p4-update-status)
 
 (provide 'p4)
 
