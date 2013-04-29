@@ -284,6 +284,11 @@ between them, that text will be marked with this face."
 (make-variable-buffer-local 'p4-process-after-show-callback)
 (put 'p4-process-after-show-callback 'permanent-local t)
 
+(defvar p4-process-no-auto-login nil
+  "If non-NIL, don't automatically prompt user to log in.")
+(make-variable-buffer-local 'p4-process-no-auto-login)
+(put 'p4-process-no-auto-login 'permanent-local t)
+
 (defvar p4-form-commit-command nil
   "P4 command to run when committing this form.")
 (make-variable-buffer-local 'p4-form-commit-command)
@@ -717,9 +722,13 @@ Return NIL if shown in minibuffer, or non-NIL if it was shown in a window."
   "Show the contents of the current buffer as an error message.
 If there's no content in the buffer, pass args to error instead."
   (goto-char (point-min))
-  (cond ((eobp) (apply 'error args))
+  (cond ((eobp)
+         (kill-buffer)
+         (apply 'error args))
         ((eql (count-lines (point-min) (point-max)) 1)
-         (error (buffer-substring (point) (line-end-position))))
+         (let ((message (buffer-substring (point) (line-end-position))))
+           (kill-buffer)
+           (error message)))
         (t
          (p4-push-window-config)
          (display-buffer buffer)
@@ -731,12 +740,15 @@ If there's no content in the buffer, pass args to error instead."
     (when (buffer-live-p buffer)
       (with-current-buffer buffer
         (goto-char (point-min))
-	(cond ((looking-at p4-no-session-regexp)
+	(cond ((and (not p4-process-no-auto-login)
+                    (looking-at p4-no-session-regexp))
                (p4-login)
                (delete-region (point-min) (point-max))
                (p4-process-restart))
               ((not (string-equal message "finished\n"))
-               (p4-process-show-error "Process %s %s" (process-name process) message))
+               (p4-process-show-error "Process %s %s" (process-name process) 
+                                      (replace-regexp-in-string "\n$" ""
+                                                                message)))
               (t
                (when p4-process-callback (funcall p4-process-callback))
                (set-buffer-modified-p nil)
@@ -760,18 +772,20 @@ command and arguments taken from the local variable p4-process-args."
         (format "*P4 %s*" s)
       (format "*P4 %s...%s*" (substring s 0 20) (substring s (- l 20) l)))))
 
-(defun p4-call-command (cmd args &optional mode callback after-show-callback)
+(defun p4-call-command (cmd args &optional mode callback after-show-callback no-auto-login)
   "Start a Perforce command in the background.
 cmd is the P4 command to run.
 args is a list of arguments to pass to the P4 command.
 mode is an optional function run when creating the output buffer.
 callback is an optional function run when the P4 command completes successfully.
-after-show-callback is an optional function run after displaying the output."
+after-show-callback is an optional function run after displaying the output.
+If no-auto-login is non-NIL, don't try logging in if logged out."
   (with-current-buffer
       (p4-make-output-buffer (p4-process-buffer-name (cons cmd args)) mode)
     (setq p4-process-args (cons cmd args)
           p4-process-callback callback
-          p4-process-after-show-callback after-show-callback)
+          p4-process-after-show-callback after-show-callback
+          p4-process-no-auto-login no-auto-login)
     (p4-process-restart)))
 
 (defun p4-buffer-file-name-args ()
@@ -1677,7 +1691,7 @@ followed by \"delete\"."
 (defun p4-quit-current-buffer ()
   "Quit a buffer"
   (interactive)
-  (bury-buffer)
+  (kill-buffer)
   (p4-pop-window-config))
 
 (defun p4-buffer-mouse-clicked (event)
@@ -3084,7 +3098,7 @@ return a buffer listing those files. Otherwise, return NIL."
   "To logout by removing a session ticket, type \\[p4-logout].\n"
   nil
   ((p4-read-args "p4 logout: " nil args))
-  (p4-call-command "logout" args))
+  (p4-call-command "logout" args nil nil nil t))
 
 ;; P4 Basic List Mode
 
