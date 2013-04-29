@@ -2025,7 +2025,9 @@ standard input\). If not supplied, cmd is reused."
                       nil buffer nil
                       cmd args))
         (progn
-          (setq p4-form-committed t)
+          (setq p4-form-committed t
+                buffer-read-only t
+                mode-name "P4 Form Committed")
           (with-current-buffer buffer
             (p4-process-show-output)
             (p4-quit-current-buffer)
