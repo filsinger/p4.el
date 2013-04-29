@@ -60,23 +60,12 @@
     (memq system-type '(ms-dos windows-nt)))
 
   (defcustom p4-executable
-    (let ((lst (append
-		exec-path
-		(list "/usr/local/bin/p4"
-		      (concat (getenv "HOME") "/bin/p4")
-		      "p4")))
-	  (p4-progname (if (p4-windows-os) "p4.exe" "p4"))
-	  p4ex)
-      (while (and lst (not p4ex))
-	(let ((tmp (concat (file-name-as-directory (car lst))
-			   p4-progname)))
-	  (if (and (file-executable-p tmp)
-		   (not (file-directory-p tmp)))
-	      (setq p4ex tmp))
-	  (setq lst (cdr lst))))
-      p4ex)
-    "This is the p4 executable.
-To set this, use the function  `p4-set-p4-executable' or `customize'"
+    (let ((exe-name (if (p4-windows-os) "p4.exe" "p4")))
+      (loop for dir in (append exec-path '("/usr/local/bin" "~/bin" ""))
+            for exe = (concat (file-name-as-directory dir) exe-name)
+            when (and (file-executable-p exe) (not (file-directory-p exe)))
+            return exe))
+    "The p4 executable."
     :type 'string
     :group 'p4)
 
@@ -584,7 +573,7 @@ valid `p4-executable'."
 To set the executable for future sessions, customize
 `p4-executable' instead."
     (interactive "fFull path to your P4 executable: ")
-    (if (file-executable-p filename)
+    (if (and (file-executable-p filename) (not (file-directory-p filename)))
         (setq p4-executable filename)
       (error "%s is not an executable file." filename)))
 
@@ -1056,14 +1045,11 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
 
 (defun p4-canonize-client-root (p4-client-root)
   "Canonizes client root"
-  (let ((len (length p4-client-root)))
-    ;; For Windows, since the client root may be terminated with a
-    ;; backslash as in c:\ or drive:\foo\bar\, we need to strip the
-    ;; trailing backslash.
-    (if (and (p4-windows-os)
-	     (> len 1)
-	     (equal (substring p4-client-root (1- len) len) "\\"))
-	(setq p4-client-root (substring p4-client-root 0 (1- len))))
+  (if (p4-windows-os)
+      ;; For Windows, since the client root may be terminated with a
+      ;; backslash as in c:\ or drive:\foo\bar\, we need to strip the
+      ;; trailing backslash.
+      (replace-regexp-in-string "\\\\$" "" p4-client-root)
     p4-client-root))
 
 (defun p4-map-depot-files (file-list)
