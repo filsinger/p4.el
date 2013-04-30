@@ -762,13 +762,15 @@ If `no-auto-login' is non-NIL, don't try logging in if logged out."
         (p4-run diff-args)
         (cond ((looking-at ".* - file(s) not opened on this client")
                (p4-process-show-error))
+              ((looking-at ".* - file(s) not opened for edit")
+               (kill-buffer (current-buffer)))
               ((looking-at p4-empty-diff-regexp)
                (kill-buffer (current-buffer)))
               (t
                (p4-activate-diff-buffer)
                (p4-push-window-config)
                (display-buffer (current-buffer)))))))
-  (when (yes-or-no-p "Really revert changes? ")
+  (when (yes-or-no-p "Really revert? ")
     (p4-call-command cmd args nil (p4-refresh-callback t))))
 
 (defp4cmd* lock ()
@@ -2058,6 +2060,18 @@ standard input\). If not supplied, cmd is reused."
   (interactive)
   (p4-form-command "jobspec"))
 
+(defp4cmd* reconcile ()
+  "To reconcile the workspace with the depot, type \\[p4-reconcile].\n"
+  (p4-buffer-file-name-args)
+  nil
+  (p4-call-command cmd args 'p4-basic-list-mode))
+
+(defp4cmd* status ()
+  "To identify differences between the workspace with the depot, type \\[p4-status].\n"
+  (p4-buffer-file-name-args)
+  nil
+  (p4-call-command cmd args 'p4-status-list-mode))
+
 (defun p4-set-client-name (p4-new-client-name)
   "To set the current value of P4CLIENT, type \\[p4-set-client-name].
 
@@ -2883,7 +2897,12 @@ return a buffer listing those files. Otherwise, return NIL."
   nil
   (p4-call-command cmd args nil nil nil t))
 
-;; P4 Basic List Mode
+
+;;; Basic List Mode:
+
+;; This is for the output of files, sync, have, integ, opened,
+;; labelsync, and reconcile, which consists of a list of lines
+;; starting with a depot filespec.
 
 (defvar p4-basic-list-mode-map
   (let ((map (p4-make-derived-map p4-basic-mode-map)))
@@ -2891,7 +2910,7 @@ return a buffer listing those files. Otherwise, return NIL."
     (define-key map "p" 'previous-line)
     (define-key map "\C-m" 'p4-basic-list-activate)
     map)
-  "The key map to use for selecting opened files.")
+  "The key map to use in P4 Basic List Mode.")
 
 (defvar p4-basic-list-font-lock-keywords
   '(("^\\(//.*\\)#[0-9]+ - add" 1 'p4-depot-add-face)
@@ -2903,16 +2922,46 @@ return a buffer listing those files. Otherwise, return NIL."
   (save-excursion
     (beginning-of-line)
     (when (looking-at "^\\(//.*\\)#[0-9]+ - ")
-      (match-string-no-properties 1))))
+      (match-string 1))))
 
 (defun p4-basic-list-activate ()
   (interactive)
   (let ((file (p4-basic-list-get-filename)))
     (when file
-      (p4-find-file-or-print-other-window nil file))))
+      (p4-depot-find-file file))))
 
 (define-derived-mode p4-basic-list-mode p4-basic-mode "P4 Basic List"
   (setq font-lock-defaults '(p4-basic-list-font-lock-keywords t)))
+
+
+;;; Status List Mode:
+
+;; This is for the output of p4 status, where each line starts with a
+;; client filename.
+
+(defvar p4-status-list-mode-map
+  (let ((map (p4-make-derived-map p4-basic-list-mode-map)))
+    (define-key map "\C-m" 'p4-status-list-activate)
+    map)
+  "The key map to use in P4 Status List Mode.")
+
+(defvar p4-status-list-font-lock-keywords
+  '(("^\\(.*\\) - reconcile to add" 1 'p4-depot-add-face)
+    ("^\\(.*\\) - reconcile to delete" 1 'p4-depot-delete-face)
+    ("^\\(.*\\) - reconcile to edit" 1 'p4-depot-edit-face)))
+
+(defun p4-status-list-activate ()
+  (interactive)
+  (save-excursion
+    (beginning-of-line)
+    (when (looking-at "^\\(.*\\) - reconcile to ")
+      (find-file-other-window (match-string 1)))))
+
+(define-derived-mode p4-status-list-mode p4-basic-list-mode "P4 Status List"
+  (setq font-lock-defaults '(p4-status-list-font-lock-keywords t)))
+
+
+;;; Hooks:
 
 (add-hook 'find-file-hooks 'p4-update-status)
 
