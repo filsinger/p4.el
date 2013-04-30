@@ -2854,17 +2854,16 @@ Emacs P4."
 (defun p4-empty-diff-buffer ()
   "If there exist any files opened for edit with an empty diff,
 return a buffer listing those files. Otherwise, return NIL."
-  (let ((buffer (get-buffer-create "*P4 diff -sr*")))
-    (with-current-buffer buffer
-      (erase-buffer)
-      (p4-run (list "diff" "-sr"))
-      ;; The output of p4 diff -sr can be:
-      ;; "File(s) not opened on this client." if no files opened at all.
-      ;; "File(s) not opened for edit." if some files opened (but none for edit)
-      ;; Nothing if files opened for edit (but all have changes).
-      ;; List of filesnames (otherwise).
-      (unless (or (eobp) (looking-at "File(s) not opened"))
-        buffer))))
+  (with-current-buffer (get-buffer-create "*P4 diff -sr*")
+    (p4-run (list "diff" "-sr"))
+    ;; The output of p4 diff -sr can be:
+    ;; "File(s) not opened on this client." if no files opened at all.
+    ;; "File(s) not opened for edit." if some files opened (but none for edit)
+    ;; Nothing if files opened for edit (but all have changes).
+    ;; List of filesnames (otherwise).
+    (if (or (eobp) (looking-at "File(s) not opened"))
+        (progn (kill-buffer (current-buffer)) nil)
+      (current-buffer))))
 
 (defp4cmd p4-passwd (old-pw new-pw new-pw2)
   "passwd" "To set the user's password on the server, type \\[p4-passwd].\n"
