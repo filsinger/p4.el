@@ -899,22 +899,10 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
   nil
   (p4-file-change-log cmd args))
 
-(defun p4-set-extent-properties (start end prop-list)
-  (if (featurep 'xemacs)
-      (let ((ext (make-extent start end)))
-        (while prop-list
-          (set-extent-property ext (caar prop-list) (cdar prop-list))
-          (setq prop-list (cdr prop-list))))
-    (let ((ext (make-overlay start end)))
-      (while prop-list
-        (overlay-put ext (caar prop-list) (cdar prop-list))
-        (setq prop-list (cdr prop-list))))))
-
 (defun p4-create-active-link (start end prop-list)
-  (p4-set-extent-properties start end
-			    (append (list (cons 'face 'bold)
-					  (cons 'mouse-face 'highlight))
-				    prop-list)))
+  (set-text-properties start end
+                       (append '(face bold mouse-face highlight)
+                       prop-list)))
 
 (defun p4-forward-active-link ()
   (interactive)
@@ -960,28 +948,26 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
         (setq p4-cur-user (match-string user-match))
         (setq p4-cur-client (match-string cl-match))
 
-        (if (match-beginning rev-match)
-            (p4-create-active-link (match-beginning rev-match)
-                                   (match-end rev-match)
-                                   (list (cons 'rev p4-cur-rev))))
+        (when (match-beginning rev-match)
+          (p4-create-active-link (match-beginning rev-match)
+                                 (match-end rev-match)
+                                 `(rev ,p4-cur-rev)))
         (p4-create-active-link (match-beginning ch-match)
                                (match-end ch-match)
-                               (list (cons 'change p4-cur-change)))
-        (if (match-beginning act-match)
-            (p4-create-active-link (match-beginning act-match)
-                                   (match-end act-match)
-                                   (list (cons 'action p4-cur-action)
-                                         (cons 'rev p4-cur-rev))))
+                               `(change ,p4-cur-change))
+        (when (match-beginning act-match)
+          (p4-create-active-link (match-beginning act-match)
+                                 (match-end act-match)
+                                 `(action ,p4-cur-action rev ,p4-cur-rev)))
         (p4-create-active-link (match-beginning user-match)
                                (match-end user-match)
-                               (list (cons 'user p4-cur-user)))
+                               `(user ,p4-cur-user))
         (p4-create-active-link (match-beginning cl-match)
                                (match-end cl-match)
-                               (list (cons 'client p4-cur-client)))
-        (p4-set-extent-properties (match-beginning desc-match)
-                                  (match-end desc-match)
-                                  (list (cons 'invisible t)
-                                        (cons 'isearch-open-invisible t)))))
+                               `(client ,p4-cur-client))
+        (set-text-properties (match-beginning desc-match)
+                             (match-end desc-match)
+                             '(invisible t isearch-open-invisible t))))
     (p4-find-change-numbers (point-min) (point-max))
     (setq buffer-invisibility-spec (list))
     (p4-move-buffer-point-to-top)))
@@ -1001,7 +987,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
 	      (ch-str (match-string 2))
 	      (next (match-end 0)))
 	  (set-text-properties 0 (length ch-str) nil ch-str)
-	  (p4-create-active-link ch-start ch-end (list (cons 'change (string-to-int ch-str))))
+	  (p4-create-active-link ch-start ch-end `(change ,(string-to-int ch-str)))
 	  (goto-char next))))))
 
 (defp4cmd* files ()
@@ -1081,21 +1067,17 @@ name and a client name."
 	     "^\\(\\.\\.\\. [^/\n]*\\|==== \\)?\\(//[^/@# ][^/@#]*/[^#\n]*\\)")))
       (goto-char (point-min))
       (while (re-search-forward depot-regexp nil t)
-	(let ((p4-depot-file (match-string 2))
-	      (start (match-beginning 2))
-	      (end (match-end 2))
-	      (branching-op-p (and (match-string 1)
-				   (string-match "\\.\\.\\. \\.\\.\\..*"
-						 (match-string 1))))
-	      prop-list)
-	  (setq prop-list (list (cons 'link-depot-name
-				      p4-depot-file)))
+	(let* ((p4-depot-file (match-string 2))
+               (start (match-beginning 2))
+               (end (match-end 2))
+               (branching-op-p (and (match-string 1)
+                                    (string-match "\\.\\.\\. \\.\\.\\..*"
+                                                  (match-string 1))))
+               (prop-list `(link-depot-name ,p4-depot-file)))
 	  ;; some kind of operation related to branching/integration
-	  (if branching-op-p
-	      (setq prop-list (append (list
-				       (cons 'history-for p4-depot-file)
-				       (cons 'face
-					     'p4-depot-branch-face))
+	  (when branching-op-p
+            (setq prop-list (append `(history-for ,p4-depot-file
+                                      face p4-depot-branch-face)
 				      prop-list)))
 	  (p4-create-active-link start end prop-list))))))
 
@@ -1105,16 +1087,6 @@ name and a client name."
   nil
   (p4-call-command cmd args nil 'p4-activate-print-buffer))
 
-;; Insert text in a buffer, but make sure that the inserted text doesn't
-;; inherit any properties from surrounding text. This is needed for XEmacs
-;; because the insert function makes the inserted text inherit properties.
-(defun p4-insert-no-properties (str)
-  (let ((start (point))
-	end)
-    (insert str)
-    (setq end (point))
-    (set-text-properties start end nil)))
-
 (defun p4-fontify-print-buffer (&optional delete-filespec)
   "Fontify a p4-print buffer according to the filename in the
 first line of outputput from \"p4 print\". If the optional
@@ -1123,13 +1095,12 @@ argument delete-filespec is non-NIL, remove the first line."
     (goto-char (point-min))
     (when (looking-at "^//[^#@]+/\\([^/#@]+\\).*\n")
       (let ((buffer-file-name (match-string 1))
-            (first-line (match-string 0))
+            (first-line (match-string-no-properties 0))
             (inhibit-read-only t))
         (replace-match "" t t)
         (set-auto-mode)
         (goto-char (point-min))
-        (unless delete-filespec
-          (p4-insert-no-properties first-line))))))
+        (unless delete-filespec (insert first-line))))))
 
 (defun p4-mark-print-buffer (&optional print-buffer)
   (p4-mark-depot-list-buffer print-buffer)
@@ -1212,7 +1183,34 @@ and jump to the current line in the revision buffer."
 
 (defalias 'p4-blame-line 'p4-annotate-line)
 
-(defstruct p4-file-revision filespec filename revision change date user)
+(defstruct p4-file-revision filespec filename revision change date user annotation)
+
+(defun p4-link (width fmt value properties)
+  "Format `value' using `fmt' and insert into a field of `width'.
+Make it into an active link with `properties'."
+  (let* ((text (format fmt value))
+         (length (length text))
+         (text (if (< length width) text (substring text 0 (- width 1))))
+         (p (point)))
+    (insert text)
+    (p4-create-active-link p (point) properties)
+    (insert (make-string (- width (length text)) ? ))))
+
+(defun p4-file-revision-links (rev)
+  (let ((links (p4-file-revision-annotation rev)))
+    (or links
+        (with-temp-buffer
+          (let* ((rev (cdr (assoc change file-change-alist)))
+                 (filename (p4-file-revision-filename rev))
+                 (revision (p4-file-revision-revision rev))
+                 (user (p4-file-revision-user rev)))
+            (p4-link 7 "%6d" change `(change ,change))
+            (p4-link 5 "%4d" revision
+                     `(rev ,revision link-depot-name ,filename))
+            (insert (format "%10s " (p4-file-revision-date rev)))
+            (p4-link 9 "%7s: " user `(user ,user)))
+          (setf (p4-file-revision-annotation rev) 
+                (buffer-substring (point-min) (point-max)))))))
 
 (defun p4-parse-filelog (filespec)
   "Parse the filelog for `filespec'.
@@ -1221,8 +1219,10 @@ Return an association list mapping revision number to a
 first)."
   (let (head-seen       ; head revision not deleted?
         change-alist    ; alist mapping change to p4-file-revision structures
-        current-file)   ; current filename in filelog
-    (p4-with-temp-buffer (list "filelog" "-i" filespec)
+        current-file    ; current filename in filelog
+        (args (list "filelog" "-i" filespec)))
+    (message "Running p4 %s..." (p4-join-list args))
+    (p4-with-temp-buffer args
       (while (not (eobp))
 	(cond ((looking-at "^//.*$")
                (setq current-file (match-string 0)))
@@ -1247,9 +1247,11 @@ first)."
 
 (defun p4-annotate-changes (filespec)
   "Return a list of change numbers, one for each line of `filespec'."
-  (p4-with-temp-buffer (list "annotate" "-c" "-q" filespec)
-    (loop while (re-search-forward "^\\([0-9]+\\):" nil t)
-          collect (string-to-int (match-string 1)))))
+  (let ((args (list "annotate" "-c" "-q" filespec)))
+    (message "Running p4 %s..." (p4-join-list args))
+    (p4-with-temp-buffer args
+      (loop while (re-search-forward "^\\([0-9]+\\):" nil t)
+            collect (string-to-int (match-string 1))))))
 
 (defun p4-annotate-changes-by-patching (filespec change-alist)
   "Return a list of change numbers, one for each line of `filespec'.
@@ -1258,12 +1260,12 @@ This builds the result by walking through the changes in
 patch. This is very slow for files with many revisions, so should
 only be used when p4 annotate is unavailable."
   (let* ((base (cdar change-alist))
-         (base-change (p4-file-revision-change base))
+         (base-change (caar change-alist))
          (base-change-string (format "%d\n" base-change))
          (buffer (get-buffer-create "*P4 annotate tmp*")))
     (with-current-buffer buffer
       (erase-buffer)
-      (message "Fetching %s..." (p4-file-revision-filespec base))
+      (message "Patching for change %d..." base-change)
       (p4-run (list "print" "-q" (p4-file-revision-filespec base)))
       (while (re-search-forward ".*\n" nil t)
         (replace-match base-change-string t t))
@@ -1274,7 +1276,7 @@ only be used when p4 annotate is unavailable."
                    (list "diff2"
                          (p4-file-revision-filespec f1)
                          (p4-file-revision-filespec f2))
-                 (message "Patching %s..." (p4-file-revision-filespec f2))
+                 (message "Patching for change %d..." c2)
                  (goto-char (point-max))
                  (while (re-search-backward p4-blame-revision-regex nil t)
                    (let ((la (string-to-int (match-string 1)))
@@ -1298,17 +1300,6 @@ only be used when p4 annotate is unavailable."
       (loop while (re-search-forward "[0-9]+" nil t)
             collect (string-to-int (match-string 0))))))
 
-(defun p4-link (width fmt value properties)
-  "Format `value' using `fmt' and insert into a field of `width'.
-Make it into an active link with `properties'."
-  (let* ((text (format fmt value))
-         (length (length text))
-         (text (if (< length width) text (substring text 0 (- width 1))))
-         (p (point)))
-    (p4-insert-no-properties text)
-    (p4-create-active-link p (point) properties)
-    (p4-insert-no-properties (make-string (- width (length text)) ? ))))
-
 (defun p4-blame-int (filespec &optional src-line)
   ;; make sure the filespec is unambiguous
   (p4-with-temp-buffer (list "files" filespec)
@@ -1323,31 +1314,24 @@ Make it into an active link with `properties'."
            (lines (length line-changes))
            (inhibit-read-only t)
            (current-line 0)
-           (current-percent 0)
+           (current-percent -1)
            current-change)
       (with-current-buffer
           (p4-make-output-buffer (p4-process-buffer-name (list "annotate" filespec)))
         (p4-run (list "print" filespec))
         (p4-fontify-print-buffer)
         (forward-line 1)
-        (p4-insert-no-properties "Change  Rev       Date  Author\n")
+        (insert "Change  Rev       Date  Author\n")
         (dolist (change line-changes)
           (incf current-line)
           (let ((percent (/ (* current-line 100) lines)))
             (when (> percent current-percent)
               (message "Formatting...%d%%" percent)
-              (setq current-percent percent)))
+              (incf current-percent 10)))
           (if (eql change current-change)
-              (p4-insert-no-properties (format "%29s : " ""))
-            (let* ((rev (cdr (assoc change file-change-alist)))
-                   (filename (p4-file-revision-filename rev))
-                   (revision (p4-file-revision-revision rev))
-                   (user (p4-file-revision-user rev)))
-              (p4-link 7 "%6d" change `((change . ,change)))
-              (p4-link 5 "%4d" revision
-                       `((rev . ,revision) (link-depot-name . ,filename)))
-              (insert (format "%10s " (p4-file-revision-date rev)))
-              (p4-link 9 "%7s: " user `((user . ,user)))))
+              (insert (format "%29s : " ""))
+            (insert (p4-file-revision-links
+                     (cdr (assoc change file-change-alist)))))
           (setq current-change change)
           (forward-line))
         (goto-char (point-min))
@@ -1841,11 +1825,10 @@ character events"
 	  (setq cur-client (match-string cl-match))
 	  (p4-create-active-link (match-beginning user-match)
 				 (match-end user-match)
-				 (list (cons 'user cur-user)))
+				 `(user ,cur-user))
 	  (p4-create-active-link (match-beginning cl-match)
 				 (match-end cl-match)
-				 (list (cons 'client cur-client)))))
-    ))
+				 `(client ,cur-client))))))
 
 (defp4cmd p4-describe (&rest args)
   "describe"
@@ -1868,7 +1851,7 @@ character events"
       (goto-char (point-min))
       (while (re-search-forward regexp nil t)
         (p4-create-active-link (match-beginning 1) (match-end 1)
-                               (list (cons property (match-string 1))))))))
+                               (list property (match-string 1)))))))
 
 (defp4cmd p4-users (&rest args)
   "users" "To display list of known users, type \\[p4-users].\n"
