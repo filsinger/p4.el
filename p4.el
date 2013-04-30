@@ -1308,7 +1308,7 @@ only be used when p4 annotate is unavailable."
   (let ((file-change-alist (p4-parse-filelog filespec)))
     (unless file-change-alist (error "%s not available" filespec))
     (let* ((line-changes
-            (if (< (p4-server-version) 2009)
+            (if (< (p4-server-version) 2004)
                 (p4-annotate-changes-by-patching filespec file-change-alist)
               (p4-annotate-changes filespec)))
            (lines (length line-changes))
