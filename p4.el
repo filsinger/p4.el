@@ -286,11 +286,6 @@ for saved window configurations."
   :type 'integer
   :group 'p4)
 
-(defcustom p4-exec-arg-len-max 20000 "Maximum total length of all
-arguments to p4 commands."
-  :type 'integer
-  :group 'p4)
-
 (defvar p4-basic-mode-map
   (let ((map (make-sparse-keymap)))
     (if (featurep 'xemacs)
@@ -1011,56 +1006,6 @@ clickable."
             (let ((version (string-to-number (match-string 1))))
               (push (cons p4-port version) p4-server-version-cache)
               version))))))
-
-(defun p4-get-client-root (client)
-  "Return the client root directory for the specified client."
-  (p4-with-temp-buffer (list "client" "-o" client)
-    (when (re-search-forward "^Root:[ \t]+\\(.*\\)$" nil t)
-      (p4-canonize-client-root (match-string 1)))))
-
-(defun p4-canonize-client-root (p4-client-root)
-  "Canonizes client root"
-  (if (p4-windows-os)
-      ;; For Windows, since the client root may be terminated with a
-      ;; backslash as in c:\ or drive:\foo\bar\, we need to strip the
-      ;; trailing backslash.
-      (replace-regexp-in-string "\\\\$" "" p4-client-root)
-    p4-client-root))
-
-(defun p4-map-depot-files (file-list)
-  "Map a list of files in the depot on the current client.
-Return a list of pairs, where each pair consists of a depot
-name and a client name."
-  (let (file-map)
-    (while file-list
-      (let (sub-list (arg-len 0) elt)
-	(while (and file-list (< arg-len p4-exec-arg-len-max))
-	  (setq elt (car file-list))
-	  (setq file-list (cdr file-list))
-	  (setq sub-list (cons elt sub-list))
-	  (setq arg-len (+ arg-len (length elt) 1)))
-	(setq file-map (append file-map
-			       (p4-map-depot-files-int sub-list)))))
-    file-map))
-
-(defun p4-map-depot-files-int (file-list)
-  (let* ((current-client (p4-current-client))
-	 (client-root (p4-get-client-root current-client))
-	 (re-current-client (regexp-quote current-client))
-	 (re-client-root (regexp-quote client-root))
-	 files)
-    (p4-with-temp-buffer (cons "where" file-list)
-      (if (< (p4-server-version) 98)
-	  (while (re-search-forward
-		  (concat "^\\([^\n]+\\) //" re-current-client "\\(.*\\)$")
-                  nil t)
-	    (push (cons (match-string 1) (concat client-root (match-string 2)))
-                  files))
-	(while (re-search-forward
-		(concat "^\\([^\n]+\\) //" re-current-client
-			"[^\n]+ \\(" re-client-root ".*\\)$") nil t)
-	  (push (cons (match-string 1) (match-string 2)) files))))
-    files))
 
 (defun p4-mark-depot-list-buffer (&optional print-buffer)
   (save-excursion
@@ -2030,7 +1975,7 @@ standard input\). If not supplied, cmd is reused."
     (p4-with-temp-buffer (list "-s" "opened")
       (unless (re-search-forward "^info: " nil t)
         (error "Files not opened on this client.")))
-    (p4-save-opened-files)
+    (save-some-buffers nil (lambda () (or (not p4-do-find-file) p4-vc-status)))
     (let ((empty-buf (and p4-check-empty-diffs (p4-empty-diff-buffer))))
       (when (or (not empty-buf)
                 (save-window-excursion
@@ -2792,20 +2737,19 @@ file name selection.")
 (defalias 'p4-group-string-completion (p4-string-completion-builder
 				      'p4-groups-completion))
 
-(defun p4-depot-find-file (file)
+(defun p4-depot-find-file (filespec)
   (interactive (list (completing-read "Enter filespec: "
 				      'p4-depot-completion
 				      nil nil
 				      p4-default-depot-completion-prefix
 				      'p4-depot-filespec-history)))
-  (let ((lfile (cdar (p4-map-depot-files (list file)))))
-    (cond (lfile
-           (find-file lfile))
-          ((get-file-buffer file)
-           (switch-to-buffer-other-window file))
+  (p4-with-temp-buffer (list "where" filespec)
+    (cond ((looking-at "//[^ \n]+ - file(s) not in client view")
+           (p4-print (list filespec)))
+          ((looking-at "//[^ \n]+ //[^ \n]+ \\(.*\\)$")
+           (find-file (match-string 1)))
           (t
-           (p4-call-command "print" (list file) nil
-                            'p4-activate-print-buffer)))))
+           (error "%s" (buffer-substring (point) (line-end-position)))))))
 
 (defun p4-get-client-name ()
   "To get the current value of the environment variable P4CLIENT,
@@ -2833,23 +2777,6 @@ Emacs P4."
 (defun p4-opened-files ()
   "Return a list of opened files (with names in depot format)."
   (p4-output-matches '("opened") "^\\(.*\\)#[0-9]+ - " 1))
-
-(defun p4-save-opened-files ()
-  "Prompt the user to save each opened file with unsaved changes."
-  (save-window-excursion
-    (map-y-or-n-p
-     (lambda (buffer)
-       (and buffer
-            (buffer-modified-p buffer)
-            (not (buffer-base-buffer buffer))
-            (buffer-file-name buffer)
-            (format "Save file %s? " (buffer-file-name buffer))))
-     (lambda (buffer)
-       (with-current-buffer buffer
-         (save-buffer)))
-     (mapcar (lambda (f) (get-file-buffer (cdr f)))
-             (p4-map-depot-files (p4-opened-files)))
-     '("buffer" "buffers" "save"))))
 
 (defun p4-empty-diff-buffer ()
   "If there exist any files opened for edit with an empty diff,
