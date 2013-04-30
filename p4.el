@@ -322,13 +322,11 @@ arguments to p4 commands."
   '((t :inherit font-lock-comment-face))
   "Face for comment in P4 form mode."
   :group 'p4-faces)
-(defvar p4-form-comment-face 'p4-form-comment-face)
 
 (defface p4-form-keyword-face
   '((t :inherit font-lock-keyword-face))
   "Face for keyword in P4 form mode."
   :group 'p4-faces)
-(defvar p4-form-keyword-face 'p4-form-keyword-face)
 
 (defvar p4-form-font-lock-keywords
   '(("^#.*$" . p4-form-comment-face)
@@ -1855,14 +1853,14 @@ character events"
 
 (defp4cmd p4-users (&rest args)
   "users" "To display list of known users, type \\[p4-users].\n"
-  (interactive (p4-read-args* "p4 users: " nil "user"))
+  (interactive (p4-read-args* "p4 users: " "" "user"))
   (p4-call-command "users" args nil
 		   (lambda ()
 		     (p4-regexp-create-links "^\\([^ ]+\\).*\n" 'user))))
 
 (defp4cmd p4-groups (&rest args)
   "groups" "To display list of known groups, type \\[p4-groups].\n"
-  (interactive (p4-read-args* "p4 groups: " nil "group"))
+  (interactive (p4-read-args* "p4 groups: " "" "group"))
   (p4-call-command "groups" args nil
 		   (lambda ()
 		     (p4-regexp-create-links "^\\(.*\\)\n" 'group))))
@@ -1875,7 +1873,7 @@ character events"
 
 (defp4cmd p4-fix (&rest args)
   "fix" "To mark jobs as being fixed by a changelist number, type \\[p4-fix].\n"
-  (interactive (p4-read-args "p4 fix: " nil "job"))
+  (interactive (p4-read-args "p4 fix: " "" "job"))
   (p4-call-command "fix" args))
 
 (defp4cmd* fixes ()
@@ -1963,7 +1961,7 @@ standard input\). If not supplied, cmd is reused."
 
 (defp4cmd p4-client (&rest args)
   "client" "To edit a client specification, type \\[p4-client].\n"
-  (interactive (p4-read-args* "p4 client: " nil "client"))
+  (interactive (p4-read-args* "p4 client: " "" "client"))
   (p4-form-command "client" args "\\(Description\\|View\\):\n\t"))
 
 (defp4cmd* clients ()
@@ -1978,7 +1976,7 @@ standard input\). If not supplied, cmd is reused."
   "branch" "Edit a P4-BRANCH specification using \\[p4-branch]."
   (interactive (list
 		(p4-make-list-from-string
-		 (p4-read-arg-string "p4 branch: " nil "branch"))))
+		 (p4-read-arg-string "p4 branch: " "" "branch"))))
   (if (or (null args) (equal args (list "")))
       (error "Branch must be specified!")
     (p4-form-command "branch" args "Description:\n\t")))
@@ -1993,7 +1991,7 @@ standard input\). If not supplied, cmd is reused."
 
 (defp4cmd p4-label (&rest args)
   "label" "Edit a P4-label specification using \\[p4-label].\n"
-  (interactive (p4-read-args* "p4 label: " nil "label"))
+  (interactive (p4-read-args* "p4 label: " "" "label"))
   (if args
       (p4-form-command "label" args "Description:\n\t")
     (error "label must be specified!")))
@@ -2046,17 +2044,17 @@ standard input\). If not supplied, cmd is reused."
 
 (defp4cmd p4-user (&rest args)
   "user" "To create or edit a user specification, type \\[p4-user].\n"
-  (interactive (p4-read-args* "p4 user: " nil "user"))
+  (interactive (p4-read-args* "p4 user: " "" "user"))
   (p4-form-command "user" args))
 
 (defp4cmd p4-group (&rest args)
   "group" "To create or edit a group specification, type \\[p4-group].\n"
-  (interactive (p4-read-args* "p4 group: " nil "group"))
+  (interactive (p4-read-args* "p4 group: " "" "group"))
   (p4-form-command "group" args))
 
 (defp4cmd p4-job (&rest args)
   "job" "To create or edit a job, type \\[p4-job].\n"
-  (interactive (p4-read-args* "p4 job: " nil "job"))
+  (interactive (p4-read-args* "p4 job: " "" "job"))
   (p4-form-command "job" args "Description:\n\t"))
 
 (defp4cmd p4-jobspec ()
