@@ -372,7 +372,7 @@ branches/clients/dirs/labels caches once in a while if this is non-nil."
     ["--" nil nil]
     ["Print" p4-print
      (and buffer-file-name (or (not p4-do-find-file) p4-vc-status))]
-    ["Print with Revision History" p4-blame
+    ["Print with Revision History" p4-annotate
      (and buffer-file-name (or (not p4-do-find-file) p4-vc-status))]
     ["Find File using Depot Spec" p4-depot-find-file t]
     ["--" nil nil]
@@ -591,6 +591,12 @@ restore the window configuration."
 
 (defun p4-join-list (list) (mapconcat 'identity list " "))
 
+(defun p4-force-mode-line-update ()
+  "Force the mode line update for different flavors of Emacs."
+  (if (featurep 'xemacs)
+      (redraw-modeline)
+    (force-mode-line-update)))
+
 ;; Return the file name associated with a buffer. If the real buffer file
 ;; name doesn't exist, try special filename tags set in some of the p4
 ;; buffers.
@@ -796,7 +802,6 @@ If `no-auto-login' is non-NIL, don't try logging in if logged out."
 
 ;;; Form commands:
 
-
 (defun p4-form-callback (regexp cmd)
   (goto-char (point-min))
   (insert "# Created using " (p4-emacs-version) ".\n"
@@ -962,12 +967,6 @@ With optional argument `prompt', offer to revert it if modified."
         (when p4-vc-status
           (p4-refresh-buffer))))))
 
-(defun p4-force-mode-line-update ()
-  "Force the mode line update for different flavors of Emacs."
-  (if (featurep 'xemacs)
-      (redraw-modeline)
-    (force-mode-line-update)))
-
 (defun p4-toggle-vc-mode ()
   "In case, the P4 server is not available, or when working off-line, toggle
 the VC check on/off when opening files."
@@ -1100,7 +1099,7 @@ twice in the expansion."
   "Print a depot file with revision history to a buffer."
   (p4-buffer-file-revision-args)
   nil
-  (p4-blame-int (car args)))
+  (p4-annotate-internal (car args)))
 
 (defp4cmd p4-branch (args)
   "branch" "Edit a P4-BRANCH specification using \\[p4-branch]."
@@ -1719,7 +1718,6 @@ argument delete-filespec is non-NIL, remove the first line."
   (p4-mark-print-buffer t)
   (use-local-map p4-basic-mode-map))
 
-
 (defun p4-buffer-set-face-property (regexp face-property)
   (save-excursion
     (goto-char (point-min))
@@ -1813,8 +1811,8 @@ argument delete-filespec is non-NIL, remove the first line."
 (defun p4-annotate-line ()
   "Print a depot file with revision history to a buffer,
 and jump to the current line in the revision buffer."
-  (p4-blame-int (car (p4-buffer-file-revision-args))
-                (line-number-at-pos (point))))
+  (p4-annotate-internal (car (p4-buffer-file-revision-args))
+                        (line-number-at-pos (point))))
 
 (defalias 'p4-blame-line 'p4-annotate-line)
 
@@ -1935,7 +1933,7 @@ only be used when p4 annotate is unavailable."
       (loop while (re-search-forward "[0-9]+" nil t)
             collect (string-to-number (match-string 0))))))
 
-(defun p4-blame-int (filespec &optional src-line)
+(defun p4-annotate-internal (filespec &optional src-line)
   ;; make sure the filespec is unambiguous
   (p4-with-temp-buffer (list "files" filespec)
     (when (> (count-lines (point-min) (point-max)) 1)
