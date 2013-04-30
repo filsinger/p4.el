@@ -87,12 +87,6 @@ Set to:
   :type 'string
   :group 'p4)
 
-(defcustom p4-default-depot-completion-prefix "//depot/"
-  "Prefix to be used for completion prompt when prompting user for a depot
-file."
-  :type 'string
-  :group 'p4)
-
 (defcustom p4-colorized-diffs t
   "Set this to nil to disable colorized diffs."
   :type 'boolean
@@ -1884,6 +1878,7 @@ standard input\). If not supplied, cmd is reused."
                       cmd args))
         (progn
           (p4-basic-mode)
+          (set-buffer-modified-p nil)
           (setq p4-form-committed t
                 buffer-read-only t
                 mode-name "P4 Form Committed")
@@ -2506,9 +2501,9 @@ suitable for passing to CMD."
      ((equal cmd "dirs")
       (setq list
             (append (p4-output-matches (list "dirs" (concat spec "*"))
-                                       "^\\([^#\n]+\\)#[0-9]+ - " 1)
+                                       "^//[^ \n]+$")
                     (p4-output-matches (list "files" (concat spec "*"))
-                                       "^\\([^#\n]+\\)#[0-9]+ - " 1)))
+                                       "^\\(//[^#\n]+\\)#[0-9]+ - " 1)))
       (push (cons spec list) p4-depot-completion-cache))
      ((equal cmd "jobs")
       (setq list (p4-completion-helper
@@ -2740,8 +2735,7 @@ file name selection.")
 (defun p4-depot-find-file (filespec)
   (interactive (list (completing-read "Enter filespec: "
 				      'p4-depot-completion
-				      nil nil
-				      p4-default-depot-completion-prefix
+				      nil nil "//"
 				      'p4-depot-filespec-history)))
   (p4-with-temp-buffer (list "where" filespec)
     (cond ((looking-at "//[^ \n]+ - file(s) not in client view")
