@@ -182,53 +182,33 @@ When a section of text is in both the newer and older revision, but differs
 between them, that text will be marked with this face."
   :group 'p4-faces)
 
-(defface p4-depot-branched-face
-  '((((class color) (background light)) (:foreground "blue4"))
-    (((class color) (background dark)) (:foreground "sky blue")))
-  "Face used for branched files."
-  :group 'p4-faces)
-
-(defface p4-depot-added-face
+(defface p4-depot-add-face
   '((((class color) (background light)) (:foreground "blue"))
     (((class color) (background dark)) (:foreground "cyan")))
-  "Face used for files added to the depot."
+  "Face used for files open for add."
   :group 'p4-faces)
 
-(defface p4-depot-deleted-face
+(defface p4-depot-branch-face
+  '((((class color) (background light)) (:foreground "blue4"))
+    (((class color) (background dark)) (:foreground "sky blue")))
+  "Face used for files open for integrate."
+  :group 'p4-faces)
+
+(defface p4-depot-delete-face
   '((((class color) (background light)) (:foreground "red"))
     (((class color) (background dark)) (:foreground "pink")))
-  "Face used for files deleted from the depot."
+  "Face used for files open for delete."
   :group 'p4-faces)
 
-;; Tell Emacs about this new kind of minor mode
-(defvar p4-mode nil "Is this file under p4?")
-(make-variable-buffer-local 'p4-mode)
-(put 'p4-mode 'permanent-local t)
-
-(defvar p4-offline-mode nil "Is this file under p4 but handled in offline mode?")
-(make-variable-buffer-local 'p4-offline-mode)
-(put 'p4-offline-mode 'permanent-local t)
-
-(defvar p4-minor-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map "\C-x\C-q" 'p4-toggle-read-only)
-    map)
-  "Keymap for p4 minor mode")
-(fset 'p4-minor-map p4-minor-map)
-(or (assoc 'p4-mode minor-mode-alist)
-    (setq minor-mode-alist (cons '(p4-mode p4-mode)
-				 minor-mode-alist)))
-(or (assoc 'p4-mode minor-mode-map-alist)
-    (setq minor-mode-map-alist
-	  (cons '(p4-mode . p4-minor-map) minor-mode-map-alist)))
-(or (assoc 'p4-offline-mode minor-mode-alist)
-    (setq minor-mode-alist (cons '(p4-offline-mode p4-offline-mode)
-				 minor-mode-alist)))
-(or (assoc 'p4-offline-mode minor-mode-map-alist)
-    (setq minor-mode-map-alist
-	  (cons '(p4-offline-mode . p4-minor-map) minor-mode-map-alist)))
+(defface p4-depot-edit-face
+  '((((class color) (background light)) (:foreground "dark green"))
+    (((class color) (background dark)) (:foreground "light green")))
+  "Face used for files open for edit."
+  :group 'p4-faces)
 
 ;; Local variables in all buffers.
+(defvar p4-mode nil "Mode line info for P4 minor mode.")
+(defvar p4-offline-mode nil "Is this file under p4 but handled in offline mode?")
 (defvar p4-vc-revision nil "P4 revision to which this buffer's file is synced.")
 (defvar p4-vc-status nil
   "P4 status for this buffer. A symbol:
@@ -254,12 +234,31 @@ NIL if file is not known to be under control of P4.
   "P4 command to run when committing this form.")
 (defvar p4-form-committed nil "Form successfully committed?")
 
-(dolist (var '(p4-vc-revision p4-vc-status p4-process-args
-               p4-process-callback p4-process-after-show-callback
-               p4-process-no-auto-login p4-form-commit-command
-               p4-form-committed))
+(dolist (var '(p4-mode p4-offline-mode p4-vc-revision p4-vc-status
+               p4-process-args p4-process-callback
+               p4-process-after-show-callback p4-process-no-auto-login
+               p4-form-commit-command p4-form-committed))
   (make-variable-buffer-local var)
   (put var 'permanent-local t))
+
+(defvar p4-minor-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "\C-x\C-q" 'p4-toggle-read-only)
+    map)
+  "Keymap for p4 minor mode")
+(fset 'p4-minor-map p4-minor-map)
+(or (assoc 'p4-mode minor-mode-alist)
+    (setq minor-mode-alist (cons '(p4-mode p4-mode)
+				 minor-mode-alist)))
+(or (assoc 'p4-mode minor-mode-map-alist)
+    (setq minor-mode-map-alist
+	  (cons '(p4-mode . p4-minor-map) minor-mode-map-alist)))
+(or (assoc 'p4-offline-mode minor-mode-alist)
+    (setq minor-mode-alist (cons '(p4-offline-mode p4-offline-mode)
+				 minor-mode-alist)))
+(or (assoc 'p4-offline-mode minor-mode-map-alist)
+    (setq minor-mode-map-alist
+	  (cons '(p4-offline-mode . p4-minor-map) minor-mode-map-alist)))
 
 (defvar p4-set-client-hooks nil
   "List of functions to be called after a p4 client is changed.
@@ -1096,7 +1095,7 @@ name and a client name."
 	      (setq prop-list (append (list
 				       (cons 'history-for p4-depot-file)
 				       (cons 'face
-					     'p4-depot-branched-face))
+					     'p4-depot-branch-face))
 				      prop-list)))
 	  (p4-create-active-link start end prop-list))))))
 
@@ -2918,9 +2917,10 @@ return a buffer listing those files. Otherwise, return NIL."
   "The key map to use for selecting opened files.")
 
 (defvar p4-basic-list-font-lock-keywords
-  '(("^\\(//.*\\)#[0-9]+ - delete" 1 'p4-depot-deleted-face)
-    ("^\\(//.*\\)#[0-9]+ - add" 1 'p4-depot-added-face)
-    ("^\\(//.*\\)#[0-9]+ - branch" 1 'p4-depot-branched-face)))
+  '(("^\\(//.*\\)#[0-9]+ - add" 1 'p4-depot-add-face)
+    ("^\\(//.*\\)#[0-9]+ - branch" 1 'p4-depot-branch-face)
+    ("^\\(//.*\\)#[0-9]+ - delete" 1 'p4-depot-delete-face)
+    ("^\\(//.*\\)#[0-9]+ - edit" 1 'p4-depot-edit-face)))
 
 (defun p4-basic-list-get-filename ()
   (save-excursion
