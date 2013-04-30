@@ -925,68 +925,70 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
                    'p4-activate-file-change-log-buffer))
 
 (defun p4-activate-file-change-log-buffer ()
-  (let (p4-cur-rev p4-cur-change p4-cur-action
-                   p4-cur-user p4-cur-client)
-    (p4-mark-print-buffer)
-    (goto-char (point-min))
-    (while (re-search-forward (concat
-                               "^\\(\\.\\.\\. #\\([0-9]+\\) \\)?[Cc]hange "
-                               "\\([0-9]+\\) \\([a-z]+\\)?.*on.*by "
-                               "\\([^ @]+\\)@\\([^ \n]+\\).*\n"
-                               "\\(\\(\\([ \t].*\\)?\n\\)*\\)") nil t)
-      (let ((rev-match 2)
-            (ch-match 3)
-            (act-match 4)
-            (user-match 5)
-            (cl-match 6)
-            (desc-match 7))
-        (setq p4-cur-rev (string-to-int (match-string rev-match)))
-        (setq p4-cur-change (string-to-int (match-string ch-match)))
-        (setq p4-cur-action (match-string act-match))
-        (setq p4-cur-user (match-string user-match))
-        (setq p4-cur-client (match-string cl-match))
+  (p4-mark-print-buffer)
+  (goto-char (point-min))
+  (while (re-search-forward (concat
+                             "^\\(\\.\\.\\. #\\([0-9]+\\) \\)?[Cc]hange "
+                             "\\([0-9]+\\) \\([a-z]+\\)?.*on.*by "
+                             "\\([^ @]+\\)@\\([^ \n]+\\).*\n"
+                             "\\(\\(?:\n\\|[ \t].*\n\\)*\\)") nil t)
+    (let* ((rev-match 2)
+           (rev (and (match-string rev-match)
+                     (string-to-int (match-string rev-match))))
+           (ch-match 3)
+           (change (string-to-int (match-string ch-match)))
+           (act-match 4)
+           (action (match-string act-match))
+           (user-match 5)
+           (user (match-string user-match))
+           (cl-match 6)
+           (client (match-string cl-match))
+           (desc-match 7))
+      (when rev
+        (p4-create-active-link (match-beginning rev-match)
+                               (match-end rev-match)
+                               `(rev ,rev)))
+      (p4-create-active-link (match-beginning ch-match)
+                             (match-end ch-match)
+                             `(change ,change))
+      (when action
+        (p4-create-active-link (match-beginning act-match)
+                               (match-end act-match)
+                               `(action ,action rev ,rev)))
+      (p4-create-active-link (match-beginning user-match)
+                             (match-end user-match)
+                             `(user ,user))
+      (p4-create-active-link (match-beginning cl-match)
+                             (match-end cl-match)
+                             `(client ,client))
+      (set-text-properties (match-beginning desc-match)
+                           (match-end desc-match)
+                           '(invisible t isearch-open-invisible t))))
+  (p4-find-change-numbers (point-min) (point-max))
+  (setq buffer-invisibility-spec (list))
+  (p4-move-buffer-point-to-top))
 
-        (when (match-beginning rev-match)
-          (p4-create-active-link (match-beginning rev-match)
-                                 (match-end rev-match)
-                                 `(rev ,p4-cur-rev)))
-        (p4-create-active-link (match-beginning ch-match)
-                               (match-end ch-match)
-                               `(change ,p4-cur-change))
-        (when (match-beginning act-match)
-          (p4-create-active-link (match-beginning act-match)
-                                 (match-end act-match)
-                                 `(action ,p4-cur-action rev ,p4-cur-rev)))
-        (p4-create-active-link (match-beginning user-match)
-                               (match-end user-match)
-                               `(user ,p4-cur-user))
-        (p4-create-active-link (match-beginning cl-match)
-                               (match-end cl-match)
-                               `(client ,p4-cur-client))
-        (set-text-properties (match-beginning desc-match)
-                             (match-end desc-match)
-                             '(invisible t isearch-open-invisible t))))
-    (p4-find-change-numbers (point-min) (point-max))
-    (setq buffer-invisibility-spec (list))
-    (p4-move-buffer-point-to-top)))
+(defvar p4-plaintext-change-regexp
+  (concat "\\(?:[#@]\\|number\\|no\\.\\|\\)\\s-*"
+          "\\([0-9]+\\)[-,]?\s-*"
+          "\\(?:and/or\\|and\\|&\\|or\\|\\)\\s-*")
+  "Regexp matching a P4 change number in plain English text.")
 
-;; Scan specified region for references to change numbers and make the
-;; change numbers clickable.
 (defun p4-find-change-numbers (start end)
+  "Scan region between `start' and `end' for plain-text
+references to change numbers, and make the change numbers
+clickable."
   (save-excursion
-    (goto-char start)
-    (while (re-search-forward "\\(changes?\\|submit\\|p4\\)[:#]?[ \t\n]+" end t)
-      (while (looking-at
-	      (concat "\\([#@]\\|number\\|no\\.\\|\\)[ \t\n]*"
-		      "\\([0-9]+\\)[-, \t\n]*"
-		      "\\(and/or\\|and\\|&\\|or\\|\\)[ \t\n]*"))
-	(let ((ch-start (match-beginning 2))
-	      (ch-end (match-end 2))
-	      (ch-str (match-string 2))
-	      (next (match-end 0)))
-	  (set-text-properties 0 (length ch-str) nil ch-str)
-	  (p4-create-active-link ch-start ch-end `(change ,(string-to-int ch-str)))
-	  (goto-char next))))))
+    (save-restriction
+      (narrow-to-region start end)
+      (goto-char (point-min))
+      (while (re-search-forward
+              "\\(?:changes?\\|submit\\|p4\\)[:#]?[ \t\n]+" nil t)
+        (save-excursion
+          (while (looking-at p4-plaintext-change-regexp)
+            (p4-create-active-link (match-beginning 1) (match-end 1)
+                                   `(change ,(string-to-int (match-string 1))))
+            (goto-char (match-end 0))))))))
 
 (defp4cmd* files ()
   "To list files in the depot, type \\[p4-files].\n"
@@ -1116,16 +1118,14 @@ argument delete-filespec is non-NIL, remove the first line."
               (start (match-beginning 1))
               (end (point-max)))
           (save-excursion
-            (if (re-search-forward depot-regexp nil t)
-                (setq end (match-beginning 1))))
-          (if link-client-name
-              (p4-set-extent-properties start end
-                                        (list (cons 'block-client-name
-                                                    link-client-name))))
-          (if link-depot-name
-              (p4-set-extent-properties start end
-                                        (list (cons 'block-depot-name
-                                                    link-depot-name))))
+            (when (re-search-forward depot-regexp nil t)
+              (setq end (match-beginning 1))))
+          (when link-client-name
+            (set-text-properties start end
+                                 `(block-client-name ,link-client-name)))
+          (when link-depot-name
+            (set-text-properties start end
+                                 `(block-depot-name ,link-depot-name)))
           (p4-find-change-numbers start
                                   (save-excursion
                                     (goto-char start)
@@ -1768,8 +1768,7 @@ character events"
     (while (re-search-forward regexp nil t)
       (let ((start (match-beginning 0))
 	    (end (match-end 0)))
-	(p4-set-extent-properties start end
-				  (list (cons 'face face-property)))))))
+	(set-text-properties start end `(face ,face-property))))))
 
 (defun p4-activate-diff-buffer ()
   (save-excursion
@@ -1791,10 +1790,8 @@ character events"
 		    (if (re-search-forward "^==== " nil t)
 			(match-beginning 0)
 		      (point-max)))))
-	(if link-depot-name
-	    (p4-set-extent-properties start end
-				      (list (cons 'block-depot-name
-						  link-depot-name))))))
+	(when link-depot-name
+          (set-text-properties start end `(block-depot-name ,link-depot-name)))))
 
     (goto-char (point-min))
     (while (re-search-forward
@@ -1803,9 +1800,7 @@ character events"
       (let ((first-line (string-to-number (match-string 2)))
 	    (start (match-beginning 3))
 	    (end (match-end 3)))
-	(p4-set-extent-properties start end
-				  (list (cons 'first-line first-line)
-					(cons 'start start)))))
+	(set-text-properties start end `(first-line ,first-line start ,start))))
 
     (goto-char (point-min))
     (let ((stop
