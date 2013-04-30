@@ -2801,7 +2801,8 @@ return a buffer listing those files. Otherwise, return NIL."
   nil
   nil
   (let ((pw (if (member "-s" args) ""
-              (read-passwd "Enter perforce password: "))))
+              (read-passwd (format "Enter password for %s: "
+                                   (p4-current-server-port))))))
     (with-temp-buffer
       (insert pw)
       (apply 'call-process-region (point-min) (point-max)
