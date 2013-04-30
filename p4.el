@@ -329,8 +329,8 @@ arguments to p4 commands."
   :group 'p4-faces)
 
 (defvar p4-form-font-lock-keywords
-  '(("^#.*$" . p4-form-comment-face)
-    ("^[^ :]+:" . p4-form-keyword-face)))
+  '(("^#.*$" . 'p4-form-comment-face)
+    ("^[^ :]+:" . 'p4-form-keyword-face)))
 
 (defvar p4-form-mode-map
   (let ((map (make-sparse-keymap)))
