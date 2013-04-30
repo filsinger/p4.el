@@ -648,10 +648,10 @@ if it was shown in a window."
     (if (or p4-process-after-show-callback (> lines 1))
         (progn
           (p4-push-window-config)
-          (display-buffer buffer))
+          (display-buffer (current-buffer)))
       (when (eql lines 1)
         (message (buffer-substring (point) (line-end-position))))
-      (kill-buffer)
+      (kill-buffer (current-buffer))
       nil)))
 
 (defun p4-process-show-error (&rest args)
@@ -659,15 +659,15 @@ if it was shown in a window."
 If there's no content in the buffer, pass `args' to error instead."
   (goto-char (point-min))
   (cond ((eobp)
-         (kill-buffer)
+         (kill-buffer (current-buffer))
          (apply 'error args))
         ((eql (count-lines (point-min) (point-max)) 1)
          (let ((message (buffer-substring (point) (line-end-position))))
-           (kill-buffer)
+           (kill-buffer (current-buffer))
            (error message)))
         (t
          (p4-push-window-config)
-         (display-buffer buffer)
+         (display-buffer (current-buffer))
          (apply 'error args))))
 
 (defun p4-process-sentinel (process message)
@@ -763,7 +763,7 @@ If `no-auto-login' is non-NIL, don't try logging in if logged out."
         (cond ((looking-at ".* - file(s) not opened on this client")
                (p4-process-show-error))
               ((looking-at p4-empty-diff-regexp)
-               (kill-buffer))
+               (kill-buffer (current-buffer)))
               (t
                (p4-activate-diff-buffer)
                (p4-push-window-config)
@@ -915,10 +915,11 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
 	      (not (get-char-property (point) 'face)))))
 
 (defun p4-move-buffer-point-to-top ()
-  (when (get-buffer-window)
-    (save-selected-window
-      (select-window (get-buffer-window buf))
-      (goto-char (point-min)))))
+  (let ((w (get-buffer-window (current-buffer))))
+    (when w
+      (save-selected-window
+        (select-window w)
+        (goto-char (point-min))))))
 
 (defun p4-file-change-log (cmd file-list-spec)
   (p4-call-command cmd (cons "-l" file-list-spec) 'p4-filelog-mode
@@ -934,9 +935,9 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
                              "\\(\\(?:\n\\|[ \t].*\n\\)*\\)") nil t)
     (let* ((rev-match 2)
            (rev (and (match-string rev-match)
-                     (string-to-int (match-string rev-match))))
+                     (string-to-number (match-string rev-match))))
            (ch-match 3)
-           (change (string-to-int (match-string ch-match)))
+           (change (string-to-number (match-string ch-match)))
            (act-match 4)
            (action (match-string act-match))
            (user-match 5)
@@ -970,7 +971,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions.\n"
 
 (defvar p4-plaintext-change-regexp
   (concat "\\(?:[#@]\\|number\\|no\\.\\|\\)\\s-*"
-          "\\([0-9]+\\)[-,]?\s-*"
+          "\\([0-9]+\\)[-,]?\\s-*"
           "\\(?:and/or\\|and\\|&\\|or\\|\\)\\s-*")
   "Regexp matching a P4 change number in plain English text.")
 
@@ -987,7 +988,7 @@ clickable."
         (save-excursion
           (while (looking-at p4-plaintext-change-regexp)
             (p4-create-active-link (match-beginning 1) (match-end 1)
-                                   `(change ,(string-to-int (match-string 1))))
+                                   `(change ,(string-to-number (match-string 1))))
             (goto-char (match-end 0))))))))
 
 (defp4cmd* files ()
@@ -1198,7 +1199,7 @@ Make it into an active link with `properties'."
   (let ((links (p4-file-revision-annotation rev)))
     (or links
         (with-temp-buffer
-          (let* ((rev (cdr (assoc change file-change-alist)))
+          (let* ((change (p4-file-revision-change rev))
                  (filename (p4-file-revision-filename rev))
                  (revision (p4-file-revision-revision rev))
                  (user (p4-file-revision-user rev)))
@@ -1226,8 +1227,8 @@ first)."
                (setq current-file (match-string 0)))
               ((looking-at p4-blame-change-regex)
                (let ((op (match-string 3))
-                     (revision (string-to-int (match-string 1)))
-                     (change (string-to-int (match-string 2))))
+                     (revision (string-to-number (match-string 1)))
+                     (change (string-to-number (match-string 2))))
                  (if (string= op "delete")
                      (unless head-seen (goto-char (point-max)))
                    (push (cons change
@@ -1249,7 +1250,7 @@ first)."
     (message "Running p4 %s..." (p4-join-list args))
     (p4-with-temp-buffer args
       (loop while (re-search-forward "^\\([0-9]+\\):" nil t)
-            collect (string-to-int (match-string 1))))))
+            collect (string-to-number (match-string 1))))))
 
 (defun p4-annotate-changes-by-patching (filespec change-alist)
   "Return a list of change numbers, one for each line of `filespec'.
@@ -1277,11 +1278,11 @@ only be used when p4 annotate is unavailable."
                  (message "Patching for change %d..." c2)
                  (goto-char (point-max))
                  (while (re-search-backward p4-blame-revision-regex nil t)
-                   (let ((la (string-to-int (match-string 1)))
-                         (lb (string-to-int (match-string 2)))
+                   (let ((la (string-to-number (match-string 1)))
+                         (lb (string-to-number (match-string 2)))
                          (op (match-string 3))
-                         (ra (string-to-int (match-string 4)))
-                         (rb (string-to-int (match-string 5))))
+                         (ra (string-to-number (match-string 4)))
+                         (rb (string-to-number (match-string 5))))
                      (when (= lb 0) (setq lb la))
                      (when (= rb 0) (setq rb ra))
                      (cond ((string= op "a") (incf la))
@@ -1296,7 +1297,7 @@ only be used when p4 annotate is unavailable."
                          (incf ra)))))))
       (goto-char (point-min))
       (loop while (re-search-forward "[0-9]+" nil t)
-            collect (string-to-int (match-string 0))))))
+            collect (string-to-number (match-string 0))))))
 
 (defun p4-blame-int (filespec &optional src-line)
   ;; make sure the filespec is unambiguous
@@ -1565,7 +1566,7 @@ followed by \"delete\"."
 (defun p4-quit-current-buffer ()
   "Quit a buffer"
   (interactive)
-  (kill-buffer)
+  (kill-buffer (current-buffer))
   (p4-pop-window-config))
 
 (defun p4-buffer-mouse-clicked (event)
@@ -1602,7 +1603,7 @@ character events"
       (cond (link-name
 	     (p4-diff))
 	    (rev
-	     (p4-diff2 (format "%d" rev) "#head"))
+	     (p4-diff2 nil (format "%d" rev) "#head"))
 	    (t
 	     (error "No file to diff!"))))))
 
@@ -1624,7 +1625,7 @@ character events"
 	  (action
            (if (<= rev 1)
                (error "There is no earlier revision to diff.")
-             (p4-diff2 (format "%d" (1- rev)) (format "%d" rev))))
+             (p4-diff2 nil (format "%d" (1- rev)) (format "%d" rev))))
 	  (change (p4-describe-internal
 		   (append (p4-make-list-from-string p4-default-diff-options)
 			   (list (format "%d" change)))))
@@ -1890,7 +1891,7 @@ character events"
           "# Type C-x k to kill current changes.\n"
           "#\n")
   (p4-form-mode)
-  (select-window (get-buffer-window buffer))
+  (select-window (get-buffer-window (current-buffer)))
   (when regexp (re-search-forward regexp nil t))
   (setq p4-form-commit-command cmd)
   (setq p4-form-committed nil)
@@ -2251,9 +2252,9 @@ client, or NIL if this is not known."
               ((not (buffer-live-p p4-process-buffer)))
               ((looking-at "^info: //[^#\n]+#\\([0-9]+\\) - ")
                (p4-update-mode p4-process-buffer 'sync
-                               (string-to-int (match-string 1))))
+                               (string-to-number (match-string 1))))
               (t (p4-update-mode p4-process-buffer nil nil)))
-        (kill-buffer)))))
+        (kill-buffer (current-buffer))))))
 
 (defun p4-update-status-sentinel-1 (process message)
   (let ((buffer (process-buffer process)))
@@ -2264,7 +2265,7 @@ client, or NIL if this is not known."
               ((not (buffer-live-p p4-process-buffer)))
               ((looking-at "^info: //[^#\n]+#\\([0-9]+\\) - \\(add\\|branch\\|delete\\|edit\\) ")
                (p4-update-mode p4-process-buffer (intern (match-string 2))
-                               (string-to-int (match-string 1))))
+                               (string-to-number (match-string 1))))
               ((looking-at "^error: .* - file(s) not opened on this client")
                (let ((args (append '("-s" "have") (cddr p4-process-args))))
                  (with-current-buffer
@@ -2273,7 +2274,7 @@ client, or NIL if this is not known."
                     (apply 'start-process "P4" (current-buffer)
                            (p4-executable) args)
                     'p4-update-status-sentinel-2)))))
-        (kill-buffer)))))
+        (kill-buffer (current-buffer))))))
 
 (defun p4-update-status ()
   "Start an asynchronous update of the P4 status of the current buffer.
@@ -2298,7 +2299,7 @@ With optional argument `prompt', offer to revert it if modified."
   (let ((unmodified (not (buffer-modified-p))))
     (cond ((not buffer-file-name))
           ((and unmodified
-                (not (verify-visited-file-modtime))
+                (not (verify-visited-file-modtime (current-buffer)))
                 (file-readable-p buffer-file-name))
            (revert-buffer t))
           ((and (file-readable-p buffer-file-name)
