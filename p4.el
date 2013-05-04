@@ -563,16 +563,45 @@ restore the window configuration."
       (find-file-other-window client-name)
     (p4-depot-find-file depot-name)))
 
-(defun p4-depot-find-file (filespec)
+(defun p4-visit-filespec (filespec &optional line offset)
+  "Print depot `filespec' to a new buffer asynchrously and pop to
+it when ready. With optional arguments `line' and `offset', go to
+line number `line' and move forward by `offset' characters."
+  (p4-call-command "print" (list filespec) nil
+                   (lambda () (p4-activate-print-buffer t))
+                   (lexical-let ((line line) (offset offset))
+                     (lambda ()
+                       (pop-to-buffer (current-buffer))
+                       (when line (p4-goto-line line)
+                             (when offset (forward-char offset)))))))
+
+(defun p4-depot-find-file (filespec &optional line offset)
+  "Visit the client file corresponding to depot `filespec',
+if the file is mapped (and synced to the right revision if
+necessary), otherwise print `filespec' to a new buffer
+asynchrously and pop to it when ready. With optional arguments
+`line' and `offset', go to line number `line' and move forward by
+`offset' characters."
   (interactive (list (p4-read-arg-string "Enter filespec: " "//" 'filespec)))
-  (string-match ".*?\\(?:#[0-9]+\\|@[0-9]\\)?$" filespec)
-  (with-temp-buffer
-    (if (and (not (match-string 1))
-             (zerop (p4-run (list "have" filespec)))
-             (not (looking-at "//[^ \n]+ - file(s) not on client"))
-             (looking-at "//[^ \n]+ - \\(.*\\)$"))
-        (find-file (match-string 1))
-      (p4-print (list filespec)))))
+  (string-match "\\(.*?\\)\\(#[0-9]+\\|\\(@[0-9]\\)\\)?$" filespec)
+  (let* ((file (match-string 1 filespec))
+         (spec (match-string 2 filespec))
+         (change (match-string 3 filespec)))
+    (if change
+        ;; TODO: work out if we have the file synced at this
+        ;; changelevel, perhaps by running sync -n and seeing if it
+        ;; prints "files(s) up to date"?
+        (p4-visit-filespec filespec line offset)
+      (with-temp-buffer
+        (if (and (zerop (p4-run (list "have" file)))
+                 (not (looking-at "//[^ \n]+ - file(s) not on client"))
+                 (looking-at "//.*?\\(#[0-9]+\\) - \\(.*\\)$")
+                 (or (not spec) (string-equal spec (match-string 1))))
+            (progn
+              (find-file (match-string 2))
+              (when line (p4-goto-line line)
+                    (when offset (forward-char offset))))
+          (p4-visit-filespec filespec line offset))))))
 
 (defun p4-make-derived-map (base-map)
   (let ((map (make-sparse-keymap)))
@@ -1665,8 +1694,8 @@ clickable."
   (save-excursion
     (let ((depot-regexp
 	   (if print-buffer
-	       "\\(^\\)\\(//[^/@# ][^/@#]*/[^@#]+\\)#[0-9]+ - "
-	     "^\\(\\.\\.\\. [^/\n]*\\|==== \\)?\\(//[^/@# ][^/@#]*/[^#\n]*\\)")))
+	       "\\(^\\)\\(//[^/@# ][^/@#]*/[^@#]+#[0-9]+\\) - "
+	     "^\\(\\.\\.\\. [^/\n]*\\|==== \\)?\\(//[^/@# ][^/@#]*/[^#\n]*\\(?:#[0-9]+\\)?\\)")))
       (goto-char (point-min))
       (while (re-search-forward depot-regexp nil t)
 	(let* ((p4-depot-file (match-string-no-properties 2))
@@ -1727,8 +1756,8 @@ argument delete-filespec is non-NIL, remove the first line."
                                     (goto-char start)
                                     (line-end-position))))))))
 
-(defun p4-activate-print-buffer ()
-  (p4-fontify-print-buffer)
+(defun p4-activate-print-buffer (&optional delete-filespec)
+  (p4-fontify-print-buffer delete-filespec)
   (p4-mark-print-buffer t)
   (use-local-map p4-basic-mode-map))
 
@@ -2304,9 +2333,9 @@ NIL if there is no such completion type."
   (when (get-text-property (point) 'active)
     (p4-buffer-commands (point))))
 
-(defun p4-buffer-commands (pnt)
+(defun p4-buffer-commands (pnt arg)
   "Function to get a given property and do the appropriate command on it"
-  (interactive "d")
+  (interactive "d\nP")
   (let ((action (get-char-property pnt 'action))
 	(branch (get-char-property pnt 'branch))
 	(change (get-char-property pnt 'change))
@@ -2333,6 +2362,7 @@ NIL if there is no such completion type."
 	  (label (p4-label (list label)))
 	  (branch (p4-branch (list branch)))
 	  (job (p4-job job))
+          ((eq major-mode 'p4-diff-mode) (p4-diff-goto-source arg))
 
 	  ;; Check if a "filename link" or an active "diff buffer area" was
 	  ;; selected.
@@ -2437,10 +2467,10 @@ NIL if there is no such completion type."
   "The keymap to use in P4 Basic List Mode.")
 
 (defvar p4-basic-list-font-lock-keywords
-  '(("^\\(//.*\\)#[0-9]+ - add" 1 'p4-depot-add-face)
-    ("^\\(//.*\\)#[0-9]+ - branch" 1 'p4-depot-branch-face)
-    ("^\\(//.*\\)#[0-9]+ - delete" 1 'p4-depot-delete-face)
-    ("^\\(//.*\\)#[0-9]+ - edit" 1 'p4-depot-edit-face)))
+  '(("^\\(//.*#[0-9]+\\) - add" 1 'p4-depot-add-face)
+    ("^\\(//.*#[0-9]+\\) - branch" 1 'p4-depot-branch-face)
+    ("^\\(//.*#[0-9]+\\) - delete" 1 'p4-depot-delete-face)
+    ("^\\(//.*#[0-9]+\\) - edit" 1 'p4-depot-edit-face)))
 
 (define-derived-mode p4-basic-list-mode p4-basic-mode "P4 Basic List"
   (setq font-lock-defaults '(p4-basic-list-font-lock-keywords t)))
@@ -2448,7 +2478,7 @@ NIL if there is no such completion type."
 (defun p4-basic-list-get-filename ()
   (save-excursion
     (beginning-of-line)
-    (when (looking-at "^\\(//.*\\)#[0-9]+ - ")
+    (when (looking-at "^\\(//.*#[0-9]+\\) - ")
       (match-string 1))))
 
 (defun p4-basic-list-activate ()
@@ -2645,13 +2675,75 @@ NIL if there is no such completion type."
     ("^\t.*" . 'p4-description-face)
     ("^[A-Z].* \\.\\.\\." . 'p4-heading-face)
     ("^\\.\\.\\. \\(//[^# \t\n]+\\).*" (1 'p4-filespec-face))
-    ("^==== .* ====$" . 'diff-file-header)))
+    ("^==== .* ====" . 'diff-file-header)))
 
 (define-derived-mode p4-diff-mode p4-basic-mode "P4 Diff"
+  (diff-minor-mode 1)
   (use-local-map p4-diff-mode-map)
-  (set (make-local-variable 'diff-file-header-re) "^==== .* ====$")
+  (set (make-local-variable 'diff-file-header-re) "^==== .* ====")
   (setq font-lock-defaults diff-font-lock-defaults)
   (font-lock-add-keywords nil p4-diff-font-lock-keywords))
+
+(defun p4-diff-find-file-name (&optional reverse)
+  "Return the filespec where this diff location can be found.
+Return the new filespec, or the old filespec if optional argument
+`reverse' is non-NIL."
+  (save-excursion
+    (unless (looking-at diff-file-header-re)
+      (or (ignore-errors (diff-beginning-of-file))
+          (re-search-forward diff-file-header-re nil t)))
+    (cond ((looking-at "^==== \\(//[^#\n]+#[0-9]+\\).* - \\(//[^#\n]+#[0-9]+\\).* ====")
+           ;; In the output of p4 diff and diff2 both the old and new
+           ;; revisions are given.
+           (match-string-no-properties (if old 1 2)))
+          ((looking-at "^==== \\(//[^@#\n]+\\)#\\([0-9]+\\).* ====")
+           ;; The output of p4 describe contains just the new
+           ;; revision number: the old revision number is one less.
+           (let ((revision (string-to-number (match-string 2))))
+             (format "%s#%d" (match-string-no-properties 1)
+                     (max 1 (if reverse (1- revision) revision)))))
+          (t
+           (error "Can't find filespec(s) in diff file header.")))))
+
+;; This is modelled on diff-find-source-location in diff-mode.el.
+(defun p4-diff-find-source-location (&optional reverse)
+  "Return (FILESPEC LINE OFFSET) for the corresponding source location.
+FILESPEC is the new file, or the old file if optional argument
+`reverse' is non-NIL. The location in the file can be found by
+going to line number LINE and then moving forward OFFSET
+characters."
+  (save-excursion
+    (let* ((char-offset (- (point) (diff-beginning-of-hunk t)))
+           (_ (diff-sanity-check-hunk))
+	   (hunk (buffer-substring
+                  (point) (save-excursion (diff-end-of-hunk) (point))))
+	   (old (diff-hunk-text hunk nil char-offset))
+	   (new (diff-hunk-text hunk t char-offset))
+	   ;; Find the location specification.
+	   (line (if (not (looking-at "\\(?:\\*\\{15\\}.*\n\\)?[-@* ]*\\([0-9,]+\\)\\([ acd+]+\\([0-9,]+\\)\\)?"))
+		     (error "Can't find the hunk header")
+		   (if reverse (match-string 1)
+		     (if (match-end 3) (match-string 3)
+		       (unless (re-search-forward
+                                diff-context-mid-hunk-header-re nil t)
+			 (error "Can't find the hunk separator"))
+		       (match-string 1)))))
+	   (file (or (p4-diff-find-file-name reverse)
+                     (error "Can't find the file"))))
+      (list file (string-to-number line) (cdr (if reverse old new))))))
+
+;; Based on diff-goto-source in diff-mode.el.
+(defun p4-diff-goto-source (&optional other-event)
+  "Jump to the corresponding source line.
+The old file is visited for removed lines, otherwise the new
+file, but a prefix argument reverses this."
+  (interactive (list current-prefix-arg last-input-event))
+  (if event (posn-set-point (event-end event)))
+  (let ((reverse (save-excursion (beginning-of-line) (looking-at "[-<]"))))
+    (let ((location (p4-diff-find-source-location
+                     (diff-xor other-file reverse))))
+      (when location
+        (apply 'p4-depot-find-file location)))))
 
 
 ;;; Annotate mode:
