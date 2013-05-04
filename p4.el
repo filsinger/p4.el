@@ -858,7 +858,8 @@ standard input\). If not supplied, cmd is reused."
             (p4-partial-cache-cleanup (intern cmd))
             (when (string= cmd "submit")
               (p4-refresh-buffers))))
-      (p4-process-show-error "%s -i failed to complete successfully." cmd))))
+      (with-current-buffer buffer
+        (p4-process-show-error "%s -i failed to complete successfully." cmd)))))
 
 
 ;;; P4 mode:
