@@ -40,9 +40,10 @@
 
 ;;; Code:
 
-(require 'comint)                       ; for comint-check-proc
-(require 'dired)                        ; for dired-get-filename
-(eval-when-compile (require 'cl))       ; for defstruct, loop, dolist, ...
+(require 'comint) ; comint-check-proc
+(require 'dired) ; dired-get-filename
+(require 'diff-mode) ; diff-font-lock-defaults
+(eval-when-compile (require 'cl)) ; defstruct, loop, dolist, ...
 
 (defvar p4-emacs-version "10.8" "The Current P4-Emacs Integration Revision.")
 
@@ -79,11 +80,6 @@ Set to:
 -dw     (ignore whitespace)
 -dl     (ignore line endings)"
   :type 'string
-  :group 'p4)
-
-(defcustom p4-colorized-diffs t
-  "Set this to nil to disable colorized diffs."
-  :type 'boolean
   :group 'p4)
 
 (defcustom p4-auto-refresh t
@@ -143,40 +139,52 @@ This is an alist, and should be set using the function
 \(require 'p4\)
 \(p4-set-my-clients \'(client1 client2 client3)\)")
 
-(defface p4-diff-file-face
-  '((((class color) (background light)) (:background "gray90"))
-    (((class color) (background dark)) (:background "gray10")))
-  "Face used for file pathnames in difference buffers."
+(defface p4-description-face '((t))
+  "Face used for change descriptions."
   :group 'p4-faces)
 
-(defface p4-diff-head-face
-  '((((class color) (background light)) (:background "gray95"))
-    (((class color) (background dark)) (:background "gray5")))
-  "Face used for ?"
+(defface p4-heading-face '((t))
+  "Face used for section heading."
   :group 'p4-faces)
 
-(defface p4-diff-inserted-face
-  '((((class color) (background light)) (:foreground "blue"))
-    (((class color) (background dark)) (:foreground "cyan")))
-  "Face used for new (inserted) text in difference buffers.
-When the newer revision contains text not in the older revision, that text will
-be marked with this face."
+(defface p4-link-face '((t :weight bold))
+  "Face used to highlight clickable links."
   :group 'p4-faces)
 
-(defface p4-diff-deleted-face
-  '((((class color) (background light)) (:foreground "red"))
-    (((class color) (background dark)) (:foreground "pink")))
-  "Face used for old (deleted) text in difference buffers.
-When the older revision contains text not in the newer revision, that text will
-be marked with this face."
+(defface p4-action-face '((t :inherit p4-link-face))
+  "Face used to highlight Perforce actions (add/edit/integrate/delete)."
   :group 'p4-faces)
 
-(defface p4-diff-changed-face
-  '((((class color) (background light)) (:foreground "dark green"))
-    (((class color) (background dark)) (:foreground "light green")))
-  "Face used for changed text in difference buffers.
-When a section of text is in both the newer and older revision, but differs
-between them, that text will be marked with this face."
+(defface p4-branch-face '((t :inherit p4-link-face))
+  "Face used to highlight Perforce branches."
+  :group 'p4-faces)
+
+(defface p4-change-face '((t :inherit p4-link-face))
+  "Face used to highlight Perforce change numbers."
+  :group 'p4-faces)
+
+(defface p4-client-face '((t :inherit p4-link-face))
+  "Face used to highlight Perforce users."
+  :group 'p4-faces)
+
+(defface p4-filespec-face '((t :inherit p4-link-face))
+  "Face used to highlight Perforce filespec."
+  :group 'p4-faces)
+
+(defface p4-job-face '((t :inherit p4-link-face))
+  "Face used to highlight Perforce job names."
+  :group 'p4-faces)
+
+(defface p4-label-face '((t :inherit p4-link-face))
+  "Face used to highlight Perforce labels."
+  :group 'p4-faces)
+
+(defface p4-revision-face '((t :inherit p4-link-face))
+  "Face used to highlight Perforce revision numbers."
+  :group 'p4-faces)
+
+(defface p4-user-face '((t :inherit p4-link-face))
+  "Face used to highlight Perforce users."
   :group 'p4-faces)
 
 (defface p4-depot-add-face
@@ -421,7 +429,7 @@ functions are called.")
   (let ((p4-port (p4-current-server-port)))
     (or (cdr (assoc p4-port p4-server-version-cache))
         (p4-with-temp-buffer '("info")
-          (when (re-search-forward "^Server version: .*/\\([0-9]+\\)\.[0-9]+/" nil t)
+          (when (re-search-forward "^Server version: .*/\\([0-9]+\\)\\.[0-9]+/" nil t)
             (let ((version (string-to-number (match-string 1))))
               (push (cons p4-port version) p4-server-version-cache)
               version))))))
@@ -1598,11 +1606,11 @@ return a buffer listing those files. Otherwise, return NIL."
            (ch-match 3)
            (change (string-to-number (match-string ch-match)))
            (act-match 4)
-           (action (match-string act-match))
+           (action (match-string-no-properties act-match))
            (user-match 5)
-           (user (match-string user-match))
+           (user (match-string-no-properties user-match))
            (cl-match 6)
-           (client (match-string cl-match))
+           (client (match-string-no-properties cl-match))
            (desc-match 7))
       (when rev
         (p4-create-active-link-group rev-match `(rev ,rev) "Print revision"))
@@ -1648,8 +1656,10 @@ clickable."
       (narrow-to-region start end)
       (goto-char (point-min))
       (while (re-search-forward "^\\(job[0-9]+\\) on [0-9]+/[0-9]+/[0-9]+ by \\([^ \n]+\\)" nil t)
-        (p4-create-active-link-group 1 `(job ,(match-string 1)) "Describe job")
-        (p4-create-active-link-group 2 `(user ,(match-string 2)) "Describe user")))))
+        (p4-create-active-link-group 1 `(job ,(match-string-no-properties 1))
+                                     "Describe job")
+        (p4-create-active-link-group 2 `(user ,(match-string-no-properties 2))
+                                     "Describe user")))))
 
 (defun p4-mark-depot-list-buffer (&optional print-buffer)
   (save-excursion
@@ -1659,7 +1669,7 @@ clickable."
 	     "^\\(\\.\\.\\. [^/\n]*\\|==== \\)?\\(//[^/@# ][^/@#]*/[^#\n]*\\)")))
       (goto-char (point-min))
       (while (re-search-forward depot-regexp nil t)
-	(let* ((p4-depot-file (match-string 2))
+	(let* ((p4-depot-file (match-string-no-properties 2))
                (start (match-beginning 2))
                (end (match-end 2))
                (branching-op-p (and (match-string 1)
@@ -1734,14 +1744,6 @@ argument delete-filespec is non-NIL, remove the first line."
   (save-excursion
     (p4-mark-depot-list-buffer)
     (p4-find-jobs (point-min) (point-max))
-    (if p4-colorized-diffs
-	(progn
-	  (p4-buffer-set-face-property "^=.*\n" 'p4-diff-file-face)
-	  (p4-buffer-set-face-property "^[@*].*" 'p4-diff-head-face)
-	  (p4-buffer-set-face-property "^\\([+>].*\n\\)+" 'p4-diff-inserted-face)
-	  (p4-buffer-set-face-property "^\\([-<].*\n\\)+" 'p4-diff-deleted-face)
-	  (p4-buffer-set-face-property "^\\(!.*\n\\)+" 'p4-diff-change-face)))
-
     (goto-char (point-min))
     (while (re-search-forward "^\\(==== //\\).*\n"
 			      nil t)
@@ -1772,8 +1774,10 @@ argument delete-filespec is non-NIL, remove the first line."
 
     (goto-char (point-min))
     (when (looking-at "^Change [0-9]+ by \\([^ @]+\\)@\\([^ \n]+\\)")
-      (p4-create-active-link 1 `(user ,(match-string 1)) "Describe user")
-      (p4-create-active-link 2 `(client ,(match-string 2)) "Describe client"))))
+      (p4-create-active-link-group 1 `(user ,(match-string-no-properties 1))
+                                   "Describe user")
+      (p4-create-active-link-group 2 `(client ,(match-string-no-properties 2))
+                                   "Describe client"))))
 
 (defun p4-regexp-create-links (regexp property &optional help-echo)
   (let ((inhibit-read-only t))
@@ -1781,7 +1785,7 @@ argument delete-filespec is non-NIL, remove the first line."
       (goto-char (point-min))
       (while (re-search-forward regexp nil t)
         (p4-create-active-link-group
-         1 (list property (match-string 1)) help-echo)))))
+         1 (list property (match-string-no-properties 1)) help-echo)))))
 
 
 ;;; Annotation:
@@ -2428,8 +2432,6 @@ NIL if there is no such completion type."
 
 (defvar p4-basic-list-mode-map
   (let ((map (p4-make-derived-map p4-basic-mode-map)))
-    (define-key map "n" 'next-line)
-    (define-key map "p" 'previous-line)
     (define-key map "\C-m" 'p4-basic-list-activate)
     map)
   "The keymap to use in P4 Basic List Mode.")
@@ -2524,7 +2526,16 @@ NIL if there is no such completion type."
     map)
   "The key map to use for selecting filelog properties.")
 
-(define-derived-mode p4-filelog-mode p4-basic-mode "P4 File Log")
+(defvar p4-filelog-font-lock-keywords
+  '(("^//.*" . 'p4-filespec-face)
+    ("^\\.\\.\\. #\\([0-9]+\\) change \\([0-9]+\\) \\([a-z]+\\) on [0-9]+/[0-9]+/[0-9]+ by \\(\\S-+\\)@\\(\\S-+\\).*"
+     (1 'p4-revision-face) (2 'p4-change-face) (3 'p4-action-face)
+     (4 'p4-user-face) (5 'p4-client-face))
+    ("^\\.\\.\\. \\.\\.\\. [^/\n]+ \\(//[^#\n]+\\).*" (1 'p4-filespec-face))
+    ("^\t.*" . 'p4-description-face)))
+
+(define-derived-mode p4-filelog-mode p4-basic-mode "P4 File Log"
+  (setq font-lock-defaults '(p4-filelog-font-lock-keywords t)))
 
 (defun p4-find-file-other-window ()
   "Open/print file"
@@ -2613,54 +2624,34 @@ NIL if there is no such completion type."
 
 (defvar p4-diff-mode-map
   (let ((map (p4-make-derived-map p4-basic-mode-map)))
-    (define-key map "n"	 'p4-goto-next-diff)
-    (define-key map "p"	 'p4-goto-prev-diff)
-    (define-key map "N" (lookup-key map "p"))
-    (define-key map "d"	 'p4-next-depot-diff)
-    (define-key map "u"	 'p4-prev-depot-diff)
+    (define-key map "n" 'diff-hunk-next)
+    (define-key map "N" 'diff-file-next)
+    (define-key map "p" 'diff-hunk-prev)
+    (define-key map "P" 'diff-file-prev)
+    (define-key map "\t" 'diff-hunk-next)
+    (define-key map [backtab] 'diff-hunk-prev)
+    (define-key map "}" 'diff-file-next)
+    (define-key map "{" 'diff-file-prev)
+    (define-key map "\C-m" 'p4-buffer-commands)
+    (define-key map [mouse-2] 'p4-buffer-commands)
+    (define-key map "o" 'p4-buffer-commands)
     map))
 
-(define-derived-mode p4-diff-mode p4-basic-mode "P4 Diff")
+(defvar p4-diff-font-lock-keywords
+  '(("^Change \\([0-9]+\\) by \\(\\S-+\\)@\\(\\S-+\\) on [0-9]+/.*"
+     (1 'p4-change-face) (2 'p4-user-face) (3 'p4-client-face))
+    ("^\\(\\S-+\\) on [0-9]+/[0-9]+/[0-9]+ by \\(\\S-+\\).*"
+     (1 'p4-job-face) (2 'p4-user-face))
+    ("^\t.*" . 'p4-description-face)
+    ("^[A-Z].* \\.\\.\\." . 'p4-heading-face)
+    ("^\\.\\.\\. \\(//[^# \t\n]+\\).*" (1 'p4-filespec-face))
+    ("^==== .* ====$" . 'diff-file-header)))
 
-(defun p4-goto-next-diff ()
-  "Next diff"
-  (interactive)
-  (goto-char (window-start))
-  (if (= (point) (point-max))
-      (error "At bottom"))
-  (forward-line 1)
-  (re-search-forward "^====" nil "")
-  (beginning-of-line)
-  (set-window-start (selected-window) (point)))
-
-(defun p4-goto-prev-diff ()
-  "Previous diff"
-  (interactive)
-  (if (= (point) (point-min))
-      (error "At top"))
-  (goto-char (window-start))
-  (re-search-backward "^====" nil "")
-  (set-window-start (selected-window) (point)))
-
-(defun p4-next-depot-diff ()
-  "Next diff"
-  (interactive)
-  (goto-char (window-start))
-  (if (= (point) (point-max))
-      (error "At bottom"))
-  (forward-line 1)
-  (re-search-forward "^\\(@@\\|\\*\\*\\* \\|[0-9]+[,acd]\\)" nil "")
-  (beginning-of-line)
-  (set-window-start (selected-window) (point)))
-
-(defun p4-prev-depot-diff ()
-  "Previous diff"
-  (interactive)
-  (if (= (point) (point-min))
-      (error "At top"))
-  (goto-char (window-start))
-  (re-search-backward "^\\(@@\\|\\*\\*\\* \\|[0-9]+[,acd]\\)" nil "")
-  (set-window-start (selected-window) (point)))
+(define-derived-mode p4-diff-mode p4-basic-mode "P4 Diff"
+  (use-local-map p4-diff-mode-map)
+  (set (make-local-variable 'diff-file-header-re) "^==== .* ====$")
+  (setq font-lock-defaults diff-font-lock-defaults)
+  (font-lock-add-keywords nil p4-diff-font-lock-keywords))
 
 
 ;;; Annotate mode:
