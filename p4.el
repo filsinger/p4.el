@@ -1451,7 +1451,8 @@ Runs \"sync -f\"."
   (p4-buffer-file-name-args)
   (t)
   (unless args-orig
-    (let* ((diff-args (append (cons "diff" (p4-make-list-from-string p4-default-diff-options)) args)))
+    (let* ((diff-args (append (cons "diff" (p4-make-list-from-string p4-default-diff-options)) args))
+           (inhibit-read-only t))
       (with-current-buffer
           (p4-make-output-buffer (p4-process-buffer-name diff-args))
         (p4-run diff-args)
