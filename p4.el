@@ -1547,9 +1547,8 @@ return a buffer listing those files. Otherwise, return NIL."
 ;;; Output decoration:
 
 (defun p4-create-active-link (start end prop-list)
-  (add-text-properties start end
-                       (append '(face bold mouse-face highlight)
-                       prop-list)))
+  (add-text-properties start end prop-list)
+  (add-text-properties start end '(face bold mouse-face highlight)))
 
 (defun p4-create-active-link-group (group prop-list)
   (p4-create-active-link (match-beginning group) (match-end group) prop-list))
@@ -2231,10 +2230,8 @@ NIL if there is no such completion type."
   (let ((map (make-sparse-keymap)))
     (if (featurep 'xemacs)
         (progn
-          (define-key map [button2] 'p4-buffer-mouse-clicked)
-          (define-key map [button3] 'p4-buffer-mouse-clicked-3))
-      (define-key map [mouse-2] 'p4-buffer-mouse-clicked)
-      (define-key map [mouse-3] 'p4-buffer-mouse-clicked-3))
+          (define-key map [button1] 'p4-buffer-mouse-clicked))
+      (define-key map [mouse-1] 'p4-buffer-mouse-clicked))
     (define-key map "\t" 'p4-forward-active-link)
     (define-key map "\e\t" 'p4-backward-active-link)
     (define-key map [(shift tab)] 'p4-backward-active-link)
@@ -2255,8 +2252,7 @@ NIL if there is no such completion type."
 (define-derived-mode p4-basic-mode nil "P4 Basic")
 
 (defun p4-buffer-mouse-clicked (event)
-  "Function to translate the mouse clicks in a P4 filelog buffer to
-character events"
+  "Call `p4-buffer-commands' at the point clicked on with the mouse."
   (interactive "e")
   (let (win pnt)
     (if (featurep 'xemacs)
@@ -2268,29 +2264,6 @@ character events"
     (select-window win)
     (goto-char pnt)
     (p4-buffer-commands pnt)))
-
-(defun p4-buffer-mouse-clicked-3 (event)
-  "Function to translate the mouse clicks in a P4 filelog buffer to
-character events"
-  (interactive "e")
-  (let (win pnt)
-    (if (featurep 'xemacs)
-        (progn
-          (setq win (event-window event))
-          (setq pnt (event-point event)))
-      (setq win (posn-window (event-end event)))
-      (setq pnt (posn-point (event-start event))))
-    (select-window win)
-    (goto-char pnt)
-    (let ((link-name (or (get-char-property pnt 'link-client-name)
-			 (get-char-property pnt 'link-depot-name)))
-	  (rev (get-char-property pnt 'rev)))
-      (cond (link-name
-	     (p4-diff))
-	    (rev
-	     (p4-diff2 nil (format "%d" rev) "#head"))
-	    (t
-	     (error "No file to diff!"))))))
 
 (defun p4-buffer-commands (pnt)
   "Function to get a given property and do the appropriate command on it"
