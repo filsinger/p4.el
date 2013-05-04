@@ -1369,6 +1369,14 @@ Argument ARG command for which help is needed."
   nil
   (p4-call-command cmd args nil nil nil t))
 
+(defun p4-move-complete-callback (from-file to-file)
+  (lexical-let ((from-file from-file) (to-file to-file))
+    (lambda ()
+      (let ((buffer (get-file-buffer from-file)))
+        (when buffer
+          (with-current-buffer buffer
+            (find-alternate-file to-file)))))))
+
 (defp4cmd p4-move (from-file to-file)
   "move" "To move a file in the depot, type \\[p4-move].
 If the \"move\" command is unavailable, use \"integrate\"
@@ -1380,7 +1388,8 @@ followed by \"delete\"."
   (if (< (p4-server-version) 2009)
       (p4-call-command "integ" (list from-file to-file) nil
                        (lambda () (p4-call-command "delete" (list from-file))))
-    (p4-call-command "move" (list from-file to-file))))
+    (p4-call-command "move" (list from-file to-file) nil 
+                     (p4-move-complete-callback from-file to-file))))
 
 (defalias 'p4-rename 'p4-move)
 
