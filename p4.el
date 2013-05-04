@@ -2236,8 +2236,6 @@ NIL if there is no such completion type."
 ;; Major mode used for most P4 output buffers, and as the parent mode
 ;; for specialized modes below.
 
-(define-derived-mode p4-basic-mode nil "P4 Basic")
-
 (defvar p4-basic-mode-map
   (let ((map (make-sparse-keymap)))
     (if (featurep 'xemacs)
@@ -2262,6 +2260,8 @@ NIL if there is no such completion type."
     (define-key map ">"	 'p4-bottom-of-buffer)
     (define-key map "="	 'delete-other-windows)
     map))
+
+(define-derived-mode p4-basic-mode nil "P4 Basic")
 
 (defun p4-buffer-mouse-clicked (event)
   "Function to translate the mouse clicks in a P4 filelog buffer to
@@ -2427,9 +2427,6 @@ character events"
 ;; labelsync, and reconcile, which consists of a list of lines
 ;; starting with a depot filespec.
 
-(define-derived-mode p4-basic-list-mode p4-basic-mode "P4 Basic List"
-  (setq font-lock-defaults '(p4-basic-list-font-lock-keywords t)))
-
 (defvar p4-basic-list-mode-map
   (let ((map (p4-make-derived-map p4-basic-mode-map)))
     (define-key map "n" 'next-line)
@@ -2443,6 +2440,9 @@ character events"
     ("^\\(//.*\\)#[0-9]+ - branch" 1 'p4-depot-branch-face)
     ("^\\(//.*\\)#[0-9]+ - delete" 1 'p4-depot-delete-face)
     ("^\\(//.*\\)#[0-9]+ - edit" 1 'p4-depot-edit-face)))
+
+(define-derived-mode p4-basic-list-mode p4-basic-mode "P4 Basic List"
+  (setq font-lock-defaults '(p4-basic-list-font-lock-keywords t)))
 
 (defun p4-basic-list-get-filename ()
   (save-excursion
@@ -2462,9 +2462,6 @@ character events"
 ;; This is for the output of p4 status, where each line starts with a
 ;; client filename.
 
-(define-derived-mode p4-status-list-mode p4-basic-list-mode "P4 Status List"
-  (setq font-lock-defaults '(p4-status-list-font-lock-keywords t)))
-
 (defvar p4-status-list-mode-map
   (let ((map (p4-make-derived-map p4-basic-list-mode-map)))
     (define-key map "\C-m" 'p4-status-list-activate)
@@ -2476,6 +2473,9 @@ character events"
     ("^\\(.*\\) - reconcile to delete" 1 'p4-depot-delete-face)
     ("^\\(.*\\) - reconcile to edit" 1 'p4-depot-edit-face)))
 
+(define-derived-mode p4-status-list-mode p4-basic-list-mode "P4 Status List"
+  (setq font-lock-defaults '(p4-status-list-font-lock-keywords t)))
+
 (defun p4-status-list-activate ()
   (interactive)
   (save-excursion
@@ -2485,12 +2485,6 @@ character events"
 
 
 ;;; Form mode:
-
-(define-derived-mode p4-form-mode indented-text-mode "P4 Form"
-  "Major mode for P4 form derived from `indented-text-mode'"
-  (setq fill-column 80
-	indent-tabs-mode t
-	font-lock-defaults '(p4-form-font-lock-keywords t)))
 
 (defvar p4-form-font-lock-keywords
   '(("^#.*$" . 'p4-form-comment-face)
@@ -2502,10 +2496,14 @@ character events"
     map)
   "Keymap for P4 form mode.")
 
+(define-derived-mode p4-form-mode indented-text-mode "P4 Form"
+  "Major mode for P4 form derived from `indented-text-mode'"
+  (setq fill-column 80
+	indent-tabs-mode t
+	font-lock-defaults '(p4-form-font-lock-keywords t)))
+
 
 ;;; Filelog mode:
-
-(define-derived-mode p4-filelog-mode p4-basic-mode "P4 File Log")
 
 (defvar p4-filelog-mode-map
   (let ((map (p4-make-derived-map p4-basic-mode-map)))
@@ -2526,6 +2524,8 @@ character events"
     (define-key map "N" (lookup-key map "p"))
     map)
   "The key map to use for selecting filelog properties.")
+
+(define-derived-mode p4-filelog-mode p4-basic-mode "P4 File Log")
 
 (defun p4-find-file-other-window ()
   "Open/print file"
@@ -2612,8 +2612,6 @@ character events"
 
 ;;; Diff mode:
 
-(define-derived-mode p4-diff-mode p4-basic-mode "P4 Diff")
-
 (defvar p4-diff-mode-map
   (let ((map (p4-make-derived-map p4-basic-mode-map)))
     (define-key map "n"	 'p4-goto-next-diff)
@@ -2622,6 +2620,8 @@ character events"
     (define-key map "d"	 'p4-next-depot-diff)
     (define-key map "u"	 'p4-prev-depot-diff)
     map))
+
+(define-derived-mode p4-diff-mode p4-basic-mode "P4 Diff")
 
 (defun p4-goto-next-diff ()
   "Next diff"
@@ -2666,8 +2666,6 @@ character events"
 
 ;;; Annotate mode:
 
-(define-derived-mode p4-annotate-mode p4-basic-mode "P4 Annotate")
-
 (defvar p4-annotate-mode-map
   (let ((map (p4-make-derived-map p4-basic-mode-map)))
     (define-key map "n"	 'p4-next-change-rev-line)
@@ -2676,6 +2674,8 @@ character events"
     (define-key map "l"	 'p4-toggle-line-wrap)
     map)
   "The key map to use for browsing annotate buffers.")
+
+(define-derived-mode p4-annotate-mode p4-basic-mode "P4 Annotate")
 
 (defun p4-moveto-print-rev-column (old-column)
   (let ((colon (save-excursion
