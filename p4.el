@@ -557,13 +557,14 @@ restore the window configuration."
 
 (defun p4-depot-find-file (filespec)
   (interactive (list (p4-read-arg-string "Enter filespec: " "//" 'filespec)))
-  (p4-with-temp-buffer (list "where" filespec)
-    (cond ((looking-at "//[^ \n]+ - file(s) not in client view")
-           (p4-print (list filespec)))
-          ((looking-at "//[^ \n]+ //[^ \n]+ \\(.*\\)$")
-           (find-file (match-string 1)))
-          (t
-           (error "%s" (buffer-substring (point) (line-end-position)))))))
+  (string-match ".*?\\(?:#[0-9]+\\|@[0-9]\\)?$" filespec)
+  (with-temp-buffer
+    (if (and (not (match-string 1))
+             (zerop (p4-run (list "have" filespec)))
+             (not (looking-at "//[^ \n]+ - file(s) not on client"))
+             (looking-at "//[^ \n]+ - \\(.*\\)$"))
+        (find-file (match-string 1))
+      (p4-print (list filespec)))))
 
 (defun p4-make-derived-map (base-map)
   (let ((map (make-sparse-keymap)))
