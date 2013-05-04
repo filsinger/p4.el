@@ -747,12 +747,12 @@ buffers."
   "Show the current buffer to the user and maybe kill it.
 Return NIL if it was shown in minibuffer and killed, or non-NIL
 if it was shown in a window."
-  (goto-char (point-min))
   (let ((lines (count-lines (point-min) (point-max))))
     (if (or p4-process-after-show-callback (> lines 1))
-        (progn
+        (unless (eq (selected-window) (get-buffer-window (current-buffer)))
           (p4-push-window-config)
-          (display-buffer (current-buffer)))
+          (display-buffer (current-buffer))
+          (p4-move-point-to-top))
       (when (eql lines 1)
         (message (buffer-substring (point) (line-end-position))))
       (kill-buffer (current-buffer))
@@ -761,7 +761,6 @@ if it was shown in a window."
 (defun p4-process-show-error (&rest args)
   "Show the contents of the current buffer as an error message.
 If there's no content in the buffer, pass `args' to error instead."
-  (goto-char (point-min))
   (cond ((eobp)
          (kill-buffer (current-buffer))
          (apply 'error args))
@@ -772,6 +771,7 @@ If there's no content in the buffer, pass `args' to error instead."
         (t
          (p4-push-window-config)
          (display-buffer (current-buffer))
+         (p4-move-point-to-top)
          (apply 'error args))))
 
 (defun p4-process-sentinel (process message)
@@ -779,9 +779,10 @@ If there's no content in the buffer, pass `args' to error instead."
 	(buffer (process-buffer process)))
     (when (buffer-live-p buffer)
       (with-current-buffer buffer
-        (goto-char (point-min))
 	(cond ((and (not p4-process-no-auto-login)
-                    (looking-at p4-no-session-regexp))
+                    (save-excursion
+                      (goto-char (point-min))
+                      (looking-at p4-no-session-regexp)))
                (p4-login)
                (delete-region (point-min) (point-max))
                (p4-process-restart))
@@ -1610,7 +1611,7 @@ return a buffer listing those files. Otherwise, return NIL."
   (p4-create-active-link (match-beginning group) (match-end group) 
                          prop-list help-echo))
 
-(defun p4-move-buffer-point-to-top ()
+(defun p4-move-point-to-top ()
   (let ((w (get-buffer-window (current-buffer))))
     (when w
       (save-selected-window
@@ -1622,39 +1623,39 @@ return a buffer listing those files. Otherwise, return NIL."
                    'p4-activate-file-change-log-buffer))
 
 (defun p4-activate-file-change-log-buffer ()
-  (p4-mark-print-buffer)
-  (goto-char (point-min))
-  (while (re-search-forward (concat
-                             "^\\(\\.\\.\\. #\\([0-9]+\\) \\)?[Cc]hange "
-                             "\\([0-9]+\\) \\([a-z]+\\)?.*on.*by "
-                             "\\([^ @]+\\)@\\([^ \n]+\\).*\n"
-                             "\\(\\(?:\n\\|[ \t].*\n\\)*\\)") nil t)
-    (let* ((rev-match 2)
-           (rev (and (match-string rev-match)
-                     (string-to-number (match-string rev-match))))
-           (ch-match 3)
-           (change (string-to-number (match-string ch-match)))
-           (act-match 4)
-           (action (match-string-no-properties act-match))
-           (user-match 5)
-           (user (match-string-no-properties user-match))
-           (cl-match 6)
-           (client (match-string-no-properties cl-match))
-           (desc-match 7))
-      (when rev
-        (p4-create-active-link-group rev-match `(rev ,rev) "Print revision"))
-      (p4-create-active-link-group ch-match `(change ,change) "Describe change")
-      (when action
-        (p4-create-active-link-group act-match `(action ,action rev ,rev)
-                                     "Show diff"))
-      (p4-create-active-link-group user-match `(user ,user) "Describe user")
-      (p4-create-active-link-group cl-match `(client ,client) "Describe client")
-      (add-text-properties (match-beginning desc-match)
-                           (match-end desc-match)
-                           '(invisible t isearch-open-invisible t))))
-  (p4-find-change-numbers (point-min) (point-max))
-  (setq buffer-invisibility-spec (list))
-  (p4-move-buffer-point-to-top))
+  (save-excursion
+    (p4-mark-print-buffer)
+    (goto-char (point-min))
+    (while (re-search-forward (concat
+                               "^\\(\\.\\.\\. #\\([0-9]+\\) \\)?[Cc]hange "
+                               "\\([0-9]+\\) \\([a-z]+\\)?.*on.*by "
+                               "\\([^ @]+\\)@\\([^ \n]+\\).*\n"
+                               "\\(\\(?:\n\\|[ \t].*\n\\)*\\)") nil t)
+      (let* ((rev-match 2)
+             (rev (and (match-string rev-match)
+                       (string-to-number (match-string rev-match))))
+             (ch-match 3)
+             (change (string-to-number (match-string ch-match)))
+             (act-match 4)
+             (action (match-string-no-properties act-match))
+             (user-match 5)
+             (user (match-string-no-properties user-match))
+             (cl-match 6)
+             (client (match-string-no-properties cl-match))
+             (desc-match 7))
+        (when rev
+          (p4-create-active-link-group rev-match `(rev ,rev) "Print revision"))
+        (p4-create-active-link-group ch-match `(change ,change) "Describe change")
+        (when action
+          (p4-create-active-link-group act-match `(action ,action rev ,rev)
+                                       "Show diff"))
+        (p4-create-active-link-group user-match `(user ,user) "Describe user")
+        (p4-create-active-link-group cl-match `(client ,client) "Describe client")
+        (add-text-properties (match-beginning desc-match)
+                             (match-end desc-match)
+                             '(invisible t isearch-open-invisible t))))
+    (p4-find-change-numbers (point-min) (point-max))
+    (setq buffer-invisibility-spec (list))))
 
 (defvar p4-plaintext-change-regexp
   (concat "\\(?:[#@]\\|number\\|no\\.\\|\\)\\s-*"
@@ -1728,12 +1729,12 @@ argument delete-filespec is non-NIL, remove the first line."
         (unless delete-filespec (insert first-line))))))
 
 (defun p4-mark-print-buffer (&optional print-buffer)
-  (p4-mark-depot-list-buffer print-buffer)
-  (let ((depot-regexp
-         (if print-buffer
-             "^\\(//[^/@# ][^/@#]*/\\)[^@#]+#[0-9]+ - "
-           "^\\(//[^/@# ][^/@#]*/\\)")))
-    (save-excursion
+  (save-excursion
+    (p4-mark-depot-list-buffer print-buffer)
+    (let ((depot-regexp
+           (if print-buffer
+               "^\\(//[^/@# ][^/@#]*/\\)[^@#]+#[0-9]+ - "
+             "^\\(//[^/@# ][^/@#]*/\\)")))
       (goto-char (point-min))
       (while (re-search-forward depot-regexp nil t)
         (let ((link-client-name (get-char-property (match-end 1)
