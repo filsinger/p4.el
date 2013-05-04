@@ -1550,7 +1550,7 @@ return a buffer listing those files. Otherwise, return NIL."
 
 (defun p4-create-active-link (start end prop-list)
   (add-text-properties start end prop-list)
-  (add-text-properties start end '(face bold mouse-face highlight)))
+  (add-text-properties start end '(active t face bold mouse-face highlight)))
 
 (defun p4-create-active-link-group (group prop-list)
   (p4-create-active-link (match-beginning group) (match-end group) prop-list))
@@ -2256,16 +2256,12 @@ NIL if there is no such completion type."
 (defun p4-buffer-mouse-clicked (event)
   "Call `p4-buffer-commands' at the point clicked on with the mouse."
   (interactive "e")
-  (let (win pnt)
-    (if (featurep 'xemacs)
-        (progn
-          (setq win (event-window event))
-          (setq pnt (event-point event)))
-      (setq win (posn-window (event-end event)))
-      (setq pnt (posn-point (event-start event))))
-    (select-window win)
-    (goto-char pnt)
-    (p4-buffer-commands pnt)))
+  (select-window (if (featurep 'xemacs) (event-window event)
+                   (posn-window (event-end event))))
+  (goto-char (if (featurep 'xemacs) (event-point event)
+               (posn-point (event-start event))))
+  (when (get-text-property (point) 'active)
+    (p4-buffer-commands (point))))
 
 (defun p4-buffer-commands (pnt)
   "Function to get a given property and do the appropriate command on it"
