@@ -761,10 +761,10 @@ If there's no content in the buffer, pass `args' to error instead."
 (defun p4-process-restart ()
   "Start a background Perforce process in the current buffer with
 command and arguments taken from the local variable `p4-process-args'."
-  (set-process-sentinel
-   (apply 'start-process "P4" (current-buffer) (p4-executable)
-          p4-process-args)
-   'p4-process-sentinel))
+  (let ((process (apply 'start-process "P4" (current-buffer) (p4-executable)
+                        p4-process-args)))
+    (set-process-query-on-exit-flag process nil)
+    (set-process-sentinel process 'p4-process-sentinel)))
 
 (defun p4-process-buffer-name (args)
   "Return a suitable buffer name for the P4 command."
@@ -914,10 +914,11 @@ client, or NIL if this is not known."
                (let ((args (append '("-s" "have") (cddr p4-process-args))))
                  (with-current-buffer
                      (p4-make-output-buffer (p4-process-buffer-name args))
-                   (set-process-sentinel
-                    (apply 'start-process "P4" (current-buffer)
-                           (p4-executable) args)
-                    'p4-update-status-sentinel-2)))))
+                   (let ((process (apply 'start-process "P4" (current-buffer)
+                                         (p4-executable) args)))
+                     (set-process-query-on-exit-flag process nil)
+                     (set-process-sentinel process
+                                           'p4-update-status-sentinel-2))))))
         (kill-buffer (current-buffer))))))
 
 (defun p4-update-status ()
@@ -930,12 +931,12 @@ on, then `p4-mode-hook' will be run."
     (let ((buffer (current-buffer))
           (args (list "-s" "opened" (p4-buffer-file-name))))
       (with-current-buffer (p4-make-output-buffer (p4-process-buffer-name args))
-        (set-process-sentinel
-         (apply 'start-process "P4" (current-buffer)
-                (p4-executable) args)
-         'p4-update-status-sentinel-1)
-        (setq p4-process-args args
-              p4-process-buffer buffer)))))
+        (let ((process (apply 'start-process "P4" (current-buffer)
+                              (p4-executable) args)))
+          (set-process-query-on-exit-flag process nil)
+          (set-process-sentinel process 'p4-update-status-sentinel-1)
+          (setq p4-process-args args
+                p4-process-buffer buffer))))))
 
 (defun p4-refresh-buffer (&optional prompt)
   "Refresh the current buffer if it is under P4 control.
