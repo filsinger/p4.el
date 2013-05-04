@@ -801,13 +801,13 @@ If `no-auto-login' is non-NIL, don't try logging in if logged out."
           "# Type C-x k to kill current changes.\n"
           "#\n")
   (p4-form-mode)
-  (select-window (get-buffer-window (current-buffer)))
-  (when regexp (re-search-forward regexp nil t))
+  (pop-to-buffer (current-buffer))
   (setq p4-form-commit-command cmd)
   (setq p4-form-committed nil)
   (setq buffer-offer-save t)
   (set-buffer-modified-p nil)
   (setq buffer-read-only nil)
+  (when regexp (re-search-forward regexp nil t))
   (message "C-c C-c to finish editing and exit buffer."))
 
 (defun p4-form-command (cmd &optional args regexp commit-cmd)
@@ -1508,7 +1508,6 @@ return a buffer listing those files. Otherwise, return NIL."
     (when (or (not empty-buf)
               (save-window-excursion
                 (pop-to-buffer empty-buf)
-                (ding t)
                 (yes-or-no-p
                  "File with empty diff opened for edit. Submit anyway? ")))
       (p4-form-command "change" args "Description:\n\t" "submit"))))
