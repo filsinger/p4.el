@@ -1309,7 +1309,7 @@ Argument ARG command for which help is needed."
   "To display list of jobs, type \\[p4-jobs].\n"
   nil
   nil
-  (p4-call-command cmd args))
+  (p4-call-command cmd args nil '(lambda () (p4-find-jobs (point-min) (point-max)))))
 
 (defp4cmd p4-jobspec ()
   "jobspec" "To edit the job template, type \\[p4-jobspec].\n"
@@ -1621,6 +1621,15 @@ clickable."
             (p4-create-active-link-group 1 `(change ,(string-to-number (match-string 1))))
             (goto-char (match-end 0))))))))
 
+(defun p4-find-jobs (start end)
+  (save-excursion
+    (save-restriction
+      (narrow-to-region start end)
+      (goto-char (point-min))
+      (while (re-search-forward "^\\(job[0-9]+\\) on [0-9]+/[0-9]+/[0-9]+ by \\([^ \n]+\\)" nil t)
+        (p4-create-active-link-group 1 `(job ,(match-string 1)))
+        (p4-create-active-link-group 2 `(user ,(match-string 2)))))))
+
 (defun p4-mark-depot-list-buffer (&optional print-buffer)
   (save-excursion
     (let ((depot-regexp
@@ -1703,6 +1712,7 @@ argument delete-filespec is non-NIL, remove the first line."
 (defun p4-activate-diff-buffer ()
   (save-excursion
     (p4-mark-depot-list-buffer)
+    (p4-find-jobs (point-min) (point-max))
     (if p4-colorized-diffs
 	(progn
 	  (p4-buffer-set-face-property "^=.*\n" 'p4-diff-file-face)
@@ -2266,15 +2276,16 @@ NIL if there is no such completion type."
 (defun p4-buffer-commands (pnt)
   "Function to get a given property and do the appropriate command on it"
   (interactive "d")
-  (let ((rev (get-char-property pnt 'rev))
-	(change (get-char-property pnt 'change))
-	(action (get-char-property pnt 'action))
-	(user (get-char-property pnt 'user))
-	(group (get-char-property pnt 'group))
-	(client (get-char-property pnt 'client))
-	(label (get-char-property pnt 'label))
+  (let ((action (get-char-property pnt 'action))
 	(branch (get-char-property pnt 'branch))
-	(filename (p4-buffer-file-name-2)))
+	(change (get-char-property pnt 'change))
+	(client (get-char-property pnt 'client))
+	(filename (p4-buffer-file-name-2))
+	(group (get-char-property pnt 'group))
+	(job (get-char-property pnt 'job))
+	(label (get-char-property pnt 'label))
+	(user (get-char-property pnt 'user))
+        (rev (get-char-property pnt 'rev)))
     (cond ((and (not action) rev)
            (p4-call-command "print" (list (format "%s#%d" filename rev))
                             nil 'p4-activate-print-buffer))
@@ -2290,6 +2301,7 @@ NIL if there is no such completion type."
 	  (client (p4-client client))
 	  (label (p4-label (list label)))
 	  (branch (p4-branch (list branch)))
+	  (job (p4-job job))
 
 	  ;; Check if a "filename link" or an active "diff buffer area" was
 	  ;; selected.
