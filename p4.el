@@ -1222,8 +1222,7 @@ buffer and other-file."
 When visiting a depot file, type \\[p4-ediff2] and enter the versions."
   (interactive
    (let ((rev (or (get-char-property (point) 'rev) p4-vc-revision 0)))
-     (list current-prefix-arg
-           (p4-read-arg-string "First filespec/revision to diff: "
+     (list (p4-read-arg-string "First filespec/revision to diff: "
                                (when (> rev 1) (format "%d" (1- rev))))
 	   (p4-read-arg-string "Second filespec/revision to diff: "
                                (when (> rev 1) (format "%d" rev))))))
