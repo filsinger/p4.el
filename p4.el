@@ -1290,7 +1290,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
 (defp4cmd p4-help (&rest args)
   "help" "To print help message, type \\[p4-help].
 Argument ARG command for which help is needed."
-  (interactive (p4-read-args "p4 help: "))
+  (interactive (p4-read-args "p4 help: " "" 'help))
   (p4-call-command "help" args))
 
 (defp4cmd p4-info ()
@@ -1997,6 +1997,15 @@ With optional argument `group', return that group from each match."
           (p4-output-matches (list "files" (concat string "*"))
                              "^\\(//[^#\n]+\\)#[0-9]+ - " 1)))
 
+(defun p4-fetch-help-completions (completion string)
+  "Fetch help completions for `string' from the depot."
+  (append (p4-output-matches '("help") "^\tp4 help \\([^ \n]+\\)" 1)
+          (p4-output-matches '("help" "commands") "^\t\\([^ \n]+\\)" 1)
+          (p4-output-matches '("help" "administration") "^\t\\([^ \n]+\\)" 1)
+          '("undoc")
+          (p4-output-matches '("help" "undoc")
+                             "^    p4 \\(?:help \\)?\\([a-z0-9]+\\)" 1)))
+
 (defun p4-fetch-completions (completion string)
   "Fetch possible completions for `string' from the depot and
 return them as a list."
@@ -2071,14 +2080,15 @@ update the cache accordingly."
     (setf (p4-completion-arg-completion-fn c) (p4-arg-completion-builder c))
     c))
 
-(defvar p4-arg-string-history nil "History of p4 command-lien arguments.")
-(defvar p4-branch-history nil "History of p4 branches.")
-(defvar p4-client-history nil "History of p4 clients.")
-(defvar p4-filespec-history nil "History of p4 filespecs.")
-(defvar p4-group-history nil "History of p4 groups.")
-(defvar p4-job-history nil "History of p4 jobs.")
-(defvar p4-label-history nil "History of p4 labels.")
-(defvar p4-user-history nil "History of p4 users.")
+(defvar p4-arg-string-history nil "P4 command-line argument history.")
+(defvar p4-branch-history nil "P4 branch history.")
+(defvar p4-client-history nil "P4 client history.")
+(defvar p4-filespec-history nil "P4 filespec history.")
+(defvar p4-group-history nil "P4 group history.")
+(defvar p4-help-history nil "P4 help history.")
+(defvar p4-job-history nil "P4 job history.")
+(defvar p4-label-history nil "P4 label history.")
+(defvar p4-user-history nil "P4 user history.")
 
 (defvar p4-all-completions
   (list
@@ -2098,6 +2108,9 @@ update the cache accordingly."
                     :query-cmd "groups"
                     :regexp "^\\([^ \n]+\\)"
                     :history 'p4-group-history))
+   (cons 'help     (p4-make-completion
+                    :fetch-completions-fn 'p4-fetch-help-completions
+                    :history 'p4-help-history))
    (cons 'job      (p4-make-completion
                     :query-cmd "jobs" :query-prefix "job="
                     :regexp "\\([^ \n]*\\) on [0-9]+/"
