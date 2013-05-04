@@ -23,9 +23,6 @@
 
 ;;; Commentary:
 
-;; NOTES:
-;; ------
-;;
 ;; It is best if you take this file and byte compile it. To do that, you
 ;; need to do the following:
 ;;
@@ -43,13 +40,9 @@
 
 ;;; Code:
 
-(require 'comint)
-(require 'dired)
-(require 'easymenu)
-(require 'ediff)
-(require 'timer)
-(eval-when-compile
-  (require 'cl))
+(require 'comint)                       ; for comint-check-proc
+(require 'dired)                        ; for dired-get-filename
+(eval-when-compile (require 'cl))       ; for defstruct, loop, dolist, ...
 
 (defvar p4-emacs-version "10.8" "The Current P4-Emacs Integration Revision.")
 
@@ -123,6 +116,17 @@ the completion behavior of `p4-set-client-name'.
 ;; This is also set by the command `p4-toggle-vc-mode'.
 (defcustom p4-do-find-file t
   "If non-nil, the `p4-find-file-hook' will run when opening files."
+  :type 'boolean
+  :group 'p4)
+
+(defcustom p4-cleanup-time 600
+  "Time in seconds after which a completion cache becomes stale."
+  :type 'integer
+  :group 'p4)
+
+(defcustom p4-cleanup-cache t
+  "If this is non-NIL, completion cache entires will become stale
+after `p4-cleanup-time' seconds."
   :type 'boolean
   :group 'p4)
 
@@ -260,19 +264,6 @@ NIL if file is not known to be under control of P4.
 The buffer's local variables (if any) will have been processed before the
 functions are called.")
 
-(defvar p4-timer nil "Timer object that will be set to cleanup the caches
-periodically.")
-
-(defcustom p4-cleanup-time 600 "seconds after which `p4-cache-cleanup' will
-check for dirty caches."
-  :type 'integer
-  :group 'p4)
-
-(defcustom p4-cleanup-cache t "`p4-cache-cleanup' will cleanup the
-branches/clients/dirs/labels caches once in a while if this is non-nil."
-  :type 'boolean
-  :group 'p4)
-
 
 ;;; Keymap:
 
@@ -394,10 +385,7 @@ branches/clients/dirs/labels caches once in a while if this is non-nil."
     )
   "The P4 menu definition")
 
-(easy-menu-add-item nil '("tools")
-		    (easy-menu-create-menu "P4" p4-menu-spec)
-		    "Version Control")
-
+(easy-menu-change '("tools") "P4" p4-menu-spec "Version Control")
 
 ;;; Environment:
 
@@ -456,9 +444,9 @@ the current client."
 		(completing-read "Change Client to: "
 				 (if p4-my-clients
 				     p4-my-clients
-				   'p4-clients-completion)
+				   'p4-client-completion)
 				 nil p4-strict-complete (p4-current-client)
-				 'p4-clients-history)
+				 'p4-client-history)
 		))
   (if (or (null p4-new-client-name) (equal p4-new-client-name "nil"))
       (progn
@@ -521,8 +509,8 @@ To set your clients using your .emacs, use the following:
     (read-string "Change server:port to: " (getenv "P4PORT"))))
   (setenv "P4PORT" new-p4-port)
   (if new-p4-port
-      (message "P4PORT unset.")
-    (message "P4PORT=%s" new-p4-port)))
+      (message "P4PORT=%s" new-p4-port)
+    (message "P4PORT unset.")))
 
 
 ;;; Window configuration:
@@ -568,10 +556,7 @@ restore the window configuration."
     (p4-depot-find-file depot-name)))
 
 (defun p4-depot-find-file (filespec)
-  (interactive (list (completing-read "Enter filespec: "
-				      'p4-depot-completion
-				      nil nil "//"
-				      'p4-depot-filespec-history)))
+  (interactive (list (p4-read-arg-string "Enter filespec: " "//" 'filespec)))
   (p4-with-temp-buffer (list "where" filespec)
     (cond ((looking-at "//[^ \n]+ - file(s) not in client view")
            (p4-print (list filespec)))
@@ -590,6 +575,17 @@ restore the window configuration."
   (forward-line (1- line)))
 
 (defun p4-join-list (list) (mapconcat 'identity list " "))
+
+;; Break up a string into a list of words
+;; (p4-make-list-from-string "ab c de  f") -> ("ab" "c" "de" "f")
+(defun p4-make-list-from-string (str)
+  (let (lst)
+    (while (or (string-match "^ *\"\\([^\"]*\\)\"" str)
+	       (string-match "^ *\'\\([^\']*\\)\'" str)
+	       (string-match "^ *\\([^ ]+\\)" str))
+      (setq lst (append lst (list (match-string 1 str))))
+      (setq str (substring str (match-end 0))))
+    lst))
 
 (defun p4-force-mode-line-update ()
   "Force the mode line update for different flavors of Emacs."
@@ -628,6 +624,11 @@ restore the window configuration."
           (replace-in-string (exec-to-string (format "%s -w %s" p4-cygpath-exec name)) "\n" "")
         (replace-regexp-in-string "\n" "" (shell-command-to-string (format "%s -w %s" p4-cygpath-exec name))))
     name))
+
+(defun p4-startswith (string prefix)
+  "Return non-NIL if `string' starts with `prefix'."
+  (let ((l (length prefix)))
+    (and (>= (length string) l) (string-equal (substring string 0 l) prefix))))
 
 
 ;;; Running Perforce:
@@ -689,15 +690,6 @@ the output, and evaluate BODY if the command completed successfully."
   `(with-temp-buffer (when (zerop (p4-run ,args)) ,@body)))
 
 (put 'p4-with-temp-buffer 'lisp-indent-function 1)
-
-(defun p4-output-matches (args regexp &optional group)
-  "Run p4 ARGS and return a list of matches for REGEXP in the output.
-With optional argument GROUP, return that matched group."
-  (p4-with-temp-buffer args
-    (let (result)
-      (while (re-search-forward regexp nil t)
-        (push (match-string (or group 0)) result))
-      (nreverse result))))
 
 (defun p4-refresh-callback (&optional revert all-buffers)
   "Return a callback function that refreshes the status of the
@@ -863,7 +855,7 @@ standard input\). If not supplied, cmd is reused."
           (with-current-buffer buffer
             (p4-process-show-output)
             (p4-quit-current-buffer)
-            (p4-partial-cache-cleanup cmd)
+            (p4-partial-cache-cleanup (intern cmd))
             (when (string= cmd "submit")
               (p4-refresh-buffers))))
       (p4-process-show-error "%s -i failed to complete successfully." cmd))))
@@ -1002,17 +994,6 @@ making the file writable and write protected."
 	    (setq mode (logior mode 128)))
 	  (set-file-modes buffer-file-name mode))))))
 
-;; Break up a string into a list of words
-;; (p4-make-list-from-string "ab c de  f") -> ("ab" "c" "de" "f")
-(defun p4-make-list-from-string (str)
-  (let (lst)
-    (while (or (string-match "^ *\"\\([^\"]*\\)\"" str)
-	       (string-match "^ *\'\\([^\']*\\)\'" str)
-	       (string-match "^ *\\([^ ]+\\)" str))
-      (setq lst (append lst (list (match-string 1 str))))
-      (setq str (substring str (match-end 0))))
-    lst))
-
 
 ;;; Defining Perforce command interfaces:
 
@@ -1105,7 +1086,7 @@ twice in the expansion."
   "branch" "Edit a P4-BRANCH specification using \\[p4-branch]."
   (interactive (list
 		(p4-make-list-from-string
-		 (p4-read-arg-string "p4 branch: " "" "branch"))))
+		 (p4-read-arg-string "p4 branch: " "" 'branch))))
   (if (or (null args) (equal args (list "")))
       (error "Branch must be specified!")
     (p4-form-command "branch" args "Description:\n\t")))
@@ -1132,7 +1113,7 @@ twice in the expansion."
 
 (defp4cmd p4-client (&rest args)
   "client" "To edit a client specification, type \\[p4-client].\n"
-  (interactive (p4-read-args* "p4 client: " "" "client"))
+  (interactive (p4-read-args* "p4 client: " "" 'client))
   (p4-form-command "client" args "\\(Description\\|View\\):\n\t"))
 
 (defp4cmd* clients ()
@@ -1274,7 +1255,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
 
 (defp4cmd p4-fix (&rest args)
   "fix" "To mark jobs as being fixed by a changelist number, type \\[p4-fix].\n"
-  (interactive (p4-read-args "p4 fix: " "" "job"))
+  (interactive (p4-read-args "p4 fix: " "" 'job))
   (p4-call-command "fix" args))
 
 (defp4cmd* fixes ()
@@ -1285,12 +1266,12 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
 
 (defp4cmd p4-group (&rest args)
   "group" "To create or edit a group specification, type \\[p4-group].\n"
-  (interactive (p4-read-args* "p4 group: " "" "group"))
+  (interactive (p4-read-args* "p4 group: " "" 'group))
   (p4-form-command "group" args))
 
 (defp4cmd p4-groups (&rest args)
   "groups" "To display list of known groups, type \\[p4-groups].\n"
-  (interactive (p4-read-args* "p4 groups: " "" "group"))
+  (interactive (p4-read-args* "p4 groups: " "" 'group))
   (p4-call-command "groups" args nil
 		   (lambda ()
 		     (p4-regexp-create-links "^\\(.*\\)\n" 'group))))
@@ -1319,7 +1300,7 @@ Argument ARG command for which help is needed."
 
 (defp4cmd p4-job (&rest args)
   "job" "To create or edit a job, type \\[p4-job].\n"
-  (interactive (p4-read-args* "p4 job: " "" "job"))
+  (interactive (p4-read-args* "p4 job: " "" 'job))
   (p4-form-command "job" args "Description:\n\t"))
 
 (defp4cmd* jobs ()
@@ -1335,7 +1316,7 @@ Argument ARG command for which help is needed."
 
 (defp4cmd p4-label (&rest args)
   "label" "Edit a P4-label specification using \\[p4-label].\n"
-  (interactive (p4-read-args* "p4 label: " "" "label"))
+  (interactive (p4-read-args "p4 label: " "" 'label))
   (if args
       (p4-form-command "label" args "Description:\n\t")
     (error "label must be specified!")))
@@ -1546,12 +1527,12 @@ return a buffer listing those files. Otherwise, return NIL."
 
 (defp4cmd p4-user (&rest args)
   "user" "To create or edit a user specification, type \\[p4-user].\n"
-  (interactive (p4-read-args* "p4 user: " "" "user"))
+  (interactive (p4-read-args* "p4 user: " "" 'user))
   (p4-form-command "user" args))
 
 (defp4cmd p4-users (&rest args)
   "users" "To display list of known users, type \\[p4-users].\n"
-  (interactive (p4-read-args* "p4 users: " "" "user"))
+  (interactive (p4-read-args* "p4 users: " "" 'user))
   (p4-call-command "users" args nil
 		   (lambda ()
 		     (p4-regexp-create-links "^\\([^ ]+\\).*\n" 'user))))
@@ -1980,248 +1961,178 @@ only be used when p4 annotate is unavailable."
 
 ;;; Completion:
 
-(defvar p4-depot-filespec-history nil
-  "History for p4-depot filespecs.")
+(defstruct p4-completion
+  cache                ; association list mapping query to list of results.
+  cache-exact          ; cache lookups must be exact (not prefix matches).
+  history              ; symbol naming the history variable.
+  query-cmd            ; p4 command to fetch completions from depot.
+  query-arg            ; p4 command argument to put before the query string.
+  query-prefix         ; string to prepend to the query string.
+  regexp               ; regular expression matching results in p4 output.
+  fetch-completions-fn ; function to fetch completions from the depot.
+  completion-fn        ; function to do the completion.
+  arg-completion-fn)   ; function to do completion in arg list context.
 
-(defvar p4-depot-completion-cache nil
-  "Cache for `p4-depot-completion'.
-It is a list of lists whose car is a filespec and
-cdr is the list of anwers")
+(defun p4-output-matches (args regexp &optional group)
+  "Run p4 `args' and return a list of matches for `regexp' in the output.
+With optional argument `group', return that group from each match."
+  (p4-with-temp-buffer args
+    (let (result)
+      (while (re-search-forward regexp nil t)
+        (push (match-string (or group 0)) result))
+      (nreverse result))))
 
-(defvar p4-branches-history nil
-  "History for p4 clients.")
+(defun p4-fetch-filespec-completions (completion string)
+  "Fetch file and directory completions for `string' from the depot."
+  (append (loop for dir in (p4-output-matches (list "dirs" (concat string "*"))
+                                              "^//[^ \n]+$")
+                collect (concat dir "/"))
+          (p4-output-matches (list "files" (concat string "*"))
+                             "^\\(//[^#\n]+\\)#[0-9]+ - " 1)))
 
-(defvar p4-branches-completion-cache nil
-  "Cache for `p4-depot-completion'.
-It is a list of lists whose car is a client and
-cdr is the list of answers??")
+(defun p4-fetch-completions (completion string)
+  "Fetch possible completions for `string' from the depot and
+return them as a list."
+  (let* ((cmd (p4-completion-query-cmd completion))
+         (arg (p4-completion-query-arg completion))
+         (prefix (p4-completion-query-prefix completion))
+         (regexp (p4-completion-regexp completion))
+         (have-string (> (length string) 0))
+         (args (append (list cmd) (and arg have-string (list arg))
+                       (and (or arg prefix) have-string
+                            (list (concat prefix string "*"))))))
+    (p4-output-matches args regexp 1)))
 
-(defvar p4-clients-history nil
-  "History for p4 clients.")
+(defun p4-completion-purge-cache (completion)
+  "Remove stale entries from the cache for `completion'."
+  (let ((stale (time-subtract (current-time)
+                              (seconds-to-time p4-cleanup-time))))
+    (setf (p4-completion-cache completion)
+          (loop for c in (p4-completion-cache completion)
+                when (time-less-p stale (cadr c))
+                collect c))))
 
-(defvar p4-clients-completion-cache nil
-  "Cache for `p4-depot-completion'.
-It is a list of lists whose car is a client and
-cdr is the list of answers??")
+(defun p4-complete (completion string)
+  "Return list of items that are possible completions for `string'.
+Use the cache if available, otherwise fetch them from the depot and
+update the cache accordingly."
+  (p4-completion-purge-cache completion)
+  (let* ((cache (p4-completion-cache completion))
+         (cached (assoc string cache)))
+    ;; Exact cache hit?
+    (if cached (cddr cached)
+      ;; Any hit on a prefix (unless :cache-exact)
+      (or (and (not (p4-completion-cache-exact completion))
+               (loop for (query timestamp . results) in cache
+                     for best-results = nil
+                     for best-length = -1
+                     for l = (length query)
+                     when (and (> l best-length) (p4-startswith string query))
+                     do (setq best-length l best-results results)
+                     finally return best-results))
+          ;; Fetch from depot and update cache.
+          (let* ((fetch-fn (or (p4-completion-fetch-completions-fn completion)
+                               'p4-fetch-completions))
+                 (results (funcall fetch-fn completion string))
+                 (timestamp (current-time)))
+            (push (cons string (cons timestamp results))
+                  (p4-completion-cache completion))
+            results)))))
 
-(defvar p4-jobs-completion-cache nil
-  "Cache for `p4-depot-completion'.
-It is a list of lists whose car is a job and
-cdr is the list of answers??")
+(defun p4-completion-builder (completion)
+  (lexical-let ((completion completion))
+    (completion-table-dynamic
+     (lambda (string) (p4-complete completion string)))))
 
-(defvar p4-labels-history nil
-  "History for p4 clients.")
+(defun p4-arg-completion-builder (completion)
+  (lexical-let ((completion completion))
+    (lambda (string predicate action)
+      (string-match "^\\(\\(?:.* \\)?\\)\\([^ ]*\\)$" string)
+      (let* ((first (match-string 1 string))
+             (remainder (match-string 2 string))
+             (f (p4-completion-completion-fn completion))
+             (completions (unless (string-match "^-" remainder)
+                            (funcall f remainder predicate action))))
+       (if (and (null action)             ; try-completion
+                (stringp completions))
+           (concat first completions)
+         completions)))))
 
-(defvar p4-labels-completion-cache nil
-  "Cache for `p4-depot-completion'.
-It is a list of lists whose car is a label and
-cdr is the list of answers??")
+(defun p4-make-completion (&rest args)
+  (let* ((c (apply 'make-p4-completion args)))
+    (setf (p4-completion-completion-fn c) (p4-completion-builder c))
+    (setf (p4-completion-arg-completion-fn c) (p4-arg-completion-builder c))
+    c))
 
-(defvar p4-users-completion-cache nil
-  "Cache for `p4-depot-completion'.
-It is a list of lists whose car is a user and
-cdr is the list of answers??")
+(defvar p4-arg-string-history nil "History of p4 command-lien arguments.")
+(defvar p4-branch-history nil "History of p4 branches.")
+(defvar p4-client-history nil "History of p4 clients.")
+(defvar p4-filespec-history nil "History of p4 filespecs.")
+(defvar p4-group-history nil "History of p4 groups.")
+(defvar p4-job-history nil "History of p4 jobs.")
+(defvar p4-label-history nil "History of p4 labels.")
+(defvar p4-user-history nil "History of p4 users.")
 
-(defvar p4-groups-completion-cache nil
-  "Cache for `p4-depot-completion'.
-It is a list of lists whose car is a group and
-cdr is the list of answers??")
+(defvar p4-all-completions
+  (list
+   (cons 'branch   (p4-make-completion
+                    :query-cmd "branches" :query-arg "-E"
+                    :regexp "^Branch \\([^ \n]*\\) [0-9]+/"
+                    :history 'p4-branch-history))
+   (cons 'client   (p4-make-completion
+                    :query-cmd "clients" :query-arg "-E"
+                    :regexp "^Client \\([^ \n]*\\) [0-9]+/"
+                    :history 'p4-client-history))
+   (cons 'filespec (p4-make-completion
+                    :cache-exact t
+                    :fetch-completions-fn 'p4-fetch-filespec-completions
+                    :history 'p4-filespec-history))
+   (cons 'group    (p4-make-completion
+                    :query-cmd "groups"
+                    :regexp "^\\([^ \n]+\\)"
+                    :history 'p4-group-history))
+   (cons 'job      (p4-make-completion
+                    :query-cmd "jobs" :query-prefix "job="
+                    :regexp "\\([^ \n]*\\) on [0-9]+/"
+                    :history 'p4-job-history))
+   (cons 'label    (p4-make-completion
+                    :query-cmd "labels" :query-arg "-E"
+                    :regexp "^Label \\([^ \n]*\\) [0-9]+/"
+                    :history 'p4-label-history))
+   (cons 'user     (p4-make-completion
+                    :query-cmd "users" :query-prefix ""
+                    :regexp "^\\([^ \n]+\\)"
+                    :history 'p4-user-history))))
 
-(defvar p4-arg-string-history nil
-  "History for p4 command arguments")
+(defun p4-get-completion (completion-type &optional noerror)
+  "Return the p4-completion structure for `completion-type', or
+NIL if there is no such completion type."
+  (let ((res (assq completion-type p4-all-completions)))
+    (when (not (or noerror res))
+      (error "Unsupported completion type %s" completion-type))
+    (cdr res)))
 
-(defun p4-depot-completion-search (filespec cmd)
-  "Look into `p4-depot-completion-cache' for filespec.
-Filespec is the candidate for completion, so the
-exact file specification is \"filespec*\".
+(defun p4-cache-cleanup ()
+  "Empty all the completion caches."
+  (loop for (type . completion) in p4-all-completions
+        do (setf (p4-completion-cache completion) nil)))
 
-If found in cache, return a list whose car is FILESPEC and cdr is the list
-of matches.
-If not found in cache, return nil.
-So the 'no match' answer is different from 'not in cache'."
-  (let ((l (cond
-	    ((equal cmd "branches") p4-branches-completion-cache)
-	    ((equal cmd "clients") p4-clients-completion-cache)
-	    ((equal cmd "dirs") p4-depot-completion-cache)
-	    ((equal cmd "jobs") p4-jobs-completion-cache)
-	    ((equal cmd "labels") p4-labels-completion-cache)
-	    ((equal cmd "users") p4-users-completion-cache)
-	    ((equal cmd "groups") p4-groups-completion-cache)))
-	dir list)
-
-    (if (and p4-cleanup-cache (not p4-timer))
-	(setq p4-timer
-              (if (featurep 'xemacs)
-                  (add-timeout p4-cleanup-time 'p4-cache-cleanup nil nil)
-                (run-at-time p4-cleanup-time nil 'p4-cache-cleanup))))
-    (while l
-      (if (string-match (concat "^" (car (car l)) "[^/]*$") filespec)
-	  (progn
-	    ;; filespec is included in cache
-	    (if (string= (car (car l)) filespec)
-		(setq list (cdr (car l)))
-	      (setq dir (cdr (car l)))
-	      (while dir
-		(if (string-match (concat "^" filespec) (car dir))
-		    (setq list (cons (car dir) list)))
-		(setq dir (cdr dir))))
-	    (setq l nil
-		  list (cons filespec list))))
-      (setq l (cdr l)))
-    list))
-
-(defun p4-cache-cleanup (&optional arg)
-  "Cleanup all the completion caches."
-  (message "Cleaning up the p4 caches ...")
-  (setq p4-branches-completion-cache nil)
-  (setq p4-clients-completion-cache nil)
-  (setq p4-depot-completion-cache nil)
-  (setq p4-jobs-completion-cache nil)
-  (setq p4-labels-completion-cache nil)
-  (setq p4-users-completion-cache nil)
-  (setq p4-groups-completion-cache nil)
-  (if (featurep 'xemacs)
-      (when p4-timer (disable-timeout p4-timer))
-    (when (timerp p4-timer) (cancel-timer p4-timer)))
-  (setq p4-timer nil)
-  (message "Cleaning up the p4 caches ... done."))
-
-(defun p4-partial-cache-cleanup (type)
+(defun p4-partial-cache-cleanup (completion-type)
   "Cleanup a specific completion cache."
-  (cond ((string= type "branch")
-	 (setq p4-branches-completion-cache nil))
-	((string= type "client")
-	 (setq p4-clients-completion-cache nil))
-	((or (string= type "submit") (string= type "change"))
-	 (setq p4-depot-completion-cache nil))
-	((string= type "job")
-	 (setq p4-jobs-completion-cache nil))
-	((string= type "label")
-	 (setq p4-labels-completion-cache nil))
-	((string= type "user")
-	 (setq p4-users-completion-cache nil))
-	((string= type "group")
-	 (setq p4-groups-completion-cache nil))))
+  (let ((completion (p4-get-completion completion-type 'noerror))) 
+    (when completion (setf (p4-completion-cache completion) nil))))
 
-(defun p4-completion-helper (spec cmd var regexp)
-  "Run p4 CMD, collect strings from output matching group 1 in REGEXP,
-push SPEC onto the front of the list, assign the list to VAR, and
-return the list."
-  (let ((list (p4-output-matches (list cmd) regexp 1)))
-    (set var (cons (cons spec list) (eval var)))
-    list))
-
-(defun p4-depot-completion-build (spec cmd)
-  "Return list of depot objects beginning with SPEC that are
-suitable for passing to CMD."
-  (message "Making %s completion list..." cmd)
-  (let (output-buffer line list)
-    (cond
-     ((equal cmd "branches")
-      (setq list (p4-completion-helper
-		  spec cmd 'p4-branches-completion-cache
-		  "^Branch \\([^ \n]*\\) [0-9]+/")))
-     ((equal cmd "clients")
-      (setq list (p4-completion-helper
-		  spec cmd 'p4-clients-completion-cache
-		  "^Client \\([^ \n]*\\) [0-9]+/")))
-     ((equal cmd "dirs")
-      (setq list
-            (append (p4-output-matches (list "dirs" (concat spec "*"))
-                                       "^//[^ \n]+$")
-                    (p4-output-matches (list "files" (concat spec "*"))
-                                       "^\\(//[^#\n]+\\)#[0-9]+ - " 1)))
-      (push (cons spec list) p4-depot-completion-cache))
-     ((equal cmd "jobs")
-      (setq list (p4-completion-helper
-		  spec cmd 'p4-jobs-completion-cache
-		  "\\([^ \n]*\\) on [0-9]+/")))
-     ((equal cmd "labels")
-      (setq list (p4-completion-helper
-		  spec cmd 'p4-labels-completion-cache
-		  "^Label \\([^ \n]*\\) [0-9]+/")))
-     ((equal cmd "users")
-      (setq list (p4-completion-helper
-		  spec cmd 'p4-users-completion-cache
-		  "^\\([^ \n]+\\)")))
-     ((equal cmd "groups")
-      (setq list (p4-completion-helper
-		  spec cmd 'p4-groups-completion-cache
-		  "^\\([^ \n]+\\)"))))
-    (message nil)
-    (cons spec list)))
-
-(defun p4-completion-builder (type)
-  `(lambda (string predicate action)
-     ,(concat "Completion function for Perforce " type ".
-
-Using the mouse in completion buffer on a client will select it
-and exit, unlike standard selection. This is because
-`choose-completion-string' (in simple.el) has a special code for
-file name selection.")
-     (let (list)
-       ,(if (string= type "dirs")
-	    ;; when testing for an exact match, remove trailing /
-	    `(if (and (eq action 'lambda)
-		      (eq (aref string (1- (length string))) ?/))
-		 (setq string (substring string 0 (1- (length string))))))
-
-       ;; First, look in cache
-       (setq list (p4-depot-completion-search string ,type))
-
-       ;; If not found in cache, build list.
-       (if (not list)
-	   (setq list (p4-depot-completion-build string ,type)))
-
-       (cond
-	;; try completion
-	((null action)
-	 (try-completion string (mapcar 'list (cdr list)) predicate))
-	;; all completions
-	((eq action t)
-	 (let ((lst
-		(all-completions string (mapcar 'list (cdr list)) predicate)))
-	   ,(if (string= type "dirs")
-		`(setq lst (mapcar (lambda (s)
-				     (if (string-match ".*/\\(.+\\)" s)
-					 (match-string 1 s)
-				       s))
-				   lst)))
-	   lst))
-	;; Test for an exact match
-	(t
-	 (and (>= (length list) 2)
-	      (member (car list) (cdr list))))))))
-
-(defalias 'p4-branches-completion (p4-completion-builder "branches"))
-(defalias 'p4-clients-completion (p4-completion-builder "clients"))
-(defalias 'p4-depot-completion (p4-completion-builder "dirs"))
-(defalias 'p4-jobs-completion (p4-completion-builder "jobs"))
-(defalias 'p4-labels-completion (p4-completion-builder "labels"))
-(defalias 'p4-users-completion (p4-completion-builder "users"))
-(defalias 'p4-groups-completion (p4-completion-builder "groups"))
-
-(defun p4-read-arg-string (prompt &optional initial type)
-  (let ((minibuffer-local-completion-map
-	 (copy-keymap minibuffer-local-completion-map)))
+(defun p4-read-arg-string (prompt &optional initial-input completion-type)
+  (let* ((completion (and completion-type (p4-get-completion completion-type)))
+         (completion-fn (if completion-type 
+                            (p4-completion-arg-completion-fn completion)
+                          'p4-arg-string-completion))
+         (history (if completion-type (p4-completion-history completion)
+                    'p4-arg-string-history))
+         (minibuffer-local-completion-map
+          (copy-keymap minibuffer-local-completion-map)))
     (define-key minibuffer-local-completion-map " " 'self-insert-command)
-    (completing-read prompt
-		     (cond ((not type)
-			    'p4-arg-string-completion)
-			   ((string= type "branch")
-			    'p4-branch-string-completion)
-			   ((string= type "client")
-			    'p4-client-string-completion)
-			   ((string= type "label")
-			    'p4-label-string-completion)
-			   ((string= type "job")
-			    'p4-job-string-completion)
-			   ((string= type "user")
-			    'p4-user-string-completion)
-			   ((string= type "group")
-			    'p4-group-string-completion))
-		     nil nil
-		     initial 'p4-arg-string-history)))
+    (completing-read prompt completion-fn nil nil initial-input history)))
 
 (defun p4-read-args (prompt &optional initial-input completion-type)
   (p4-make-list-from-string
@@ -2233,6 +2144,10 @@ file name selection.")
        (p4-read-arg-string prompt initial-input completion-type)
      initial-input)))
 
+(defun p4-arg-complete (completion-type &rest args)
+  (let ((completion (p4-get-completion completion-type)))
+    (apply (p4-completion-arg-completion-fn completion) args)))
+
 (defun p4-arg-string-completion (string predicate action)
   (let ((first-part "") completion)
     (if (string-match "^\\(.* +\\)\\(.*\\)" string)
@@ -2240,16 +2155,16 @@ file name selection.")
 	  (setq first-part (match-string 1 string))
 	  (setq string (match-string 2 string))))
     (cond ((string-match "-b +$" first-part)
-	   (setq completion (p4-branches-completion string predicate action)))
+	   (setq completion (p4-arg-complete 'branch string predicate action)))
 	  ((string-match "-t +$" first-part)
 	   (setq completion (p4-list-completion
 			     string (list "text " "xtext " "binary "
 					  "xbinary " "symlink ")
 			     predicate action)))
 	  ((string-match "-j +$" first-part)
-	   (setq completion (p4-jobs-completion string predicate action)))
+	   (setq completion (p4-arg-complete 'job string predicate action)))
 	  ((string-match "-l +$" first-part)
-	   (setq completion (p4-labels-completion string predicate action)))
+	   (setq completion (p4-arg-complete 'label string predicate action)))
 	  ((string-match "\\(.*status=\\)\\(.*\\)" string)
 	   (setq first-part (concat first-part (match-string 1 string)))
 	   (setq string (match-string 2 string))
@@ -2260,7 +2175,7 @@ file name selection.")
 	       (string-match "\\(.*@\\)\\(.*\\)" string))
 	   (setq first-part (concat first-part (match-string 1 string)))
 	   (setq string (match-string 2 string))
-	   (setq completion (p4-labels-completion string predicate action)))
+	   (setq completion (p4-arg-complete 'label string predicate action)))
 	  ((string-match "\\(.*#\\)\\(.*\\)" string)
 	   (setq first-part (concat first-part (match-string 1 string)))
 	   (setq string (match-string 2 string))
@@ -2268,7 +2183,7 @@ file name selection.")
 			     string (list "none" "head" "have")
 			     predicate action)))
 	  ((string-match "^//" string)
-	   (setq completion (p4-depot-completion string predicate action)))
+	   (setq completion (p4-arg-complete 'filespec string predicate action)))
 	  ((string-match "\\(^-\\)\\(.*\\)" string)
 	   (setq first-part (concat first-part (match-string 1 string)))
 	   (setq string (match-string 2 string))
@@ -2280,16 +2195,11 @@ file name selection.")
 					  "sd " "se " "sr " "t " "v ")
 			     predicate action)))
 	  (t
-	   (setq completion (p4-file-name-completion string
-						     predicate action))))
-    (cond ((null action)                ; try-completion
-	   (if (stringp completion)
-	       (concat first-part completion)
-	     completion))
-	  ((eq action t)                ; all-completions
-	   completion)
-	  (t                            ; exact match
-	   completion))))
+	   (setq completion (p4-file-name-completion 'filespec string predicate action))))
+    (if (and (null action)              ; try-completion
+             (stringp completion))
+        (concat first-part completion)
+      completion)))
 
 (defun p4-list-completion (string lst predicate action)
   (let ((collection (mapcar 'list lst)))
@@ -2319,45 +2229,6 @@ file name selection.")
 	   (file-name-all-completions string dir-path))
 	  (t
 	   (eq (file-name-completion string dir-path) t)))))
-
-(defun p4-string-completion-builder (completion-function)
-  `(lambda (string predicate action)
-     (let ((first-part "") completion)
-       (if (string-match "^\\(.* +\\)\\(.*\\)" string)
-	   (progn
-	     (setq first-part (match-string 1 string))
-	     (setq string (match-string 2 string))))
-       (cond ((string-match "^-" string)
-	      (setq completion nil))
-	     (t
-	      (setq completion
-		    (,completion-function string predicate action))))
-       (cond ((null action)             ; try-completion
-	      (if (stringp completion)
-		  (concat first-part completion)
-		completion))
-	     ((eq action t)             ; all-completions
-	      completion)
-	     (t                         ; exact match
-	      completion)))))
-
-(defalias 'p4-branch-string-completion (p4-string-completion-builder
-					'p4-branches-completion))
-
-(defalias 'p4-client-string-completion (p4-string-completion-builder
-					'p4-clients-completion))
-
-(defalias 'p4-job-string-completion (p4-string-completion-builder
-				     'p4-jobs-completion))
-
-(defalias 'p4-label-string-completion (p4-string-completion-builder
-				       'p4-labels-completion))
-
-(defalias 'p4-user-string-completion (p4-string-completion-builder
-				      'p4-users-completion))
-
-(defalias 'p4-group-string-completion (p4-string-completion-builder
-				      'p4-groups-completion))
 
 
 ;;; Basic mode:
