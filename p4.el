@@ -1492,12 +1492,12 @@ return a buffer listing those files. Otherwise, return NIL."
         (progn (kill-buffer (current-buffer)) nil)
       (current-buffer))))
 
-(defp4cmd p4-submit (args)
+(defp4cmd p4-submit (&rest args)
   "submit" "To submit a pending change to the depot, type \\[p4-submit].\n"
   (interactive
    (if (integerp current-prefix-arg)
        (list (format "%d" current-prefix-arg))
-     (p4-make-list-from-string (p4-read-arg-string "p4 change: "))))
+     (p4-read-args* "p4 change: " "")))
   (p4-with-temp-buffer (list "-s" "opened")
     (unless (re-search-forward "^info: " nil t)
       (error "Files not opened on this client.")))
