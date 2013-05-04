@@ -2331,9 +2331,7 @@ NIL if there is no such completion type."
 		     (beginning-of-line)
 		     (goto-char (+ (point) c)))
 		 (p4-find-file-or-print-other-window
-		  block-client-name block-depot-name)))
-	      (t
-	       (error "There is no file at that cursor location!"))))))))
+		  block-client-name block-depot-name)))))))))
 
 (defun p4-forward-active-link ()
   (interactive)
