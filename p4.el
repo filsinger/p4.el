@@ -1548,9 +1548,12 @@ return a buffer listing those files. Otherwise, return NIL."
 ;;; Output decoration:
 
 (defun p4-create-active-link (start end prop-list)
-  (set-text-properties start end
+  (add-text-properties start end
                        (append '(face bold mouse-face highlight)
                        prop-list)))
+
+(defun p4-create-active-link-group (group prop-list)
+  (p4-create-active-link (match-beginning group) (match-end group) prop-list))
 
 (defun p4-move-buffer-point-to-top ()
   (let ((w (get-buffer-window (current-buffer))))
@@ -1584,23 +1587,13 @@ return a buffer listing those files. Otherwise, return NIL."
            (client (match-string cl-match))
            (desc-match 7))
       (when rev
-        (p4-create-active-link (match-beginning rev-match)
-                               (match-end rev-match)
-                               `(rev ,rev)))
-      (p4-create-active-link (match-beginning ch-match)
-                             (match-end ch-match)
-                             `(change ,change))
+        (p4-create-active-link-group rev-match `(rev ,rev)))
+      (p4-create-active-link-group ch-match `(change ,change))
       (when action
-        (p4-create-active-link (match-beginning act-match)
-                               (match-end act-match)
-                               `(action ,action rev ,rev)))
-      (p4-create-active-link (match-beginning user-match)
-                             (match-end user-match)
-                             `(user ,user))
-      (p4-create-active-link (match-beginning cl-match)
-                             (match-end cl-match)
-                             `(client ,client))
-      (set-text-properties (match-beginning desc-match)
+        (p4-create-active-link-group act-match `(action ,action rev ,rev)))
+      (p4-create-active-link-group user-match `(user ,user))
+      (p4-create-active-link-group cl-match `(client ,client))
+      (add-text-properties (match-beginning desc-match)
                            (match-end desc-match)
                            '(invisible t isearch-open-invisible t))))
   (p4-find-change-numbers (point-min) (point-max))
@@ -1625,8 +1618,7 @@ clickable."
               "\\(?:changes?\\|submit\\|p4\\)[:#]?[ \t\n]+" nil t)
         (save-excursion
           (while (looking-at p4-plaintext-change-regexp)
-            (p4-create-active-link (match-beginning 1) (match-end 1)
-                                   `(change ,(string-to-number (match-string 1))))
+            (p4-create-active-link-group 1 `(change ,(string-to-number (match-string 1))))
             (goto-char (match-end 0))))))))
 
 (defun p4-mark-depot-list-buffer (&optional print-buffer)
@@ -1685,10 +1677,10 @@ argument delete-filespec is non-NIL, remove the first line."
             (when (re-search-forward depot-regexp nil t)
               (setq end (match-beginning 1))))
           (when link-client-name
-            (set-text-properties start end
+            (add-text-properties start end
                                  `(block-client-name ,link-client-name)))
           (when link-depot-name
-            (set-text-properties start end
+            (add-text-properties start end
                                  `(block-depot-name ,link-depot-name)))
           (p4-find-change-numbers start
                                   (save-excursion
@@ -1706,7 +1698,7 @@ argument delete-filespec is non-NIL, remove the first line."
     (while (re-search-forward regexp nil t)
       (let ((start (match-beginning 0))
 	    (end (match-end 0)))
-	(set-text-properties start end `(face ,face-property))))))
+	(add-text-properties start end `(face ,face-property))))))
 
 (defun p4-activate-diff-buffer ()
   (save-excursion
@@ -1729,7 +1721,7 @@ argument delete-filespec is non-NIL, remove the first line."
 			(match-beginning 0)
 		      (point-max)))))
 	(when link-depot-name
-          (set-text-properties start end `(block-depot-name ,link-depot-name)))))
+          (add-text-properties start end `(block-depot-name ,link-depot-name)))))
 
     (goto-char (point-min))
     (while (re-search-forward
@@ -1738,7 +1730,7 @@ argument delete-filespec is non-NIL, remove the first line."
       (let ((first-line (string-to-number (match-string 2)))
 	    (start (match-beginning 3))
 	    (end (match-end 3)))
-	(set-text-properties start end `(first-line ,first-line start ,start))))
+	(add-text-properties start end `(first-line ,first-line start ,start))))
 
     (goto-char (point-min))
     (let ((stop
@@ -1766,8 +1758,7 @@ argument delete-filespec is non-NIL, remove the first line."
     (save-excursion
       (goto-char (point-min))
       (while (re-search-forward regexp nil t)
-        (p4-create-active-link (match-beginning 1) (match-end 1)
-                               (list property (match-string 1)))))))
+        (p4-create-active-link-group 1 (list property (match-string 1)))))))
 
 
 ;;; Annotation:
