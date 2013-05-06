@@ -241,7 +241,8 @@ NIL if file is not known to be under control of P4.
   "Function run when P4 command completes successfully.")
 (defvar p4-process-no-auto-login nil
   "If non-NIL, don't automatically prompt user to log in.")
-(defvar p4-process-buffer nil "Original buffer that prompted this process.")
+(defvar p4-process-buffers nil
+  "List of buffers whose status is being updated here.")
 
 ;; Local variables in P4 form buffers.
 (defvar p4-form-commit-command nil
@@ -249,7 +250,7 @@ NIL if file is not known to be under control of P4.
 (defvar p4-form-committed nil "Form successfully committed?")
 
 (dolist (var '(p4-mode p4-offline-mode p4-vc-revision p4-vc-status
-               p4-process-args p4-process-callback
+               p4-process-args p4-process-callback p4-process-buffers
                p4-process-after-show-callback p4-process-no-auto-login
                p4-form-commit-command p4-form-committed))
   (make-variable-buffer-local var)
@@ -933,50 +934,90 @@ file that the buffer is visiting:
 `sync' -- under P4 control but not opened.
 Argument `revision' is the revision number of the file on the
 client, or NIL if this is not known."
-  (with-current-buffer buffer
-    (setq p4-vc-status status
-          p4-vc-revision revision)
-    (let ((new-mode (case status
-                      (sync (format " P4:%d" revision))
-                      ((add branch edit) (format " P4:%s" status))
-                      (t nil))))
-      (when (and new-mode (not p4-mode))
-        (run-hooks 'p4-mode-hook))
-      (setq p4-mode new-mode))))
+  (when (buffer-live-p buffer)
+    (with-current-buffer buffer
+      (setq p4-vc-status status
+            p4-vc-revision revision)
+      (let ((new-mode (case status
+                        (sync (format " P4:%d" revision))
+                        ((add branch edit) (format " P4:%s" status))
+                        (t nil))))
+        (when (and new-mode (not p4-mode))
+          (run-hooks 'p4-mode-hook))
+        (setq p4-mode new-mode)))))
 
 (defun p4-update-status-sentinel-2 (process message)
   (let ((buffer (process-buffer process)))
     (when (buffer-live-p buffer)
       (with-current-buffer buffer
-        (goto-char (point-min))
-        (cond ((not (string-equal message "finished\n")))
-              ((not (buffer-live-p p4-process-buffer)))
-              ((looking-at "^info: //[^#\n]+#\\([1-9][0-9]*\\) - ")
-               (p4-update-mode p4-process-buffer 'sync
-                               (string-to-number (match-string 1))))
-              (t (p4-update-mode p4-process-buffer nil nil)))
-        (kill-buffer (current-buffer))))))
+        (unless (string-equal message "finished\n")
+          (while (not (eobp))
+            (let ((b (pop p4-process-buffers)))
+              (cond ((looking-at "^info: //[^#\n]+#\\([1-9][0-9]*\\) - ")
+                     (p4-update-mode b 'sync
+                                     (string-to-number (match-string 1))))
+                    (t (p4-update-mode b nil nil))))))
+        (kill-buffer (current-buffer))
+        (p4-maybe-start-update-statuses)))))
 
 (defun p4-update-status-sentinel-1 (process message)
   (let ((buffer (process-buffer process)))
     (when (buffer-live-p buffer)
       (with-current-buffer buffer
-        (goto-char (point-min))
-        (cond ((not (string-equal message "finished\n")))
-              ((not (buffer-live-p p4-process-buffer)))
-              ((looking-at "^info: //[^#\n]+#\\([1-9][0-9]*\\) - \\(add\\|branch\\|delete\\|edit\\) ")
-               (p4-update-mode p4-process-buffer (intern (match-string 2))
-                               (string-to-number (match-string 1))))
-              ((looking-at "^error: .* - file(s) not opened on this client")
-               (let ((args (append '("-s" "have") (cddr p4-process-args))))
-                 (with-current-buffer
-                     (p4-make-output-buffer (p4-process-buffer-name args))
-                   (let ((process (apply 'start-process "P4" (current-buffer)
-                                         (p4-executable) args)))
-                     (set-process-query-on-exit-flag process nil)
-                     (set-process-sentinel process
-                                           'p4-update-status-sentinel-2))))))
-        (kill-buffer (current-buffer))))))
+        (if (not (string-equal message "finished\n"))
+            (kill-buffer (current-buffer))
+          (let (have-buffers)
+            (goto-char (point-min))
+            (while (not (eobp))
+              (let ((b (pop p4-process-buffers)))
+                (cond ((looking-at "^info: //[^#\n]+#\\([1-9][0-9]*\\) - \\(add\\|branch\\|delete\\|edit\\) ")
+                       (p4-update-mode b (intern (match-string 2))
+                                       (string-to-number (match-string 1))))
+                      ((looking-at "^error: .* - file(s) not opened on this client")
+                       (push b have-buffers))))
+              (forward-line 1))
+            (erase-buffer)
+            (if (and p4-executable have-buffers)
+                (let ((process (start-process "P4" (current-buffer)
+                                              p4-executable
+                                              "-s" "-x" "-" "have")))
+                  (setq p4-process-buffers have-buffers)
+                  (set-process-query-on-exit-flag process nil)
+                  (set-process-sentinel process 'p4-update-status-sentinel-2)
+                  (loop for b in have-buffers
+                        do (process-send-string process (buffer-file-name b))
+                        do (process-send-string process "\n"))
+                  (process-send-eof process))
+              (kill-buffer (current-buffer))
+              (p4-maybe-start-update-statuses))))))))
+
+(defvar p4-update-status-pending nil
+  "List of buffers for which a status update is pending.")
+
+(defvar p4-update-status-process-buffer " *P4 update status*"
+  "Name of the buffer in which the status update may be running.")
+
+(defun p4-maybe-start-update-statuses ()
+  "Start an asychronous update the P4 statuses of the buffers in
+`p4-update-status-pending', unless one is running already."
+  (when (and p4-executable
+             (not (get-buffer-process p4-update-status-process-buffer)))
+    (let ((buffers (loop for b in p4-update-status-pending
+                         when (and (buffer-live-p b) (buffer-file-name b))
+                         collect b)))
+      (setq p4-update-status-pending nil)
+      (when buffers
+        (with-current-buffer
+            (get-buffer-create p4-update-status-process-buffer)
+          (let ((process (start-process "P4" (current-buffer)
+                                        p4-executable "-s" "-x" "-" "opened")))
+            (set-process-query-on-exit-flag process nil)
+            (set-process-sentinel process 'p4-update-status-sentinel-1)
+            (setq p4-process-buffers buffers)
+            (loop for b in buffers
+                  do (process-send-string process (buffer-file-name b))
+                  do (process-send-string process "\n"))
+            (process-send-eof process)))))))
 
 (defun p4-update-status ()
   "Start an asynchronous update of the P4 status of the current buffer.
@@ -985,15 +1026,8 @@ If the asynchronous update completes successfully, then
 `p4-mode' will be set appropriately, and if `p4-mode' is turned
 on, then `p4-mode-hook' will be run."
   (when (and p4-do-find-file buffer-file-name)
-    (let ((buffer (current-buffer))
-          (args (list "-s" "opened" (p4-buffer-file-name))))
-      (with-current-buffer (p4-make-output-buffer (p4-process-buffer-name args))
-        (let ((process (apply 'start-process "P4" (current-buffer)
-                              (p4-executable) args)))
-          (set-process-query-on-exit-flag process nil)
-          (set-process-sentinel process 'p4-update-status-sentinel-1)
-          (setq p4-process-args args
-                p4-process-buffer buffer))))))
+    (add-to-list 'p4-update-status-pending (current-buffer))
+    (p4-maybe-start-update-statuses)))
 
 (defun p4-refresh-buffer (&optional prompt)
   "Refresh the current buffer if it is under P4 control.
