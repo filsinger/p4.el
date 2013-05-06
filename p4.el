@@ -2335,10 +2335,11 @@ NIL if there is no such completion type."
   (when (get-text-property (point) 'active)
     (p4-buffer-commands (point))))
 
-(defun p4-buffer-commands (pnt arg)
+(defun p4-buffer-commands (pnt &optional arg)
   "Function to get a given property and do the appropriate command on it"
   (interactive "d\nP")
   (let ((action (get-char-property pnt 'action))
+	(active (get-char-property pnt 'active))
 	(branch (get-char-property pnt 'branch))
 	(change (get-char-property pnt 'change))
 	(client (get-char-property pnt 'client))
@@ -2364,7 +2365,8 @@ NIL if there is no such completion type."
 	  (label (p4-label (list label)))
 	  (branch (p4-branch (list branch)))
 	  (job (p4-job job))
-          ((eq major-mode 'p4-diff-mode) (p4-diff-goto-source arg))
+          ((and (not active) (eq major-mode 'p4-diff-mode))
+           (p4-diff-goto-source arg))
 
 	  ;; Check if a "filename link" or an active "diff buffer area" was
 	  ;; selected.
@@ -2735,7 +2737,7 @@ characters."
       (list file (string-to-number line) (cdr (if reverse old new))))))
 
 ;; Based on diff-goto-source in diff-mode.el.
-(defun p4-diff-goto-source (&optional other-event)
+(defun p4-diff-goto-source (&optional other-file event)
   "Jump to the corresponding source line.
 The old file is visited for removed lines, otherwise the new
 file, but a prefix argument reverses this."
