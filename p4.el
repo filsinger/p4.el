@@ -1908,7 +1908,7 @@ and jump to the current line in the revision buffer."
 
 (defalias 'p4-blame-line 'p4-annotate-line)
 
-(defstruct p4-file-revision filespec filename revision change date user description annotation-0 annotation-1)
+(defstruct p4-file-revision filespec filename revision change date user description links desc)
 
 (defun p4-link (width value properties &optional help-echo)
   "Insert value, right-aligned, into a field of `width'.
@@ -1920,8 +1920,8 @@ Make it into an active link with `properties'."
     (insert text)
     (p4-create-active-link p (point) properties help-echo)))
 
-(defun p4-file-revision-links-0 (rev)
-  (let ((links (p4-file-revision-annotation-0 rev)))
+(defun p4-file-revision-annotate-links (rev)
+  (let ((links (p4-file-revision-links rev)))
     (or links
         (with-temp-buffer
           (let ((change (p4-file-revision-change rev))
@@ -1937,16 +1937,17 @@ Make it into an active link with `properties'."
             (insert (format "%10s " (p4-file-revision-date rev)))
             (p4-link 8 user `(user ,user) "Describe user")
             (insert ": "))
-          (setf (p4-file-revision-annotation-0 rev) 
+          (setf (p4-file-revision-links rev) 
                 (buffer-substring (point-min) (point-max)))))))
 
-(defun p4-file-revision-links-1 (rev)
-  (let ((links (p4-file-revision-annotation-2 rev)))
+(defun p4-file-revision-annotate-desc (rev)
+  (let ((links (p4-file-revision-desc rev)))
     (or links
         (let ((desc (p4-file-revision-description rev)))
-          (if (<= (length desc) 33)
-              (format "%-33s: " desc)
-            (format "%33s: " (substring desc 0 33)))))))
+          (setf (p4-file-revision-desc rev) 
+                (if (<= (length desc) 33)
+                    (format "%-33s: " desc)
+                  (format "%33s: " (substring desc 0 33))))))))
 
 (defun p4-parse-filelog (filespec)
   "Parse the filelog for `filespec'.
@@ -2070,8 +2071,8 @@ only be used when p4 annotate is unavailable."
             (setq current-repeats 0))
           (let ((rev (cdr (assoc change file-change-alist))))
             (case current-repeats
-              (0 (insert (p4-file-revision-links-0 rev)))
-              (1 (insert (p4-file-revision-links-1 rev)))
+              (0 (insert (p4-file-revision-annotate-links rev)))
+              (1 (insert (p4-file-revision-annotate-desc rev)))
               (t (insert (format "%33s: " "")))))
           (setq current-change change)
           (forward-line))
