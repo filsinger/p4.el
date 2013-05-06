@@ -863,6 +863,7 @@ If `no-auto-login' is non-NIL, don't try logging in if logged out."
   (setq p4-form-committed nil)
   (setq buffer-offer-save t)
   (set-buffer-modified-p nil)
+  (setq buffer-undo-list nil)
   (setq buffer-read-only nil)
   (when regexp (re-search-forward regexp nil t))
   (message "C-c C-c to finish editing and exit buffer."))
