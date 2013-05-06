@@ -116,13 +116,14 @@ the completion behavior of `p4-set-client-name'.
   :group 'p4)
 
 (defcustom p4-cleanup-time 600
-  "Time in seconds after which a completion cache becomes stale."
+  "Time in seconds after which a cache of information from the P4
+server becomes stale, if `p4-cleanup-cache' is non-NIL."
   :type 'integer
   :group 'p4)
 
 (defcustom p4-cleanup-cache t
-  "If this is non-NIL, completion cache entires will become stale
-after `p4-cleanup-time' seconds."
+  "If this is non-NIL, cached data from the P4 server will become
+stale after `p4-cleanup-time' seconds."
   :type 'boolean
   :group 'p4)
 
@@ -561,13 +562,31 @@ restore the window configuration."
       (find-file-other-window client-name)
     (p4-depot-find-file depot-name)))
 
+(defvar p4-filespec-buffer-cache nil
+  "Association list mapping filespec to buffer visiting that filespec.")
+
+(defun p4-purge-filespec-buffer-cache ()
+  "Remove stale entries from `p4-filespec-buffer-cache'."
+  (let ((stale (time-subtract (current-time)
+                              (seconds-to-time p4-cleanup-time))))
+    (setf p4-filespec-buffer-cache
+          (loop for c in p4-filespec-buffer-cache
+                when (and (time-less-p stale (second c))
+                          (buffer-live-p (third c)))
+                collect c))))
+
 (defun p4-visit-filespec (filespec)
-  "Visit `filespec' in a new buffer, pop to buffer, and return it."
-  (let ((args (list "print" filespec)))
-    (set-buffer (p4-make-output-buffer (p4-process-buffer-name args)))
-    (when (zerop (p4-run args))
-      (p4-activate-print-buffer t)
-      (current-buffer))))
+  "Visit `filespec' in some buffer and return the buffer."
+  (p4-purge-filespec-buffer-cache)
+  (let ((cached (assoc filespec p4-filespec-buffer-cache)))
+    (if cached (third cached)
+      (let ((args (list "print" filespec)))
+        (set-buffer (p4-make-output-buffer (p4-process-buffer-name args)))
+        (when (zerop (p4-run args))
+          (p4-activate-print-buffer t)
+          (push (list filespec (current-time) (current-buffer))
+                p4-filespec-buffer-cache)
+          (current-buffer))))))
 
 (defun p4-depot-find-file-noselect (filespec)
   "Read depot `filespec' in to a buffer and return the buffer.
@@ -2063,20 +2082,20 @@ return them as a list."
                             (list (concat prefix string "*"))))))
     (p4-output-matches args regexp 1)))
 
-(defun p4-completion-purge-cache (completion)
+(defun p4-purge-completion-cache (completion)
   "Remove stale entries from the cache for `completion'."
   (let ((stale (time-subtract (current-time)
                               (seconds-to-time p4-cleanup-time))))
     (setf (p4-completion-cache completion)
           (loop for c in (p4-completion-cache completion)
-                when (time-less-p stale (cadr c))
+                when (time-less-p stale (second c))
                 collect c))))
 
 (defun p4-complete (completion string)
   "Return list of items that are possible completions for `string'.
 Use the cache if available, otherwise fetch them from the depot and
 update the cache accordingly."
-  (p4-completion-purge-cache completion)
+  (p4-purge-completion-cache completion)
   (let* ((cache (p4-completion-cache completion))
          (cached (assoc string cache)))
     ;; Exact cache hit?
