@@ -592,7 +592,7 @@ restore the window configuration."
 (defun p4-depot-find-file-noselect (filespec)
   "Read depot `filespec' in to a buffer and return the buffer.
 If a buffer exists visiting `filespec', return that one."
-  (string-match "\\(.*?\\)\\(#[1-9][0-9]*\\|\\(@[1-9]\\)\\)?$" filespec)
+  (string-match "\\(.*?\\)\\(#[1-9][0-9]*\\|\\(@\\S-+\\)\\)?$" filespec)
   (let* ((file (match-string 1 filespec))
          (spec (match-string 2 filespec))
          (change (match-string 3 filespec)))
