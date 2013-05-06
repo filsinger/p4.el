@@ -211,13 +211,11 @@ This is an alist, and should be set using the function
   "Face used for files open for edit."
   :group 'p4-faces)
 
-(defface p4-form-comment-face
-  '((t :inherit font-lock-comment-face))
+(defface p4-form-comment-face '((t :inherit font-lock-comment-face))
   "Face for comment in P4 form mode."
   :group 'p4-faces)
 
-(defface p4-form-keyword-face
-  '((t :inherit font-lock-keyword-face))
+(defface p4-form-keyword-face '((t :inherit font-lock-keyword-face))
   "Face for keyword in P4 form mode."
   :group 'p4-faces)
 
@@ -429,7 +427,7 @@ functions are called.")
   (let ((p4-port (p4-current-server-port)))
     (or (cdr (assoc p4-port p4-server-version-cache))
         (p4-with-temp-buffer '("info")
-          (when (re-search-forward "^Server version: .*/\\([0-9]+\\)\\.[0-9]+/" nil t)
+          (when (re-search-forward "^Server version: .*/\\([1-9][0-9]\\{3\\}\\)\\.[0-9]+/" nil t)
             (let ((version (string-to-number (match-string 1))))
               (push (cons p4-port version) p4-server-version-cache)
               version))))))
@@ -563,27 +561,18 @@ restore the window configuration."
       (find-file-other-window client-name)
     (p4-depot-find-file depot-name)))
 
-(defun p4-visit-filespec (filespec &optional line offset)
-  "Print depot `filespec' to a new buffer asynchrously and pop to
-it when ready. With optional arguments `line' and `offset', go to
-line number `line' and move forward by `offset' characters."
-  (p4-call-command "print" (list filespec) nil
-                   (lambda () (p4-activate-print-buffer t))
-                   (lexical-let ((line line) (offset offset))
-                     (lambda ()
-                       (pop-to-buffer (current-buffer))
-                       (when line (p4-goto-line line)
-                             (when offset (forward-char offset)))))))
+(defun p4-visit-filespec (filespec)
+  "Visit `filespec' in a new buffer, pop to buffer, and return it."
+  (let ((args (list "print" filespec)))
+    (set-buffer (p4-make-output-buffer (p4-process-buffer-name args)))
+    (when (zerop (p4-run args))
+      (p4-activate-print-buffer t)
+      (current-buffer))))
 
-(defun p4-depot-find-file (filespec &optional line offset)
-  "Visit the client file corresponding to depot `filespec',
-if the file is mapped (and synced to the right revision if
-necessary), otherwise print `filespec' to a new buffer
-asynchrously and pop to it when ready. With optional arguments
-`line' and `offset', go to line number `line' and move forward by
-`offset' characters."
-  (interactive (list (p4-read-arg-string "Enter filespec: " "//" 'filespec)))
-  (string-match "\\(.*?\\)\\(#[0-9]+\\|\\(@[0-9]\\)\\)?$" filespec)
+(defun p4-depot-find-file-noselect (filespec)
+  "Read depot `filespec' in to a buffer and return the buffer.
+If a buffer exists visiting `filespec', return that one."
+  (string-match "\\(.*?\\)\\(#[1-9][0-9]*\\|\\(@[1-9]\\)\\)?$" filespec)
   (let* ((file (match-string 1 filespec))
          (spec (match-string 2 filespec))
          (change (match-string 3 filespec)))
@@ -591,17 +580,28 @@ asynchrously and pop to it when ready. With optional arguments
         ;; TODO: work out if we have the file synced at this
         ;; changelevel, perhaps by running sync -n and seeing if it
         ;; prints "files(s) up to date"?
-        (p4-visit-filespec filespec line offset)
+        (p4-visit-filespec filespec)
       (with-temp-buffer
         (if (and (zerop (p4-run (list "have" file)))
                  (not (looking-at "//[^ \n]+ - file(s) not on client"))
-                 (looking-at "//.*?\\(#[0-9]+\\) - \\(.*\\)$")
+                 (looking-at "//.*?\\(#[1-9][0-9]*\\) - \\(.*\\)$")
                  (or (not spec) (string-equal spec (match-string 1))))
-            (progn
-              (find-file (match-string 2))
-              (when line (p4-goto-line line)
-                    (when offset (forward-char offset))))
-          (p4-visit-filespec filespec line offset))))))
+            (find-file-noselect (match-string 2))
+          (p4-visit-filespec filespec))))))
+
+(defun p4-depot-find-file (filespec &optional line offset)
+  "Visit the client file corresponding to depot `filespec',
+if the file is mapped (and synced to the right revision if
+necessary), otherwise print `filespec' to a new buffer
+synchronously and pop to it. With optional arguments `line' and
+`offset', go to line number `line' and move forward by `offset'
+characters."
+  (interactive (list (p4-read-arg-string "Enter filespec: " "//" 'filespec)))
+  (let ((buffer (p4-depot-find-file-noselect filespec)))
+    (when buffer
+      (pop-to-buffer buffer)
+      (when line (p4-goto-line line)
+            (when offset (forward-char offset))))))
 
 (defun p4-make-derived-map (base-map)
   (let ((map (make-sparse-keymap)))
@@ -807,11 +807,7 @@ command and arguments taken from the local variable `p4-process-args'."
 
 (defun p4-process-buffer-name (args)
   "Return a suitable buffer name for the P4 command."
-  (let* ((s (p4-join-list args))
-         (l (length s)))
-    (if (<= l 43)
-        (format "*P4 %s*" s)
-      (format "*P4 %s...%s*" (substring s 0 20) (substring s (- l 20) l)))))
+  (format "*P4 %s*" (p4-join-list args)))
 
 (defun p4-call-command (cmd &optional args mode callback after-show-callback no-auto-login)
   "Start a Perforce command in the background.
@@ -933,7 +929,7 @@ client, or NIL if this is not known."
         (goto-char (point-min))
         (cond ((not (string-equal message "finished\n")))
               ((not (buffer-live-p p4-process-buffer)))
-              ((looking-at "^info: //[^#\n]+#\\([0-9]+\\) - ")
+              ((looking-at "^info: //[^#\n]+#\\([1-9][0-9]*\\) - ")
                (p4-update-mode p4-process-buffer 'sync
                                (string-to-number (match-string 1))))
               (t (p4-update-mode p4-process-buffer nil nil)))
@@ -946,7 +942,7 @@ client, or NIL if this is not known."
         (goto-char (point-min))
         (cond ((not (string-equal message "finished\n")))
               ((not (buffer-live-p p4-process-buffer)))
-              ((looking-at "^info: //[^#\n]+#\\([0-9]+\\) - \\(add\\|branch\\|delete\\|edit\\) ")
+              ((looking-at "^info: //[^#\n]+#\\([1-9][0-9]*\\) - \\(add\\|branch\\|delete\\|edit\\) ")
                (p4-update-mode p4-process-buffer (intern (match-string 2))
                                (string-to-number (match-string 1))))
               ((looking-at "^error: .* - file(s) not opened on this client")
@@ -1190,7 +1186,7 @@ twice in the expansion."
   (p4-call-command cmd args 'p4-diff-mode 'p4-activate-diff-buffer))
 
 (defun p4-get-file-rev (default-name rev)
-  (if (string-match "^\\([0-9]+\\|none\\|head\\|have\\)$" rev)
+  (if (string-match "^\\([1-9][0-9]*\\|none\\|head\\|have\\)$" rev)
       (setq rev (concat "#" rev)))
   (cond ((string-match "^[#@]" rev)
 	 (concat default-name rev))
@@ -1305,6 +1301,11 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
   nil
   nil
   (p4-call-command cmd args))
+
+(defp4cmd p4-grep (args)
+  "grep" "To print lines matching a pattern, type \\[p4-grep].\n"
+  (interactive (list (p4-read-arg-string "p4 grep: " '("-e  ..." . 3))))
+  (compilation-start (concat "p4 grep -n " args) 'p4-grep-mode))
 
 (defp4cmd p4-group (&rest args)
   "group" "To create or edit a group specification, type \\[p4-group].\n"
@@ -1627,8 +1628,8 @@ return a buffer listing those files. Otherwise, return NIL."
     (p4-mark-print-buffer)
     (goto-char (point-min))
     (while (re-search-forward (concat
-                               "^\\(\\.\\.\\. #\\([0-9]+\\) \\)?[Cc]hange "
-                               "\\([0-9]+\\) \\([a-z]+\\)?.*on.*by "
+                               "^\\(\\.\\.\\. #\\([1-9][0-9]*\\) \\)?[Cc]hange "
+                               "\\([1-9][0-9]*\\) \\([a-z]+\\)?.*on.*by "
                                "\\([^ @]+\\)@\\([^ \n]+\\).*\n"
                                "\\(\\(?:\n\\|[ \t].*\n\\)*\\)") nil t)
       (let* ((rev-match 2)
@@ -1659,7 +1660,7 @@ return a buffer listing those files. Otherwise, return NIL."
 
 (defvar p4-plaintext-change-regexp
   (concat "\\(?:[#@]\\|number\\|no\\.\\|\\)\\s-*"
-          "\\([0-9]+\\)[-,]?\\s-*"
+          "\\([1-9][0-9]*\\)[-,]?\\s-*"
           "\\(?:and/or\\|and\\|&\\|or\\|\\)\\s-*")
   "Regexp matching a P4 change number in plain English text.")
 
@@ -1695,8 +1696,8 @@ clickable."
   (save-excursion
     (let ((depot-regexp
 	   (if print-buffer
-	       "\\(^\\)\\(//[^/@# ][^/@#]*/[^@#]+#[0-9]+\\) - "
-	     "^\\(\\.\\.\\. [^/\n]*\\|==== \\)?\\(//[^/@# ][^/@#]*/[^#\n]*\\(?:#[0-9]+\\)?\\)")))
+	       "\\(^\\)\\(//[^/@# ][^/@#]*/[^@#]+#[1-9][0-9]*\\) - "
+	     "^\\(\\.\\.\\. [^/\n]*\\|==== \\)?\\(//[^/@# ][^/@#]*/[^#\n]*\\(?:#[1-9][0-9]*\\)?\\)")))
       (goto-char (point-min))
       (while (re-search-forward depot-regexp nil t)
 	(let* ((p4-depot-file (match-string-no-properties 2))
@@ -1733,7 +1734,7 @@ argument delete-filespec is non-NIL, remove the first line."
     (p4-mark-depot-list-buffer print-buffer)
     (let ((depot-regexp
            (if print-buffer
-               "^\\(//[^/@# ][^/@#]*/\\)[^@#]+#[0-9]+ - "
+               "^\\(//[^/@# ][^/@#]*/\\)[^@#]+#[1-9][0-9]* - "
              "^\\(//[^/@# ][^/@#]*/\\)")))
       (goto-char (point-min))
       (while (re-search-forward depot-regexp nil t)
@@ -1803,7 +1804,7 @@ argument delete-filespec is non-NIL, remove the first line."
       (p4-find-change-numbers (point-min) stop))
 
     (goto-char (point-min))
-    (when (looking-at "^Change [0-9]+ by \\([^ @]+\\)@\\([^ \n]+\\)")
+    (when (looking-at "^Change [1-9][0-9]* by \\([^ @]+\\)@\\([^ \n]+\\)")
       (p4-create-active-link-group 1 `(user ,(match-string-no-properties 1))
                                    "Describe user")
       (p4-create-active-link-group 2 `(client ,(match-string-no-properties 2))
@@ -1821,11 +1822,11 @@ argument delete-filespec is non-NIL, remove the first line."
 ;;; Annotation:
 
 (defconst p4-blame-change-regex
-  (concat "^\\.\\.\\. #"     "\\([0-9]+\\)"   ;; revision
-	  "\\s-+change\\s-+" "\\([0-9]+\\)"   ;; change
-	  "\\s-+"            "\\([^ \t]+\\)"  ;; type
-	  "\\s-+on\\s-+"     "\\([^ \t]+\\)"  ;; date
-	  "\\s-+by\\s-+"     "\\([^ \t]+\\)"  ;; author
+  (concat "^\\.\\.\\. #"     "\\([1-9][0-9]*\\)"   ; revision
+	  "\\s-+change\\s-+" "\\([1-9][0-9]*\\)"   ; change
+	  "\\s-+"            "\\([^ \t]+\\)"       ; type
+	  "\\s-+on\\s-+"     "\\([^ \t]+\\)"       ; date
+	  "\\s-+by\\s-+"     "\\([^ \t]+\\)"       ; author
 	  "@"))
 
 (defconst p4-blame-revision-regex
@@ -1914,7 +1915,7 @@ first)."
   (let ((args (list "annotate" "-c" "-q" filespec)))
     (message "Running p4 %s..." (p4-join-list args))
     (p4-with-temp-buffer args
-      (loop while (re-search-forward "^\\([0-9]+\\):" nil t)
+      (loop while (re-search-forward "^\\([1-9][0-9]*\\):" nil t)
             collect (string-to-number (match-string 1))))))
 
 (defun p4-annotate-changes-by-patching (filespec change-alist)
@@ -1961,7 +1962,7 @@ only be used when p4 annotate is unavailable."
                          (insert change-string)
                          (incf ra)))))))
       (goto-char (point-min))
-      (loop while (re-search-forward "[0-9]+" nil t)
+      (loop while (re-search-forward "[1-9][0-9]*" nil t)
             collect (string-to-number (match-string 0))))))
 
 (defun p4-annotate-internal (filespec &optional src-line)
@@ -2038,7 +2039,7 @@ With optional argument `group', return that group from each match."
                                               "^//[^ \n]+$")
                 collect (concat dir "/"))
           (p4-output-matches (list "files" (concat string "*"))
-                             "^\\(//[^#\n]+\\)#[0-9]+ - " 1)))
+                             "^\\(//[^#\n]+\\)#[1-9][0-9]* - " 1)))
 
 (defun p4-fetch-help-completions (completion string)
   "Fetch help completions for `string' from the depot."
@@ -2468,10 +2469,10 @@ NIL if there is no such completion type."
   "The keymap to use in P4 Basic List Mode.")
 
 (defvar p4-basic-list-font-lock-keywords
-  '(("^\\(//.*#[0-9]+\\) - add" 1 'p4-depot-add-face)
-    ("^\\(//.*#[0-9]+\\) - branch" 1 'p4-depot-branch-face)
-    ("^\\(//.*#[0-9]+\\) - delete" 1 'p4-depot-delete-face)
-    ("^\\(//.*#[0-9]+\\) - edit" 1 'p4-depot-edit-face)))
+  '(("^\\(//.*#[1-9][0-9]*\\) - add" 1 'p4-depot-add-face)
+    ("^\\(//.*#[1-9][0-9]*\\) - branch" 1 'p4-depot-branch-face)
+    ("^\\(//.*#[1-9][0-9]*\\) - delete" 1 'p4-depot-delete-face)
+    ("^\\(//.*#[1-9][0-9]*\\) - edit" 1 'p4-depot-edit-face)))
 
 (define-derived-mode p4-basic-list-mode p4-basic-mode "P4 Basic List"
   (setq font-lock-defaults '(p4-basic-list-font-lock-keywords t)))
@@ -2479,7 +2480,7 @@ NIL if there is no such completion type."
 (defun p4-basic-list-get-filename ()
   (save-excursion
     (beginning-of-line)
-    (when (looking-at "^\\(//.*#[0-9]+\\) - ")
+    (when (looking-at "^\\(//.*#[1-9][0-9]*\\) - ")
       (match-string 1))))
 
 (defun p4-basic-list-activate ()
@@ -2559,7 +2560,7 @@ NIL if there is no such completion type."
 
 (defvar p4-filelog-font-lock-keywords
   '(("^//.*" . 'p4-filespec-face)
-    ("^\\.\\.\\. #\\([0-9]+\\) change \\([0-9]+\\) \\([a-z]+\\) on [0-9]+/[0-9]+/[0-9]+ by \\(\\S-+\\)@\\(\\S-+\\).*"
+    ("^\\.\\.\\. #\\([1-9][0-9]*\\) change \\([1-9][0-9]*\\) \\([a-z]+\\) on [0-9]+/[0-9]+/[0-9]+ by \\(\\S-+\\)@\\(\\S-+\\).*"
      (1 'p4-revision-face) (2 'p4-change-face) (3 'p4-action-face)
      (4 'p4-user-face) (5 'p4-client-face))
     ("^\\.\\.\\. \\.\\.\\. [^/\n]+ \\(//[^#\n]+\\).*" (1 'p4-filespec-face))
@@ -2669,7 +2670,7 @@ NIL if there is no such completion type."
     map))
 
 (defvar p4-diff-font-lock-keywords
-  '(("^Change \\([0-9]+\\) by \\(\\S-+\\)@\\(\\S-+\\) on [0-9]+/.*"
+  '(("^Change \\([1-9][0-9]*\\) by \\(\\S-+\\)@\\(\\S-+\\) on [0-9]+/.*"
      (1 'p4-change-face) (2 'p4-user-face) (3 'p4-client-face))
     ("^\\(\\S-+\\) on [0-9]+/[0-9]+/[0-9]+ by \\(\\S-+\\).*"
      (1 'p4-job-face) (2 'p4-user-face))
@@ -2693,11 +2694,11 @@ Return the new filespec, or the old filespec if optional argument
     (unless (looking-at diff-file-header-re)
       (or (ignore-errors (diff-beginning-of-file))
           (re-search-forward diff-file-header-re nil t)))
-    (cond ((looking-at "^==== \\(//[^#\n]+#[0-9]+\\).* - \\(//[^#\n]+#[0-9]+\\).* ====")
+    (cond ((looking-at "^==== \\(//[^#\n]+#[1-9][0-9]*\\).* - \\(//[^#\n]+#[1-9][0-9]*\\).* ====")
            ;; In the output of p4 diff and diff2 both the old and new
            ;; revisions are given.
            (match-string-no-properties (if old 1 2)))
-          ((looking-at "^==== \\(//[^@#\n]+\\)#\\([0-9]+\\).* ====")
+          ((looking-at "^==== \\(//[^@#\n]+\\)#\\([1-9][0-9]*\\).* ====")
            ;; The output of p4 describe contains just the new
            ;; revision number: the old revision number is one less.
            (let ((revision (string-to-number (match-string 2))))
@@ -2797,6 +2798,32 @@ file, but a prefix argument reverses this."
   (save-window-excursion
     (recenter)))
 
+
+;;; Grep Mode:
+
+(defvar p4-grep-regexp-alist
+  '(("^\\(//.*?#[1-9][0-9]*\\):\\([1-9][0-9]*\\):" 1 2))
+  "Regexp used to match p4 grep hits. See `compilation-error-regexp-alist'.")
+
+(define-derived-mode p4-grep-mode grep-mode "P4 Grep"
+  (set (make-local-variable 'compilation-error-regexp-alist) 
+       p4-grep-regexp-alist)
+  (set (make-local-variable 'next-error-function)
+       'p4-grep-next-error-function))
+
+(defun p4-grep-find-file (marker filename directory &rest formats)
+  (p4-depot-find-file-noselect filename))
+
+(defun p4-grep-next-error-function (n &optional reset)
+  "Advance to the next error message and visit the file where the error was.
+This is the value of `next-error-function' in P4 Grep buffers."
+  (interactive "p")
+  (let ((cff (symbol-function 'compilation-find-file)))
+    (unwind-protect
+        (progn (fset 'compilation-find-file 'p4-grep-find-file)
+               (compilation-next-error-function n reset))
+      (fset 'compilation-find-file cff))))
+  
 
 ;;; Hooks:
 
