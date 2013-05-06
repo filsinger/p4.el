@@ -952,13 +952,15 @@ client, or NIL if this is not known."
   (let ((buffer (process-buffer process)))
     (when (buffer-live-p buffer)
       (with-current-buffer buffer
-        (unless (string-equal message "finished\n")
+        (when (string-equal message "finished\n")
+          (goto-char (point-min))
           (while (not (eobp))
             (let ((b (pop p4-process-buffers)))
               (cond ((looking-at "^info: //[^#\n]+#\\([1-9][0-9]*\\) - ")
                      (p4-update-mode b 'sync
                                      (string-to-number (match-string 1))))
-                    (t (p4-update-mode b nil nil))))))
+                    (t (p4-update-mode b nil nil))))
+            (forward-line 1)))
         (kill-buffer (current-buffer))
         (p4-maybe-start-update-statuses)))))
 
