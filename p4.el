@@ -1888,7 +1888,7 @@ argument delete-filespec is non-NIL, remove the first line."
 	  "\\s-+"            "\\([^ \t]+\\)"       ; type
 	  "\\s-+on\\s-+"     "\\([^ \t]+\\)"       ; date
 	  "\\s-+by\\s-+"     "\\([^ \t]+\\)"       ; author
-	  "@"))
+	  "@.*\n\n\t\\(.*\\)"))                    ; description
 
 (defconst p4-blame-revision-regex
   (concat "^\\([0-9]+\\),?"
@@ -1908,35 +1908,45 @@ and jump to the current line in the revision buffer."
 
 (defalias 'p4-blame-line 'p4-annotate-line)
 
-(defstruct p4-file-revision filespec filename revision change date user annotation)
+(defstruct p4-file-revision filespec filename revision change date user description annotation-0 annotation-1)
 
-(defun p4-link (width fmt value properties &optional help-echo)
-  "Format `value' using `fmt' and insert into a field of `width'.
+(defun p4-link (width value properties &optional help-echo)
+  "Insert value, right-aligned, into a field of `width'.
 Make it into an active link with `properties'."
-  (let* ((text (format fmt value))
+  (let* ((text (format (format "%%%ds" width) value))
          (length (length text))
-         (text (if (< length width) text (substring text 0 (- width 1))))
+         (text (if (< length width) text (substring text 0 width)))
          (p (point)))
     (insert text)
-    (p4-create-active-link p (point) properties help-echo)
-    (insert (make-string (- width (length text)) ? ))))
+    (p4-create-active-link p (point) properties help-echo)))
 
-(defun p4-file-revision-links (rev)
-  (let ((links (p4-file-revision-annotation rev)))
+(defun p4-file-revision-links-0 (rev)
+  (let ((links (p4-file-revision-annotation-0 rev)))
     (or links
         (with-temp-buffer
-          (let* ((change (p4-file-revision-change rev))
-                 (filename (p4-file-revision-filename rev))
-                 (revision (p4-file-revision-revision rev))
-                 (user (p4-file-revision-user rev)))
-            (p4-link 7 "%6d" change `(change ,change) "Describe change")
-            (p4-link 5 "%4d" revision
+          (let ((change (p4-file-revision-change rev))
+                (filename (p4-file-revision-filename rev))
+                (revision (p4-file-revision-revision rev))
+                (user (p4-file-revision-user rev)))
+            (p4-link 7 (format "%d" change) `(change ,change) "Describe change")
+            (insert " ")
+            (p4-link 5 (format "#%d" revision)
                      `(rev ,revision link-depot-name ,filename)
                      "Print revision")
+            (insert " ")
             (insert (format "%10s " (p4-file-revision-date rev)))
-            (p4-link 9 "%7s: " user `(user ,user) "Describe user"))
-          (setf (p4-file-revision-annotation rev) 
+            (p4-link 8 user `(user ,user) "Describe user")
+            (insert ": "))
+          (setf (p4-file-revision-annotation-0 rev) 
                 (buffer-substring (point-min) (point-max)))))))
+
+(defun p4-file-revision-links-1 (rev)
+  (let ((links (p4-file-revision-annotation-2 rev)))
+    (or links
+        (let ((desc (p4-file-revision-description rev)))
+          (if (<= (length desc) 33)
+              (format "%-33s: " desc)
+            (format "%33s: " (substring desc 0 33)))))))
 
 (defun p4-parse-filelog (filespec)
   "Parse the filelog for `filespec'.
@@ -1946,7 +1956,7 @@ first)."
   (let (head-seen       ; head revision not deleted?
         change-alist    ; alist mapping change to p4-file-revision structures
         current-file    ; current filename in filelog
-        (args (list "filelog" "-i" filespec)))
+        (args (list "filelog" "-l" "-i" filespec)))
     (message "Running p4 %s..." (p4-join-list args))
     (p4-with-temp-buffer args
       (while (not (eobp))
@@ -1965,7 +1975,8 @@ first)."
                                 :revision revision
                                 :change change
                                 :date (match-string 4)
-                                :user (match-string 5)))
+                                :user (match-string 5)
+                                :description (match-string 6)))
                          change-alist)
                    (setq head-seen t)))))
         (forward-line))
@@ -2040,6 +2051,7 @@ only be used when p4 annotate is unavailable."
            (lines (length line-changes))
            (inhibit-read-only t)
            (current-line 0)
+           (current-repeats 0)
            (current-percent -1)
            current-change)
       (with-current-buffer
@@ -2047,7 +2059,6 @@ only be used when p4 annotate is unavailable."
         (p4-run (list "print" filespec))
         (p4-fontify-print-buffer)
         (forward-line 1)
-        (insert "Change  Rev       Date  Author\n")
         (dolist (change line-changes)
           (incf current-line)
           (let ((percent (/ (* current-line 100) lines)))
@@ -2055,9 +2066,13 @@ only be used when p4 annotate is unavailable."
               (message "Formatting...%d%%" percent)
               (incf current-percent 10)))
           (if (eql change current-change)
-              (insert (format "%29s : " ""))
-            (insert (p4-file-revision-links
-                     (cdr (assoc change file-change-alist)))))
+              (incf current-repeats)
+            (setq current-repeats 0))
+          (let ((rev (cdr (assoc change file-change-alist))))
+            (case current-repeats
+              (0 (insert (p4-file-revision-links-0 rev)))
+              (1 (insert (p4-file-revision-links-1 rev)))
+              (t (insert (format "%33s: " "")))))
           (setq current-change change)
           (forward-line))
         (goto-char (point-min))
