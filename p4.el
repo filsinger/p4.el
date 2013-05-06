@@ -850,6 +850,9 @@ If `no-auto-login' is non-NIL, don't try logging in if logged out."
 
 (defun p4-form-callback (regexp cmd)
   (goto-char (point-min))
+  ;; The Windows p4 client outputs this line before the spec unless
+  ;; run via CMD.EXE.
+  (when (looking-at "Found client MATCH : .*\n") (replace-match ""))
   (insert "# Created using " (p4-emacs-version) ".\n"
           "# Type C-c C-c to submit changes and exit buffer.\n"
           "# Type C-x k to kill current changes.\n"
