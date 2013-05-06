@@ -2757,7 +2757,8 @@ NIL if there is no such completion type."
 (define-derived-mode p4-diff-mode p4-basic-mode "P4 Diff"
   (diff-minor-mode 1)
   (use-local-map p4-diff-mode-map)
-  (set (make-local-variable 'diff-file-header-re) "^==== .* ====")
+  (set (make-local-variable 'diff-file-header-re)
+       (concat "^==== .* ====\\|" diff-file-header-re))
   (setq font-lock-defaults diff-font-lock-defaults)
   (font-lock-add-keywords nil p4-diff-font-lock-keywords))
 
@@ -2772,13 +2773,22 @@ Return the new filespec, or the old filespec if optional argument
     (cond ((looking-at "^==== \\(//[^#\n]+#[1-9][0-9]*\\).* - \\(//[^#\n]+#[1-9][0-9]*\\).* ====")
            ;; In the output of p4 diff and diff2 both the old and new
            ;; revisions are given.
-           (match-string-no-properties (if old 1 2)))
+           (match-string-no-properties (if reverse 1 2)))
           ((looking-at "^==== \\(//[^@#\n]+\\)#\\([1-9][0-9]*\\).* ====")
            ;; The output of p4 describe contains just the new
            ;; revision number: the old revision number is one less.
            (let ((revision (string-to-number (match-string 2))))
              (format "%s#%d" (match-string-no-properties 1)
                      (max 1 (if reverse (1- revision) revision)))))
+          ((looking-at "^--- \\(//[^\t\n]+\\)\t\\([1-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9]\\)[.0-9]* \\([+-]?\\)\\([0-9][0-9][0-9][0-9]\\).*\n\\+\\+\\+ \\([^\t\n]+\\)\t")
+           (if reverse
+               (let ((time (date-to-time (format "%s %s%s" (match-string 2)
+                                                 ;; Time zone sense seems to be backwards!
+                                                 (if (string-equal (match-string 3) "-") "+" "-")
+                                                 (match-string 4)))))
+                 (format "%s@%s" (match-string-no-properties 1)
+                         (format-time-string "%Y/%m/%d:%H:%M:%S" time t)))
+             (match-string-no-properties 5)))
           (t
            (error "Can't find filespec(s) in diff file header.")))))
 
