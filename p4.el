@@ -889,7 +889,6 @@ standard input\). If not supplied, cmd is reused."
           (p4-pop-window-config)
           (with-current-buffer buffer
             (p4-process-show-output)
-            (p4-quit-current-buffer)
             (p4-partial-cache-cleanup (intern cmd))
             (when (string= cmd "submit")
               (p4-refresh-buffers))))
