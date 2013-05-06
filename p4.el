@@ -2651,8 +2651,8 @@ NIL if there is no such completion type."
 
 (defvar p4-filelog-font-lock-keywords
   '(("^//.*" . 'p4-filespec-face)
-    ("^\\.\\.\\. #\\([1-9][0-9]*\\) change \\([1-9][0-9]*\\) \\([a-z]+\\) on [0-9]+/[0-9]+/[0-9]+ by \\(\\S-+\\)@\\(\\S-+\\).*"
-     (1 'p4-revision-face) (2 'p4-change-face) (3 'p4-action-face)
+    ("\\(?:^\\.\\.\\. #\\([1-9][0-9]*\\) \\)?[Cc]hange \\([1-9][0-9]*\\)\\(?: \\([a-z]+\\)\\)? on [0-9]+/[0-9]+/[0-9]+ by \\(\\S-+\\)@\\(\\S-+\\).*"
+     (1 'p4-revision-face nil t) (2 'p4-change-face) (3 'p4-action-face nil t)
      (4 'p4-user-face) (5 'p4-client-face))
     ("^\\.\\.\\. \\.\\.\\. [^/\n]+ \\(//[^#\n]+\\).*" (1 'p4-filespec-face))
     ("^\t.*" . 'p4-description-face)))
