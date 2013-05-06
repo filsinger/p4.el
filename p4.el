@@ -1609,7 +1609,7 @@ return a buffer listing those files. Otherwise, return NIL."
    (cond ((integerp current-prefix-arg)
 	  (list (format "%d" current-prefix-arg)))
 	 (current-prefix-arg
-	  (list (p4-read-args "p4 change: " "")))))
+	  (list (p4-read-args "p4 change: " "" 'change)))))
   (p4-with-temp-buffer (list "-s" "opened")
     (unless (re-search-forward "^info: " nil t)
       (error "Files not opened on this client.")))
@@ -2090,6 +2090,13 @@ With optional argument `group', return that group from each match."
         (push (match-string (or group 0)) result))
       (nreverse result))))
 
+(defun p4-fetch-change-completions (completion string)
+  "Fetch pending change completions for `string' from the depot."
+  (let ((client (p4-current-client)))
+    (when client
+      (p4-output-matches `("changes" "-s" "pending" "-c" ,client)
+                         "^Change \\([1-9][0-9]*\\)" 1))))
+
 (defun p4-fetch-filespec-completions (completion string)
   "Fetch file and directory completions for `string' from the depot."
   (append (loop for dir in (p4-output-matches (list "dirs" (concat string "*"))
@@ -2115,7 +2122,8 @@ return them as a list."
          (prefix (p4-completion-query-prefix completion))
          (regexp (p4-completion-regexp completion))
          (have-string (> (length string) 0))
-         (args (append (list cmd) (and arg have-string (list arg))
+         (args (append (if (listp cmd) cmd (list cmd))
+                       (and arg have-string (list arg))
                        (and (or arg prefix) have-string
                             (list (concat prefix string "*"))))))
     (p4-output-matches args regexp 1)))
@@ -2183,6 +2191,7 @@ update the cache accordingly."
 
 (defvar p4-arg-string-history nil "P4 command-line argument history.")
 (defvar p4-branch-history nil "P4 branch history.")
+(defvar p4-change-history nil "P4 change history.")
 (defvar p4-client-history nil "P4 client history.")
 (defvar p4-filespec-history nil "P4 filespec history.")
 (defvar p4-group-history nil "P4 group history.")
@@ -2197,6 +2206,9 @@ update the cache accordingly."
                     :query-cmd "branches" :query-arg "-E"
                     :regexp "^Branch \\([^ \n]*\\) [0-9]+/"
                     :history 'p4-branch-history))
+   (cons 'change   (p4-make-completion
+                    :fetch-completions-fn 'p4-fetch-change-completions
+                    :history 'p4-change-history))
    (cons 'client   (p4-make-completion
                     :query-cmd "clients" :query-arg "-E"
                     :regexp "^Client \\([^ \n]*\\) [0-9]+/"
