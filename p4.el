@@ -21,22 +21,26 @@
 ;;    along with this program; if not, write to the Free Software
 ;;    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
-;;; Commentary:
+;;; Installation:
 
-;; It is best if you take this file and byte compile it. To do that, you
-;; need to do the following:
+;; In your .emacs, ensure the path to the directory containing p4.el
+;; is in the `load-path' variable:
 ;;
-;; % emacs -batch -f batch-byte-compile /full/path/to/file/p4.el
+;;     (push "/full/path/to/dir/containing/p4.el/" load-path)
 ;;
-;; This creates a binary file p4.elc in the path. Add the path to your
-;; load-path variable in .emacs like this:
+;; Then load the library:
 ;;
-;; (push "/full/path/to/dir/containing/file" load-path)
+;;     (require 'p4)
 ;;
-;; Then load the library and assign the keymap like this:
+;; By default, the P4 global key bindings start with C-x p. If you
+;; prefer a different key prefix, then you should customize the
+;; setting `p4-global-key-prefix'.
 ;;
-;; (require 'p4)
-;; (define-key global-map "\C-cp" 'p4-prefix-map)
+;; To compile the Perforce help text into the Emacs documentation
+;; strings for each command, you must byte-compile this file:
+;;
+;;     $ emacs -batch -f batch-byte-compile /full/path/to/file/p4.el
+
 
 ;;; Code:
 
@@ -324,6 +328,25 @@ functions are called.")
   "The Prefix for P4 Library Commands.")
 
 (fset 'p4-prefix-map p4-prefix-map)
+
+(defcustom p4-global-key-prefix (kbd "C-x p")
+  "The global key prefix for P4 commands."
+  :type '(radio (const :tag "No global key prefix" nil) (key-sequence))
+  :set 'p4-update-global-key-prefix
+  :group 'p4)
+
+(defun p4-update-global-key-prefix (symbol value)
+  "Update the P4 global key prefix based on the
+`p4-global-key-prefix' user setting."
+  (set symbol value)
+  (let ((map (current-global-map)))
+    ;; Remove old binding(s).
+    (dolist (key (where-is-internal p4-prefix-map map))
+      (message "Removing binding for %s" key)
+      (define-key map key nil))
+    ;; Add new binding.
+    (when p4-global-key-prefix
+      (define-key map p4-global-key-prefix p4-prefix-map))))
 
 
 ;;; Menu:
@@ -1487,7 +1510,7 @@ followed by \"delete\"."
   (if (< (p4-server-version) 2009)
       (p4-call-command "integ" (list from-file to-file) nil
                        (lambda () (p4-call-command "delete" (list from-file))))
-    (p4-call-command "move" (list from-file to-file) nil 
+    (p4-call-command "move" (list from-file to-file) nil
                      (p4-move-complete-callback from-file to-file))))
 
 (defalias 'p4-rename 'p4-move)
@@ -1670,7 +1693,7 @@ return a buffer listing those files. Otherwise, return NIL."
                          `(help-echo ,(concat "mouse-1: " help-echo)))))
 
 (defun p4-create-active-link-group (group prop-list &optional help-echo)
-  (p4-create-active-link (match-beginning group) (match-end group) 
+  (p4-create-active-link (match-beginning group) (match-end group)
                          prop-list help-echo))
 
 (defun p4-move-point-to-top ()
@@ -1937,14 +1960,14 @@ Make it into an active link with `properties'."
             (insert (format "%10s " (p4-file-revision-date rev)))
             (p4-link 8 user `(user ,user) "Describe user")
             (insert ": "))
-          (setf (p4-file-revision-links rev) 
+          (setf (p4-file-revision-links rev)
                 (buffer-substring (point-min) (point-max)))))))
 
 (defun p4-file-revision-annotate-desc (rev)
   (let ((links (p4-file-revision-desc rev)))
     (or links
         (let ((desc (p4-file-revision-description rev)))
-          (setf (p4-file-revision-desc rev) 
+          (setf (p4-file-revision-desc rev)
                 (if (<= (length desc) 33)
                     (format "%-33s: " desc)
                   (format "%33s: " (substring desc 0 33))))))))
@@ -2272,12 +2295,12 @@ NIL if there is no such completion type."
 
 (defun p4-partial-cache-cleanup (completion-type)
   "Cleanup a specific completion cache."
-  (let ((completion (p4-get-completion completion-type 'noerror))) 
+  (let ((completion (p4-get-completion completion-type 'noerror)))
     (when completion (setf (p4-completion-cache completion) nil))))
 
 (defun p4-read-arg-string (prompt &optional initial-input completion-type)
   (let* ((completion (and completion-type (p4-get-completion completion-type)))
-         (completion-fn (if completion-type 
+         (completion-fn (if completion-type
                             (p4-completion-arg-completion-fn completion)
                           'p4-arg-string-completion))
          (history (if completion-type (p4-completion-history completion)
@@ -2907,7 +2930,7 @@ file, but a prefix argument reverses this."
   "Regexp used to match p4 grep hits. See `compilation-error-regexp-alist'.")
 
 (define-derived-mode p4-grep-mode grep-mode "P4 Grep"
-  (set (make-local-variable 'compilation-error-regexp-alist) 
+  (set (make-local-variable 'compilation-error-regexp-alist)
        p4-grep-regexp-alist)
   (set (make-local-variable 'next-error-function)
        'p4-grep-next-error-function))
@@ -2924,7 +2947,7 @@ This is the value of `next-error-function' in P4 Grep buffers."
         (progn (fset 'compilation-find-file 'p4-grep-find-file)
                (compilation-next-error-function n reset))
       (fset 'compilation-find-file cff))))
-  
+
 
 ;;; Hooks:
 

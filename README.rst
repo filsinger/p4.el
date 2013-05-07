@@ -21,9 +21,9 @@ Download `p4.el`_. Then, in your ``.emacs``:
 
     (require 'p4)
 
-3. Create a global keybinding for the Emacs/P4 keymap. Traditionally this goes on ``C-x p``::
-
-    (define-key global-map "\C-xp" 'p4-prefix-map)
+By default, the P4 global key bindings start with ``C-x p``. If you
+prefer a different key prefix, then you should customize the setting
+``p4-global-key-prefix``.
 
 
 License
