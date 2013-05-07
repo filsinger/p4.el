@@ -418,6 +418,7 @@ functions are called.")
 
 (easy-menu-change '("tools") "P4" p4-menu-spec "Version Control")
 
+
 ;;; Environment:
 
 (defun p4-emacs-version ()
@@ -1259,7 +1260,8 @@ twice in the expansion."
 (defp4cmd p4-describe (&rest args)
   "describe"
   "To get a description for a change number, type \\[p4-describe].\n"
-  (interactive (p4-read-args "p4 describe: " p4-default-diff-options))
+  (interactive (p4-read-args "p4 describe: "
+                             (concat p4-default-diff-options " ")))
   (p4-describe-internal args))
 
 (defp4cmd* diff ()
@@ -1291,10 +1293,11 @@ When visiting a depot file, type \\[p4-diff2] and enter the versions."
   (let (diff-version1
 	diff-version2
 	(diff-options (p4-make-list-from-string p4-default-diff-options)))
-    (if prefix
-	(setq diff-options (p4-make-list-from-string
-			    (p4-read-arg-string "Optional Args: "
-						p4-default-diff-options))))
+    (when prefix
+      (setq diff-options (p4-make-list-from-string
+                          (p4-read-arg-string
+                           "Optional argument: "
+                           (concat p4-default-diff-options " ")))))
     ;; try to find out if this is a revision number, or a depot file
     (setq diff-version1 (p4-get-file-rev (p4-buffer-file-name-2) version1))
     (setq diff-version2 (p4-get-file-rev (p4-buffer-file-name-2) version2))
