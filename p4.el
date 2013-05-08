@@ -329,12 +329,6 @@ functions are called.")
 
 (fset 'p4-prefix-map p4-prefix-map)
 
-(defcustom p4-global-key-prefix (kbd "C-x p")
-  "The global key prefix for P4 commands."
-  :type '(radio (const :tag "No global key prefix" nil) (key-sequence))
-  :set 'p4-update-global-key-prefix
-  :group 'p4)
-
 (defun p4-update-global-key-prefix (symbol value)
   "Update the P4 global key prefix based on the
 `p4-global-key-prefix' user setting."
@@ -347,6 +341,12 @@ functions are called.")
     ;; Add new binding.
     (when p4-global-key-prefix
       (define-key map p4-global-key-prefix p4-prefix-map))))
+
+(defcustom p4-global-key-prefix (kbd "C-x p")
+  "The global key prefix for P4 commands."
+  :type '(radio (const :tag "No global key prefix" nil) (key-sequence))
+  :set 'p4-update-global-key-prefix
+  :group 'p4)
 
 
 ;;; Menu:
