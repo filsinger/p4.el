@@ -44,12 +44,19 @@
 
 ;;; Code:
 
+(require 'compile) ; compilation-error-regexp-alist
 (require 'comint) ; comint-check-proc
 (require 'dired) ; dired-get-filename
-(require 'diff-mode) ; diff-font-lock-defaults
+(require 'diff-mode) ; diff-font-lock-defaults, ...
 (eval-when-compile (require 'cl)) ; defstruct, loop, dolist, ...
 
 (defvar p4-version "11.0" "Perforce-Emacs Integration version.")
+
+;; Forward declarations to avoid byte-compile warning "reference to
+;; free variable"
+(defvar p4-global-key-prefix)
+(defvar p4-basic-mode-map)
+(defvar p4-annotate-mode-map)
 
 
 ;;; User options:
