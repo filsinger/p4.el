@@ -49,7 +49,7 @@
 (require 'diff-mode) ; diff-font-lock-defaults
 (eval-when-compile (require 'cl)) ; defstruct, loop, dolist, ...
 
-(defvar p4-emacs-version "10.8" "The Current P4-Emacs Integration Revision.")
+(defvar p4-version "11.0" "Perforce-Emacs Integration version.")
 
 
 ;;; User options:
@@ -317,7 +317,7 @@ functions are called.")
     (define-key map "t" 'p4-toggle-vc-mode)
     (define-key map "u" 'p4-user)
     (define-key map "U" 'p4-users)
-    (define-key map "v" 'p4-emacs-version)
+    (define-key map "v" 'p4-version)
     (define-key map "V" 'p4-annotate)
     (define-key map "w" 'p4-where)
     (define-key map "x" 'p4-delete)
@@ -403,7 +403,7 @@ functions are called.")
     ["Edit a Client Specification" p4-client t]
     ["Edit a User Specification" p4-user t]
     ["--" nil nil]
-    ["Show Version" p4-emacs-version t]
+    ["Show Version" p4-version t]
     ["Disable P4 VC Check" p4-toggle-vc-mode-off p4-do-find-file]
     ["Enable P4 VC Check" p4-toggle-vc-mode-on (not p4-do-find-file)]
     ["--" nil nil]
@@ -421,12 +421,12 @@ functions are called.")
 
 ;;; Environment:
 
-(defun p4-emacs-version ()
+(defun p4-version ()
   "Describe the (X)Emacs-P4 Integration version."
   (interactive)
   (message "%sEmacs-P4 Integration version %s"
            (if (featurep 'xemacs) "X" "")
-	   p4-emacs-version))
+	   p4-version))
 
 (defun p4-current-client ()
   "Return the current P4 client."
@@ -880,7 +880,7 @@ If `no-auto-login' is non-NIL, don't try logging in if logged out."
   ;; The Windows p4 client outputs this line before the spec unless
   ;; run via CMD.EXE.
   (when (looking-at "Found client MATCH : .*\n") (replace-match ""))
-  (insert "# Created using " (p4-emacs-version) ".\n"
+  (insert "# Created using " (p4-version) ".\n"
           "# Type C-c C-c to submit changes and exit buffer.\n"
           "# Type C-x k to kill current changes.\n"
           "#\n")
