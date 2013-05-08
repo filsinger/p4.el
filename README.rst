@@ -15,7 +15,7 @@ Download `p4.el`_. Then, in your ``.emacs``:
 
 1. Ensure the directory containing ``p4.el`` is on your ``load-path``::
 
-    (push "/full/path/to/dir/containing/file" load-path)
+    (push "/full/path/to/dir/containing/p4.el" load-path)
 
 2. Load the library::
 
@@ -24,6 +24,11 @@ Download `p4.el`_. Then, in your ``.emacs``:
 By default, the P4 global key bindings start with ``C-x p``. If you
 prefer a different key prefix, then you should customize the setting
 ``p4-global-key-prefix``.
+
+To compile the Perforce help text into the Emacs documentation
+strings for each command, you must byte-compile ``p4.el``::
+
+    $ emacs -batch -f batch-byte-compile p4.el
 
 
 License
