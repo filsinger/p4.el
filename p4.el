@@ -645,7 +645,7 @@ characters."
      name)))
 
 (defun p4-cygpath (name)
-  (if (memq system-type '(cygwin32))
+  (if (memq system-type '(cygwin32 cygwin))
       (if (featurep 'xemacs)
           (replace-in-string (exec-to-string (format "%s -w %s" p4-cygpath-exec name)) "\n" "")
         (replace-regexp-in-string "\n" "" (shell-command-to-string (format "%s -w %s" p4-cygpath-exec name))))
