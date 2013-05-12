@@ -292,7 +292,7 @@ functions are called.")
     (define-key map "f" 'p4-filelog)
     (define-key map "F" 'p4-files)
     (define-key map "g" 'p4-get-client-name)
-    (define-key map "G" 'p4-get)
+    (define-key map "G" 'p4-update)
     (define-key map "h" 'p4-help)
     (define-key map "H" 'p4-have)
     (define-key map "i" 'p4-info)
@@ -310,7 +310,7 @@ functions are called.")
     (define-key map "r" 'p4-revert)
     (define-key map "R" 'p4-refresh)
     (define-key map "\C-r" 'p4-resolve)
-    (define-key map "s" 'p4-set-client-name)
+    (define-key map "s" 'p4-status)
     (define-key map "S" 'p4-submit)
     (define-key map "t" 'p4-toggle-vc-mode)
     (define-key map "u" 'p4-user)
@@ -368,7 +368,9 @@ functions are called.")
      (and buffer-file-name (or (not p4-do-find-file) (eq p4-vc-status 'edit)))]
     ["Submit Changes"  p4-submit t]
     ["--" nil nil]
-    ["Sync Files with Depot" p4-sync t]
+    ["Update Files from Depot" p4-update t]
+    ["Status of Files on Client" p4-status t]
+    ["Reconcile Files with Depot" p4-reconcile t]
     ["--" nil nil]
     ["Show Opened Files" p4-opened t]
     ["Filelog" p4-filelog
@@ -380,7 +382,7 @@ functions are called.")
      (and buffer-file-name (or (not p4-do-find-file) p4-vc-status))]
     ["Diff Current" p4-diff
      (and buffer-file-name (or (not p4-do-find-file) (eq p4-vc-status 'edit)))]
-    ["Diff All Opened Files" p4-diff-all-opened t]
+    ["Diff All Opened Files" (lambda () (interactive) (p4-diff '("-du"))) t]
     ["Diff Current with Ediff" p4-ediff
      (and buffer-file-name (or (not p4-do-find-file) (eq p4-vc-status 'edit)))]
     ["Diff 2 Versions with Ediff" p4-ediff2
@@ -750,7 +752,7 @@ if it was shown in a window."
 (defun p4-process-show-error (&rest args)
   "Show the contents of the current buffer as an error message.
 If there's no content in the buffer, pass `args' to error instead."
-  (cond ((eobp)
+  (cond ((and (bobp) (eobp))
          (kill-buffer (current-buffer))
          (apply 'error args))
         ((eql (count-lines (point-min) (point-max)) 1)
@@ -1573,7 +1575,7 @@ changelist."
 
 (defp4cmd* status ()
   "Identify differences between the workspace with the depot."
-  (p4-buffer-file-name-args)
+  '("...")
   nil
   (p4-call-command cmd args 'p4-status-list-mode))
 
@@ -1624,6 +1626,12 @@ return a buffer listing those files. Otherwise, return NIL."
   (p4-buffer-file-name-args)
   nil
   (p4-call-command cmd args nil (p4-refresh-callback t)))
+
+(defp4cmd* update ()
+  "Synchronize the client with its view of the depot (with safety check)."
+  nil
+  nil
+  (p4-call-command cmd args 'p4-basic-list-mode 'p4-refresh-buffers))
 
 (defp4cmd p4-user (&rest args)
   "user"
@@ -1972,7 +1980,7 @@ first)."
 
 (defun p4-annotate-changes (filespec)
   "Return a list of change numbers, one for each line of `filespec'."
-  (let ((args (list "annotate" "-c" "-q" filespec)))
+  (let ((args (list "annotate" "-i" "-c" "-q" filespec)))
     (message "Running p4 %s..." (p4-join-list args))
     (p4-with-temp-buffer args
       (loop while (re-search-forward "^\\([1-9][0-9]*\\):" nil t)
