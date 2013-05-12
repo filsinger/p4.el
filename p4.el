@@ -382,7 +382,7 @@ functions are called.")
      (and buffer-file-name (or (not p4-do-find-file) p4-vc-status))]
     ["Diff Current" p4-diff
      (and buffer-file-name (or (not p4-do-find-file) (eq p4-vc-status 'edit)))]
-    ["Diff All Opened Files" (lambda () (interactive) (p4-diff '("-du"))) t]
+    ["Diff All Opened Files" p4-diff-all-opened t]
     ["Diff Current with Ediff" p4-ediff
      (and buffer-file-name (or (not p4-do-find-file) (eq p4-vc-status 'edit)))]
     ["Diff 2 Versions with Ediff" p4-ediff2
@@ -1214,6 +1214,10 @@ twice in the expansion."
   (cons p4-default-diff-options (p4-buffer-file-name-args))
   nil
   (p4-call-command cmd args 'p4-diff-mode 'p4-activate-diff-buffer))
+
+(defun p4-diff-all-opened ()
+  (interactive)
+  (p4-diff (list p4-default-diff-options)))
 
 (defun p4-get-file-rev (default-name rev)
   (if (string-match "^\\([1-9][0-9]*\\|none\\|head\\|have\\)$" rev)
