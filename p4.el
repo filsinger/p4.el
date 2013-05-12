@@ -849,9 +849,7 @@ regexp is an optional regular expression to set the cursor on.
 commit-cmd is the command that will be called when
 `p4-form-commit' is called \(it must take -i and a form on
 standard input\). If not supplied, cmd is reused."
-  (when (member "-i" args) (error "Do not specify the -i flag."))
-  (when (member "-o" args) (error "Do not specify the -o flag."))
-
+  (setq args (remove "-i" (remove "-o" args)))
   ;; Is there already an uncommitted form with the same name? If so,
   ;; just switch to it.
   (lexical-let* ((args (cons "-o" args))
