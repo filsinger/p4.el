@@ -113,6 +113,11 @@ Set to:
   :type 'hook
   :group 'p4)
 
+(defcustom p4-edit-hook nil
+  "Hook run after opening a file for edit."
+  :type 'hook
+  :group 'p4)
+
 (defcustom p4-strict-complete t
   "If non-NIL, `p4-set-my-client' requires an exact match."
   :type 'boolean
@@ -719,18 +724,21 @@ the output, and evaluate BODY if the command completed successfully."
 
 (put 'p4-with-temp-buffer 'lisp-indent-function 1)
 
-(defun p4-refresh-callback (&optional revert all-buffers)
+(defun p4-refresh-callback (&optional revert all-buffers hook)
   "Return a callback function that refreshes the status of the
 current buffer after a p4 command successfully completes. If
 optional argument `revert' is non-NIL, revert the buffer if
-modified; if optional `all-buffers' is non-NIL, refresh all
-buffers."
+modified; if optional argument `hook' is non-NIL, run that
+hook; if optional argument `all-buffers' is non-NIL, refresh
+all buffers."
   (lexical-let ((buffer (current-buffer))
                 (revert revert)
-                (all-buffers all-buffers))
+                (all-buffers all-buffers)
+                (hook hook))
     (lambda ()
       (with-current-buffer buffer
         (p4-refresh-buffer revert)
+        (when hook (run-hooks hook))
         (when all-buffers (p4-refresh-buffers))))))
 
 (defun p4-process-show-output ()
@@ -1321,7 +1329,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
   "Open an existing file for edit."
   (p4-buffer-file-name-args)
   (t)
-  (p4-call-command cmd args nil (p4-refresh-callback t refresh-after)))
+  (p4-call-command cmd args nil (p4-refresh-callback t refresh-after 'p4-edit-hook)))
 
 (defp4cmd* filelog ()
   "List revision history of files."
