@@ -1582,16 +1582,17 @@ changelist."
 (defun p4-empty-diff-buffer ()
   "If there exist any files opened for edit with an empty diff,
 return a buffer listing those files. Otherwise, return NIL."
-  (with-current-buffer (get-buffer-create "*P4 diff -sr*")
-    (p4-run (list "diff" "-sr"))
-    ;; The output of p4 diff -sr can be:
-    ;; "File(s) not opened on this client." if no files opened at all.
-    ;; "File(s) not opened for edit." if some files opened (but none for edit)
-    ;; Nothing if files opened for edit (but all have changes).
-    ;; List of filesnames (otherwise).
-    (if (or (eobp) (looking-at "File(s) not opened"))
-        (progn (kill-buffer (current-buffer)) nil)
-      (current-buffer))))
+  (let ((args (list "diff" "-sr")))
+    (with-current-buffer (p4-make-output-buffer (p4-process-buffer-name args))
+      (when (zerop (p4-run args))
+        ;; The output of p4 diff -sr can be:
+        ;; "File(s) not opened on this client." if no files opened at all.
+        ;; "File(s) not opened for edit." if files opened (but none for edit)
+        ;; Nothing if files opened for edit (but all have changes).
+        ;; List of filesnames (otherwise).
+        (if (or (eobp) (looking-at "File(s) not opened"))
+            (progn (kill-buffer (current-buffer)) nil)
+          (current-buffer))))))
 
 (defp4cmd p4-submit (&optional args)
   "submit"
