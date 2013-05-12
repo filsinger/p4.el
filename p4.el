@@ -963,25 +963,28 @@ client, or NIL if this is not known."
               (kill-buffer (current-buffer))
               (p4-maybe-start-update-statuses))))))))
 
-(defvar p4-update-status-pending nil
-  "List of buffers for which a status update is pending.")
+(defvar p4-update-status-pending-alist nil
+  "Association list mapping the output of p4 set to a list of
+buffers for which a status update is pending and in which p4 set
+produces that output.")
 
 (defvar p4-update-status-process-buffer " *P4 update status*"
   "Name of the buffer in which the status update may be running.")
 
 (defun p4-maybe-start-update-statuses ()
-  "Start an asychronous update the Perforce statuses of the
-buffers in `p4-update-status-pending', unless one is running
-already."
+  "Start an asychronous update of the Perforce statuses of some
+of the buffers in `p4-update-status-pending-alist', unless such
+an update is running already."
   (when (and p4-executable
              (not (get-buffer-process p4-update-status-process-buffer)))
-    (let ((buffers (loop for b in p4-update-status-pending
-                         when (and (buffer-live-p b) (buffer-file-name b))
-                         collect b)))
-      (setq p4-update-status-pending nil)
+    (let* ((buffers (loop for b in (cdr (pop p4-update-status-pending-alist))
+                          when (and (buffer-live-p b) (buffer-file-name b))
+                          collect b)))
       (when buffers
         (with-current-buffer
             (get-buffer-create p4-update-status-process-buffer)
+          (setq default-directory
+                (with-current-buffer (car buffers) default-directory))
           (let ((process (start-process "P4" (current-buffer)
                                         p4-executable "-s" "-x" "-" "opened")))
             (set-process-query-on-exit-flag process nil)
@@ -998,9 +1001,15 @@ current buffer. If the asynchronous update completes
 successfully, then `p4-vc-revision' and `p4-vc-status' will be
 set in this buffer, `p4-mode' will be set appropriately, and if
 `p4-mode' is turned on, then `p4-mode-hook' will be run."
-  (when (and p4-do-find-file buffer-file-name)
-    (add-to-list 'p4-update-status-pending (current-buffer))
-    (p4-maybe-start-update-statuses)))
+  (let ((b (current-buffer)))
+    (when (and p4-do-find-file buffer-file-name)
+      (p4-with-temp-buffer '("set")
+        (let* ((set (buffer-substring-no-properties (point-min) (point-max)))
+               (pending (assoc set p4-update-status-pending-alist)))
+          (if pending
+              (pushnew b (cdr pending))
+            (push (list set b) p4-update-status-pending-alist))))
+      (p4-maybe-start-update-statuses))))
 
 (defun p4-refresh-buffer (&optional prompt)
   "Refresh the current buffer if it is under Perforce control.
