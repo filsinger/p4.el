@@ -256,10 +256,13 @@ NIL if file is not known to be under control of Perforce.
   "p4 command to run when committing this form.")
 (defvar p4-form-committed nil "Form successfully committed?")
 
+;; Local variables in P4 depot buffers.
+(defvar p4-default-directory nil "Original value of default-directory.")
+
 (dolist (var '(p4-mode p4-offline-mode p4-vc-revision p4-vc-status
                p4-process-args p4-process-callback p4-process-buffers
                p4-process-after-show-callback p4-process-no-auto-login
-               p4-form-commit-command p4-form-committed))
+               p4-form-commit-command p4-form-committed p4-default-directory))
   (make-variable-buffer-local var)
   (put var 'permanent-local t))
 
@@ -531,6 +534,84 @@ restore the window configuration."
     (setq p4-window-config-stack (cdr p4-window-config-stack))))
 
 
+;;; File handler:
+
+(defun p4-dirs-and-attributes (dir)
+  (let ((now (current-time)))
+    (loop for f in (p4-output-matches (list "dirs" (concat dir "*"))
+                                      "^//[^ \n]+$")
+          collect (list f t 0 0 0 now now now 0 "dr--r--r--" nil 0 0))))
+
+(defun p4-files-and-attributes (dir)
+  (let ((now (current-time)))
+    (loop for f in (p4-output-matches (list "files" (concat dir "*"))
+                                      "^\\(//[^#\n]+#[1-9][0-9]*\\) - " 1)
+          collect (list f nil 0 0 0 now now now 0 "-r--r--r--" nil 0 0))))
+
+(defun p4-directory-files-and-attributes (dir &optional full match nosort id-format)
+  (let* ((from (length dir))
+         (files (loop for f in (append (p4-dirs-and-attributes dir)
+                                       (p4-files-and-attributes dir))
+                      unless (and match (not (string-match match (first f))))
+                      collect (if full f
+                                (cons (substring (first f) from) (cdr f))))))
+    (if nosort files
+      (sort files 'file-attributes-lessp))))
+
+(defun p4-file-exists-p (filename)
+  (or (p4-file-directory-p filename)
+      (p4-with-temp-buffer (list "-s" "files" filename) (looking-at "info:"))))
+
+(defun p4-file-directory-p (filename)
+  (p4-with-temp-buffer (list "-s" "dirs" filename) (looking-at "info:")))
+
+(defun p4-file-name-sans-versions (filename &optional keep-backup-version)
+  (string-match "\\(.*?\\)\\(?:#[1-9][0-9]*\\|@[^#@ \t\n]+\\)?$" filename)
+  (match-string 1 filename))
+
+(defun p4-insert-directory (file switches &optional wildcard full-directory-p)
+  (message "%s" (list file switches wildcard full-directory-p))
+  (loop for f in (p4-directory-files-and-attributes file)
+        do (insert (format "  %s   - -  -  %d %s %s\n" (nth 9 f)
+                           (nth 8 f) (format-time-string "%b %e %Y" (nth 6 f))
+                           (nth 0 f)))))
+
+(defun p4-insert-file-contents (filename &optional visit beg end replace)
+  (unless (zerop (p4-run (list "print" "-q" filename)))
+    (signal 'file-error (buffer-substring (point-min) (point-max))))
+  (when visit
+    (setq p4-default-directory (or p4-default-directory default-directory))
+    (setq buffer-file-name filename)
+    (set-buffer-modified-p nil))
+  (setq buffer-read-only t))
+
+(defun p4-file-name-handler (operation &rest args)
+  (case operation
+    ((expand-file-name file-truename substitute-in-file-name)
+     (car args))
+    (directory-files (apply 'p4-directory-files args))
+    (file-directory-p (apply 'p4-file-directory-p args))
+    (file-exists-p (apply 'p4-file-exists-p args))
+    (file-name-sans-versions (apply 'p4-file-name-sans-versions args))
+    (file-remote-p t)
+    (file-writable-p nil)
+    (insert-directory (apply 'p4-insert-directory args))
+    (insert-file-contents (apply 'p4-insert-file-contents args))
+    (vc-registered nil)
+    ((add-name-to-file delete-directory delete-file dired-compress-file
+      make-directory make-directory-internal make-symbolic-link rename-file
+      set-file-modes set-file-times shell-command write-region)
+     (error "%s not supported for Perforce depot files." operation))
+    (t
+     (message "(p4-file-name-handler %s %s)" operation args)
+     (let ((inhibit-file-name-handlers
+            (cons 'p4-file-name-handler
+                  (and (eq inhibit-file-name-operation operation)
+                       inhibit-file-name-handlers)))
+           (inhibit-file-name-operation operation))
+       (apply operation args)))))
+
+
 ;;; Utilities:
 
 (defun p4-find-file-or-print-other-window (client-name depot-name)
@@ -683,7 +764,7 @@ To set the executable for future sessions, customize
 
 (defun p4-make-output-buffer (buffer-name &optional mode)
   "Make read only buffer and return the buffer."
-  (let ((dir default-directory)
+  (let ((dir (or p4-default-directory default-directory))
 	(inhibit-read-only t))
     (with-current-buffer (get-buffer-create buffer-name)
       (erase-buffer)
@@ -704,7 +785,9 @@ To set the executable for future sessions, customize
 Return the status of the command. If the command cannot be run
 because the user is not logged in, prompt for a password and
 re-run the command."
-  (let ((incomplete t) status)
+  (let ((incomplete t)
+        (default-directory (or p4-default-directory default-directory))
+        status)
     (while incomplete
       (save-excursion
         (save-restriction
@@ -720,7 +803,10 @@ re-run the command."
 (defmacro p4-with-temp-buffer (args &rest body)
   "Run p4 ARGS in a temporary buffer, place point at the start of
 the output, and evaluate BODY if the command completed successfully."
-  `(with-temp-buffer (when (zerop (p4-run ,args)) ,@body)))
+  `(let ((dir (or p4-default-directory default-directory)))
+     (with-temp-buffer
+       (cd dir)
+       (when (zerop (p4-run ,args)) ,@body))))
 
 (put 'p4-with-temp-buffer 'lisp-indent-function 1)
 
@@ -992,7 +1078,8 @@ an update is running already."
         (with-current-buffer
             (get-buffer-create p4-update-status-process-buffer)
           (setq default-directory
-                (with-current-buffer (car buffers) default-directory))
+                (with-current-buffer (car buffers) 
+                  (or p4-default-directory default-directory)))
           (let ((process (start-process "P4" (current-buffer)
                                         p4-executable "-s" "-x" "-" "opened")))
             (set-process-query-on-exit-flag process nil)
@@ -1010,13 +1097,14 @@ successfully, then `p4-vc-revision' and `p4-vc-status' will be
 set in this buffer, `p4-mode' will be set appropriately, and if
 `p4-mode' is turned on, then `p4-mode-hook' will be run."
   (let ((b (current-buffer)))
-    (when (and p4-do-find-file buffer-file-name)
+    (when (and p4-do-find-file buffer-file-name (not p4-default-directory))
       (p4-with-temp-buffer '("set")
-        (let* ((set (buffer-substring-no-properties (point-min) (point-max)))
-               (pending (assoc set p4-update-status-pending-alist)))
-          (if pending
-              (pushnew b (cdr pending))
-            (push (list set b) p4-update-status-pending-alist))))
+        (when (save-excursion (re-search-forward "^P4PORT=" nil t))
+          (let* ((set (buffer-substring-no-properties (point-min) (point-max)))
+                 (pending (assoc set p4-update-status-pending-alist)))
+            (if pending
+                (pushnew b (cdr pending))
+              (push (list set b) p4-update-status-pending-alist)))))
       (p4-maybe-start-update-statuses))))
 
 (defun p4-refresh-buffer (&optional prompt)
@@ -2944,6 +3032,8 @@ This is the value of `next-error-function' in P4 Grep buffers."
 ;;; Hooks:
 
 (add-hook 'find-file-hooks 'p4-update-status)
+
+;(add-to-list 'file-name-handler-alist '("\\`//\\(?:[^/#@ \t\n]+/\\)+[^/#@ \t\n]*\\(?:#[1-9][0-9]*\\|@[^/#@ \n\t]+\\)?$" . p4-file-name-handler))
 
 (provide 'p4)
 
