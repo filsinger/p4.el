@@ -113,6 +113,11 @@ Set to:
   :type 'hook
   :group 'p4)
 
+(defcustom p4-edit-hook nil
+  "Hook run after opening a file for edit."
+  :type 'hook
+  :group 'p4)
+
 (defcustom p4-strict-complete t
   "If non-NIL, `p4-set-my-client' requires an exact match."
   :type 'boolean
@@ -292,7 +297,7 @@ functions are called.")
     (define-key map "f" 'p4-filelog)
     (define-key map "F" 'p4-files)
     (define-key map "g" 'p4-get-client-name)
-    (define-key map "G" 'p4-get)
+    (define-key map "G" 'p4-update)
     (define-key map "h" 'p4-help)
     (define-key map "H" 'p4-have)
     (define-key map "i" 'p4-info)
@@ -310,7 +315,7 @@ functions are called.")
     (define-key map "r" 'p4-revert)
     (define-key map "R" 'p4-refresh)
     (define-key map "\C-r" 'p4-resolve)
-    (define-key map "s" 'p4-set-client-name)
+    (define-key map "s" 'p4-status)
     (define-key map "S" 'p4-submit)
     (define-key map "t" 'p4-toggle-vc-mode)
     (define-key map "u" 'p4-user)
@@ -368,7 +373,9 @@ functions are called.")
      (and buffer-file-name (or (not p4-do-find-file) (eq p4-vc-status 'edit)))]
     ["Submit Changes"  p4-submit t]
     ["--" nil nil]
-    ["Sync Files with Depot" p4-sync t]
+    ["Update Files from Depot" p4-update t]
+    ["Status of Files on Client" p4-status t]
+    ["Reconcile Files with Depot" p4-reconcile t]
     ["--" nil nil]
     ["Show Opened Files" p4-opened t]
     ["Filelog" p4-filelog
@@ -717,18 +724,21 @@ the output, and evaluate BODY if the command completed successfully."
 
 (put 'p4-with-temp-buffer 'lisp-indent-function 1)
 
-(defun p4-refresh-callback (&optional revert all-buffers)
+(defun p4-refresh-callback (&optional revert all-buffers hook)
   "Return a callback function that refreshes the status of the
 current buffer after a p4 command successfully completes. If
 optional argument `revert' is non-NIL, revert the buffer if
-modified; if optional `all-buffers' is non-NIL, refresh all
-buffers."
+modified; if optional argument `hook' is non-NIL, run that
+hook; if optional argument `all-buffers' is non-NIL, refresh
+all buffers."
   (lexical-let ((buffer (current-buffer))
                 (revert revert)
-                (all-buffers all-buffers))
+                (all-buffers all-buffers)
+                (hook hook))
     (lambda ()
       (with-current-buffer buffer
         (p4-refresh-buffer revert)
+        (when hook (run-hooks hook))
         (when all-buffers (p4-refresh-buffers))))))
 
 (defun p4-process-show-output ()
@@ -750,7 +760,7 @@ if it was shown in a window."
 (defun p4-process-show-error (&rest args)
   "Show the contents of the current buffer as an error message.
 If there's no content in the buffer, pass `args' to error instead."
-  (cond ((eobp)
+  (cond ((and (bobp) (eobp))
          (kill-buffer (current-buffer))
          (apply 'error args))
         ((eql (count-lines (point-min) (point-max)) 1)
@@ -847,9 +857,7 @@ regexp is an optional regular expression to set the cursor on.
 commit-cmd is the command that will be called when
 `p4-form-commit' is called \(it must take -i and a form on
 standard input\). If not supplied, cmd is reused."
-  (when (member "-i" args) (error "Do not specify the -i flag."))
-  (when (member "-o" args) (error "Do not specify the -o flag."))
-
+  (setq args (remove "-i" (remove "-o" args)))
   ;; Is there already an uncommitted form with the same name? If so,
   ;; just switch to it.
   (lexical-let* ((args (cons "-o" args))
@@ -963,25 +971,28 @@ client, or NIL if this is not known."
               (kill-buffer (current-buffer))
               (p4-maybe-start-update-statuses))))))))
 
-(defvar p4-update-status-pending nil
-  "List of buffers for which a status update is pending.")
+(defvar p4-update-status-pending-alist nil
+  "Association list mapping the output of p4 set to a list of
+buffers for which a status update is pending and in which p4 set
+produces that output.")
 
 (defvar p4-update-status-process-buffer " *P4 update status*"
   "Name of the buffer in which the status update may be running.")
 
 (defun p4-maybe-start-update-statuses ()
-  "Start an asychronous update the Perforce statuses of the
-buffers in `p4-update-status-pending', unless one is running
-already."
+  "Start an asychronous update of the Perforce statuses of some
+of the buffers in `p4-update-status-pending-alist', unless such
+an update is running already."
   (when (and p4-executable
              (not (get-buffer-process p4-update-status-process-buffer)))
-    (let ((buffers (loop for b in p4-update-status-pending
-                         when (and (buffer-live-p b) (buffer-file-name b))
-                         collect b)))
-      (setq p4-update-status-pending nil)
+    (let* ((buffers (loop for b in (cdr (pop p4-update-status-pending-alist))
+                          when (and (buffer-live-p b) (buffer-file-name b))
+                          collect b)))
       (when buffers
         (with-current-buffer
             (get-buffer-create p4-update-status-process-buffer)
+          (setq default-directory
+                (with-current-buffer (car buffers) default-directory))
           (let ((process (start-process "P4" (current-buffer)
                                         p4-executable "-s" "-x" "-" "opened")))
             (set-process-query-on-exit-flag process nil)
@@ -998,9 +1009,15 @@ current buffer. If the asynchronous update completes
 successfully, then `p4-vc-revision' and `p4-vc-status' will be
 set in this buffer, `p4-mode' will be set appropriately, and if
 `p4-mode' is turned on, then `p4-mode-hook' will be run."
-  (when (and p4-do-find-file buffer-file-name)
-    (add-to-list 'p4-update-status-pending (current-buffer))
-    (p4-maybe-start-update-statuses)))
+  (let ((b (current-buffer)))
+    (when (and p4-do-find-file buffer-file-name)
+      (p4-with-temp-buffer '("set")
+        (let* ((set (buffer-substring-no-properties (point-min) (point-max)))
+               (pending (assoc set p4-update-status-pending-alist)))
+          (if pending
+              (pushnew b (cdr pending))
+            (push (list set b) p4-update-status-pending-alist))))
+      (p4-maybe-start-update-statuses))))
 
 (defun p4-refresh-buffer (&optional prompt)
   "Refresh the current buffer if it is under Perforce control.
@@ -1215,6 +1232,10 @@ twice in the expansion."
   nil
   (p4-call-command cmd args 'p4-diff-mode 'p4-activate-diff-buffer))
 
+(defun p4-diff-all-opened ()
+  (interactive)
+  (p4-diff (list p4-default-diff-options)))
+
 (defun p4-get-file-rev (default-name rev)
   (if (string-match "^\\([1-9][0-9]*\\|none\\|head\\|have\\)$" rev)
       (setq rev (concat "#" rev)))
@@ -1308,7 +1329,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
   "Open an existing file for edit."
   (p4-buffer-file-name-args)
   (t)
-  (p4-call-command cmd args nil (p4-refresh-callback t refresh-after)))
+  (p4-call-command cmd args nil (p4-refresh-callback t refresh-after 'p4-edit-hook)))
 
 (defp4cmd* filelog ()
   "List revision history of files."
@@ -1573,23 +1594,24 @@ changelist."
 
 (defp4cmd* status ()
   "Identify differences between the workspace with the depot."
-  (p4-buffer-file-name-args)
+  '("...")
   nil
   (p4-call-command cmd args 'p4-status-list-mode))
 
 (defun p4-empty-diff-buffer ()
   "If there exist any files opened for edit with an empty diff,
 return a buffer listing those files. Otherwise, return NIL."
-  (with-current-buffer (get-buffer-create "*P4 diff -sr*")
-    (p4-run (list "diff" "-sr"))
-    ;; The output of p4 diff -sr can be:
-    ;; "File(s) not opened on this client." if no files opened at all.
-    ;; "File(s) not opened for edit." if some files opened (but none for edit)
-    ;; Nothing if files opened for edit (but all have changes).
-    ;; List of filesnames (otherwise).
-    (if (or (eobp) (looking-at "File(s) not opened"))
-        (progn (kill-buffer (current-buffer)) nil)
-      (current-buffer))))
+  (let ((args (list "diff" "-sr")))
+    (with-current-buffer (p4-make-output-buffer (p4-process-buffer-name args))
+      (when (zerop (p4-run args))
+        ;; The output of p4 diff -sr can be:
+        ;; "File(s) not opened on this client." if no files opened at all.
+        ;; "File(s) not opened for edit." if files opened (but none for edit)
+        ;; Nothing if files opened for edit (but all have changes).
+        ;; List of filesnames (otherwise).
+        (if (or (eobp) (looking-at "File(s) not opened"))
+            (progn (kill-buffer (current-buffer)) nil)
+          (current-buffer))))))
 
 (defp4cmd p4-submit (&optional args)
   "submit"
@@ -1624,6 +1646,12 @@ return a buffer listing those files. Otherwise, return NIL."
   (p4-buffer-file-name-args)
   nil
   (p4-call-command cmd args nil (p4-refresh-callback t)))
+
+(defp4cmd* update ()
+  "Synchronize the client with its view of the depot (with safety check)."
+  nil
+  nil
+  (p4-call-command cmd args 'p4-basic-list-mode 'p4-refresh-buffers))
 
 (defp4cmd p4-user (&rest args)
   "user"
@@ -1972,7 +2000,7 @@ first)."
 
 (defun p4-annotate-changes (filespec)
   "Return a list of change numbers, one for each line of `filespec'."
-  (let ((args (list "annotate" "-c" "-q" filespec)))
+  (let ((args (list "annotate" "-i" "-c" "-q" filespec)))
     (message "Running p4 %s..." (p4-join-list args))
     (p4-with-temp-buffer args
       (loop while (re-search-forward "^\\([1-9][0-9]*\\):" nil t)
