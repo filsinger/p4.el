@@ -1545,7 +1545,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
     (with-temp-buffer
       (insert pw)
       (apply 'call-process-region (point-min) (point-max)
-             (p4-executable) t t nil cmd args)
+             (p4-executable) t t nil cmd "-a" args)
       (goto-char (point-min))
       (when (re-search-forward "Enter password:.*\n" nil t)
         (replace-match ""))
