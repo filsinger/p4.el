@@ -238,7 +238,8 @@ NIL if file is not known to be under control of Perforce.
 `branch' if file opened for integration.
 `delete' if file is opened for delete.
 `edit' if file is opened for edit.
-`sync' if file is synced but not opened.")
+`sync' if file is synced but not opened.
+`depot' if the file is from the depot.")
 
 ;; Local variables in P4 process buffers.
 (defvar p4-process-args nil "List of p4 command and arguments.")
@@ -580,6 +581,7 @@ restore the window configuration."
   (unless (zerop (p4-run (list "print" "-q" filename)))
     (signal 'file-error (buffer-substring (point-min) (point-max))))
   (when visit
+    (p4-update-mode (current-buffer) 'depot nil)
     (setq p4-default-directory (or p4-default-directory default-directory))
     (setq buffer-file-name filename)
     (set-buffer-modified-p nil))
@@ -988,22 +990,17 @@ standard input\). If not supplied, cmd is reused."
 
 (defun p4-update-mode (buffer status revision)
   "Turn p4-mode on or off in `buffer' according to Perforce status.
-Argument `status' is one of the following symbols, based on the
-file that the buffer is visiting:
-`NIL' -- not known to be under Perforce control;
-`add' -- opened for add;
-`branch' -- opened for integrate;
-`delete' -- opened for delete;
-`edit' -- opened for edit;
-`sync' -- under Perforce control but not opened.
-Argument `revision' is the revision number of the file on the
-client, or NIL if this is not known."
+Argument `status' is a symbol (see `p4-vc-status' for the
+possible values and what they mean). Argument `revision' is the
+revision number of the file on the client, or NIL if such a
+revision number is not known or not applicable."
   (when (buffer-live-p buffer)
     (with-current-buffer buffer
       (setq p4-vc-status status
             p4-vc-revision revision)
       (let ((new-mode (case status
                         (sync (format " P4:%d" revision))
+                        (depot (format " P4:%s" status))
                         ((add branch edit) (format " P4:%s" status))
                         (t nil))))
         (when (and new-mode (not p4-mode))
