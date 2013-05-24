@@ -2676,9 +2676,15 @@ NIL if there is no such completion type."
 
 (defun p4-basic-list-activate ()
   (interactive)
-  (let ((file (p4-basic-list-get-filename)))
-    (when file
-      (p4-depot-find-file file))))
+  (save-excursion
+    (beginning-of-line)
+    (when (looking-at "^\\(\\(//.*\\)#[1-9][0-9]*\\) - \\(\\(?:move/\\)?add\\)?")
+      (if (match-string 3)
+          (let ((args (list "where" (match-string 2))))
+            (p4-with-temp-buffer args
+              (when (looking-at "//[^ ]+ //[^ ]+ \\(.*\\)")
+                (find-file (match-string 1)))))
+        (p4-depot-find-file (match-string 1))))))
 
 
 ;;; Status List Mode:
