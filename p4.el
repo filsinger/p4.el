@@ -242,10 +242,10 @@ NIL if file is not known to be under control of Perforce.
 (defvar p4-process-args nil "List of p4 command and arguments.")
 (defvar p4-process-callback nil
   "Function run when p4 command completes successfully.")
-(defvar p4-process-after-show-callback nil
+(defvar p4-process-after-show nil
   "Function run when p4 command completes successfully.")
-(defvar p4-process-no-auto-login nil
-  "If non-NIL, don't automatically prompt user to log in.")
+(defvar p4-process-auto-login nil
+  "If non-NIL, automatically prompt user to log in.")
 (defvar p4-process-buffers nil
   "List of buffers whose status is being updated here.")
 
@@ -257,10 +257,11 @@ NIL if file is not known to be under control of Perforce.
 ;; Local variables in P4 depot buffers.
 (defvar p4-default-directory nil "Original value of default-directory.")
 
-(dolist (var '(p4-mode p4-offline-mode p4-vc-revision p4-vc-status
-               p4-process-args p4-process-callback p4-process-buffers
-               p4-process-after-show-callback p4-process-no-auto-login
-               p4-form-commit-command p4-form-committed p4-default-directory))
+(dolist (var '(p4-mode p4-offline-mode p4-vc-revision
+               p4-vc-status p4-process-args p4-process-callback
+               p4-process-buffers p4-process-after-show
+               p4-process-auto-login p4-form-commit-command
+               p4-form-committed p4-default-directory))
   (make-variable-buffer-local var)
   (put var 'permanent-local t))
 
@@ -831,7 +832,7 @@ all buffers."
 Return NIL if it was shown in minibuffer and killed, or non-NIL
 if it was shown in a window."
   (let ((lines (count-lines (point-min) (point-max))))
-    (if (or p4-process-after-show-callback (> lines 1))
+    (if (or p4-process-after-show (> lines 1))
         (unless (eq (selected-window) (get-buffer-window (current-buffer)))
           (p4-push-window-config)
           (display-buffer (current-buffer))
@@ -864,7 +865,7 @@ If there's no content in the buffer, pass `args' to error instead."
 	(buffer (process-buffer process)))
     (when (buffer-live-p buffer)
       (with-current-buffer buffer
-	(cond ((and (not p4-process-no-auto-login)
+	(cond ((and p4-process-auto-login
                     (save-excursion
                       (goto-char (point-min))
                       (looking-at p4-no-session-regexp)))
@@ -879,8 +880,8 @@ If there's no content in the buffer, pass `args' to error instead."
                (when p4-process-callback (funcall p4-process-callback))
                (set-buffer-modified-p nil)
                (p4-process-show-output)
-               (when p4-process-after-show-callback
-                 (funcall p4-process-after-show-callback))))))))
+               (when p4-process-after-show
+                 (funcall p4-process-after-show))))))))
 
 (defun p4-process-restart ()
   "Start a background Perforce process in the current buffer with
@@ -894,20 +895,21 @@ command and arguments taken from the local variable `p4-process-args'."
   "Return a suitable buffer name for the p4 command."
   (format "*P4 %s*" (p4-join-list args)))
 
-(defun p4-call-command (cmd &optional args mode callback after-show-callback no-auto-login)
+(defun* p4-call-command (cmd &optional args &key mode callback after-show (auto-login t))
   "Start a Perforce command in the background.
-`cmd' is the p4 command to run.
-`args' is a list of arguments to pass to the p4 command.
-`mode' is run when creating the output buffer.
-`callback' is run when the p4 command completes successfully.
-`after-show-callback' is run after displaying the output.
-If `no-auto-login' is non-NIL, don't try logging in if logged out."
+First (required) argument `cmd' is the p4 command to run.
+Second (optional) argument `args' is a list of arguments to the p4 command.
+Remaining arguments are keyword arguments:
+:mode is a function run when creating the output buffer.
+:callback is a function run when the p4 command completes successfully.
+:after-show is a function run after displaying the output.
+If :auto-login is NIL, don't try logging in if logged out."
   (with-current-buffer
       (p4-make-output-buffer (p4-process-buffer-name (cons cmd args)) mode)
     (setq p4-process-args (cons cmd args)
           p4-process-callback callback
-          p4-process-after-show-callback after-show-callback
-          p4-process-no-auto-login no-auto-login)
+          p4-process-after-show after-show
+          p4-process-auto-login auto-login)
     (p4-process-restart)
     (message "Running p4 %s %s..." cmd (p4-join-list args))))
 
@@ -953,8 +955,8 @@ standard input\). If not supplied, cmd is reused."
         (if (get-buffer-window buf)
             (select-window (get-buffer-window buf))
           (switch-to-buffer-other-window buf))
-      (p4-call-command cmd args nil nil
-                       (lambda () (p4-form-callback regexp commit-cmd))))))
+      (p4-call-command cmd args
+       :callback (lambda () (p4-form-callback regexp commit-cmd))))))
 
 (defun p4-form-commit ()
   "Commit the form in the current buffer to the server."
@@ -1237,7 +1239,7 @@ twice in the expansion."
   "Open a new file to add it to the depot."
   (p4-buffer-file-name-args)
   (t)
-  (p4-call-command cmd args nil (p4-refresh-callback nil refresh-after)))
+  (p4-call-command cmd args :callback (p4-refresh-callback nil refresh-after)))
 
 (defp4cmd* annotate ()
   "Print file lines and their revisions."
@@ -1259,10 +1261,10 @@ twice in the expansion."
   "Display list of branch specifications."
   nil
   nil
-  (p4-call-command cmd args nil
-		   (lambda ()
-		     (p4-regexp-create-links "^Branch \\([^ ]+\\).*\n" 'branch
-                                             "Describe branch"))))
+  (p4-call-command cmd args
+   :callback (lambda ()
+               (p4-regexp-create-links "^Branch \\([^ ]+\\).*\n" 'branch
+                                       "Describe branch"))))
 
 (defp4cmd* change ()
   "Create or edit a changelist description."
@@ -1286,20 +1288,21 @@ twice in the expansion."
   "Display list of clients."
   nil
   nil
-  (p4-call-command cmd args nil
-		   (lambda ()
-		     (p4-regexp-create-links "^Client \\([^ ]+\\).*\n" 'client
-                                             "Describe client"))))
+  (p4-call-command cmd args
+   :callback (lambda ()
+               (p4-regexp-create-links "^Client \\([^ ]+\\).*\n" 'client
+                                       "Describe client"))))
 
 (defp4cmd* delete ()
   "Open an existing file for deletion from the depot."
   (p4-buffer-file-name-args)
   nil
   (when (yes-or-no-p "Really delete from depot? ")
-    (p4-call-command cmd args nil (p4-refresh-callback))))
+    (p4-call-command cmd args :callback (p4-refresh-callback))))
 
 (defun p4-describe-internal (args)
-  (p4-call-command "describe" args 'p4-diff-mode 'p4-activate-diff-buffer))
+  (p4-call-command "describe" args :mode 'p4-diff-mode
+                   :callback 'p4-activate-diff-buffer))
 
 (defp4cmd p4-describe (&rest args)
   "describe"
@@ -1312,7 +1315,8 @@ twice in the expansion."
   "Display diff of client file with depot file."
   (cons p4-default-diff-options (p4-buffer-file-name-args))
   nil
-  (p4-call-command cmd args 'p4-diff-mode 'p4-activate-diff-buffer))
+  (p4-call-command cmd args :mode 'p4-diff-mode
+                   :callback 'p4-activate-diff-buffer))
 
 (defun p4-diff-all-opened ()
   (interactive)
@@ -1353,7 +1357,7 @@ twice in the expansion."
     (p4-call-command "diff2" (append diff-options
 				     (list diff-version1
 					   diff-version2))
-		     'p4-diff-mode 'p4-activate-diff-buffer)))
+		     :mode 'p4-diff-mode :callback 'p4-activate-diff-buffer)))
 
 (defun p4-activate-ediff-callback (&optional pop-count)
   "Return a callback function that runs ediff on the current
@@ -1378,7 +1382,7 @@ buffer and the P4 output buffer."
   (if prefix
       (call-interactively 'p4-ediff2)
     (p4-call-command "print" (list (concat (p4-buffer-file-name) "#have"))
-                     nil nil (p4-activate-ediff-callback))))
+                     :after-show (p4-activate-ediff-callback))))
 
 (defun p4-activate-ediff2-callback (other-file)
   "Return a callback function that runs ediff on the P4 output
@@ -1387,7 +1391,7 @@ buffer and other-file."
     (lambda ()
       (p4-fontify-print-buffer t)
       (p4-call-command "print" (list other-file)
-                       nil nil (p4-activate-ediff-callback 2)))))
+                       :after-show (p4-activate-ediff-callback 2)))))
 
 (defun p4-ediff2 (version1 version2)
   "Use ediff to compare two versions of a depot file.
@@ -1405,13 +1409,14 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
          (diff-version1 (p4-get-file-rev file-name version1))
          (diff-version2 (p4-get-file-rev file-name version2)))
     (p4-call-command "print" (list diff-version1)
-                     nil nil (p4-activate-ediff2-callback diff-version2))))
+                     :after-show (p4-activate-ediff2-callback diff-version2))))
 
 (defp4cmd* edit (refresh-after)
   "Open an existing file for edit."
   (p4-buffer-file-name-args)
   (t)
-  (p4-call-command cmd args nil (p4-refresh-callback t refresh-after 'p4-edit-hook)))
+  (p4-call-command cmd args
+   :callback (p4-refresh-callback t refresh-after 'p4-edit-hook)))
 
 (defp4cmd* filelog ()
   "List revision history of files."
@@ -1423,7 +1428,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
   "List files in the depot."
   (p4-buffer-file-name-args)
   nil
-  (p4-call-command cmd args 'p4-basic-list-mode))
+  (p4-call-command cmd args :mode 'p4-basic-list-mode))
 
 (defp4cmd p4-fix (&rest args)
   "fix"
@@ -1453,16 +1458,16 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
   "groups"
   "List groups (of users)."
   (interactive (p4-read-args* "p4 groups: " "" 'group))
-  (p4-call-command "groups" args nil
-		   (lambda ()
-		     (p4-regexp-create-links "^\\(.*\\)\n" 'group
-                                             "Describe group"))))
+  (p4-call-command "groups" args
+   :callback (lambda ()
+               (p4-regexp-create-links "^\\(.*\\)\n" 'group
+                                       "Describe group"))))
 
 (defp4cmd* have ()
   "List the revisions most recently synced to the current workspace."
   (p4-buffer-file-name-args)
   nil
-  (p4-call-command cmd args 'p4-basic-list-mode))
+  (p4-call-command cmd args :mode 'p4-basic-list-mode))
 
 (defp4cmd p4-help (&rest args)
   "help"
@@ -1480,7 +1485,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
   "integ"
   "Integrate one set of files into another."
   (interactive (p4-read-args "p4 integ: " "-b "))
-  (p4-call-command "integ" args 'p4-basic-list-mode))
+  (p4-call-command "integ" args :mode 'p4-basic-list-mode))
 
 (defp4cmd p4-job (&rest args)
   "job"
@@ -1492,7 +1497,8 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
   "Display list of jobs."
   nil
   nil
-  (p4-call-command cmd args nil '(lambda () (p4-find-jobs (point-min) (point-max)))))
+  (p4-call-command cmd args
+   :callback (lambda () (p4-find-jobs (point-min) (point-max)))))
 
 (defp4cmd p4-jobspec ()
   "jobspec"
@@ -1512,22 +1518,22 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
   "Display list of defined labels."
   nil
   nil
-  (p4-call-command cmd args nil
-		   (lambda ()
-		     (p4-regexp-create-links "^Label \\([^ ]+\\).*\n" 'label
-                                             "Describe label"))))
+  (p4-call-command cmd args
+   :callback (lambda ()
+               (p4-regexp-create-links "^Label \\([^ ]+\\).*\n" 'label
+                                       "Describe label"))))
 
 (defp4cmd p4-labelsync (&rest args)
   "labelsync"
   "Apply the label to the contents of the client workspace."
   (interactive (p4-read-args* "p4 labelsync: "))
-  (p4-call-command "labelsync" args 'p4-basic-list-mode))
+  (p4-call-command "labelsync" args :mode 'p4-basic-list-mode))
 
 (defp4cmd* lock ()
   "Lock an open file to prevent it from being submitted."
   (p4-buffer-file-name-args)
   nil
-  (p4-call-command cmd args nil (p4-refresh-callback t)))
+  (p4-call-command cmd args :callback (p4-refresh-callback t)))
 
 (defp4cmd* login (&optional args)
   "Log in to Perforce by obtaining a session ticket."
@@ -1555,7 +1561,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
   "Log out from Perforce by removing or invalidating a ticket."
   nil
   nil
-  (p4-call-command cmd args nil nil nil t))
+  (p4-call-command cmd args :auto-login nil))
 
 (defun p4-move-complete-callback (from-file to-file)
   (lexical-let ((from-file from-file) (to-file to-file))
@@ -1575,10 +1581,10 @@ followed by \"delete\"."
     (p4-read-arg-string "move from: " (p4-buffer-file-name-2))
     (p4-read-arg-string "move to: " (p4-buffer-file-name-2))))
   (if (< (p4-server-version) 2009)
-      (p4-call-command "integ" (list from-file to-file) nil
-                       (lambda () (p4-call-command "delete" (list from-file))))
-    (p4-call-command "move" (list from-file to-file) nil
-                     (p4-move-complete-callback from-file to-file))))
+      (p4-call-command "integ" (list from-file to-file)
+       :callback (lambda () (p4-call-command "delete" (list from-file))))
+    (p4-call-command "move" (list from-file to-file)
+     :callback (p4-move-complete-callback from-file to-file))))
 
 (defalias 'p4-rename 'p4-move)
 
@@ -1586,13 +1592,15 @@ followed by \"delete\"."
   "List open files and display file status."
   nil
   nil
-  (p4-call-command cmd args 'p4-basic-list-mode))
+  ;; Providing an after-show callback makes buffer display even if it
+  ;; contains a single line.
+  (p4-call-command cmd args :mode 'p4-basic-list-mode :after-show (lambda ())))
 
 (defp4cmd* print ()
   "Write a depot file to a buffer."
   (p4-buffer-file-revision-args)
   nil
-  (p4-call-command cmd args nil 'p4-activate-print-buffer))
+  (p4-call-command cmd args :mode 'p4-activate-print-buffer))
 
 (defp4cmd p4-passwd (old-pw new-pw new-pw2)
   "passwd"
@@ -1610,20 +1618,21 @@ followed by \"delete\"."
 with workspace changes made outside of Perforce."
   (p4-buffer-file-name-args)
   nil
-  (p4-call-command cmd args 'p4-basic-list-mode))
+  (p4-call-command cmd args :mode 'p4-basic-list-mode))
 
 (defp4cmd* refresh ()
   "Refresh the contents of an unopened file. Alias for \"sync -f\"."
   (cons "-f" (p4-buffer-file-name-args))
   nil
-  (p4-call-command "sync" args 'p4-basic-list-mode 'p4-refresh-buffers))
+  (p4-call-command "sync" args :mode 'p4-basic-list-mode
+                   :callback 'p4-refresh-buffers))
 
 (defp4cmd* reopen ()
   "Change the filetype of an open file or move it to another
 changelist."
   (p4-buffer-file-name-args)
   nil
-  (p4-call-command cmd args nil (p4-refresh-callback t)))
+  (p4-call-command cmd args :callback (p4-refresh-callback t)))
 
 (defp4cmd* resolve ()
   "Resolve integrations and updates to workspace files."
@@ -1672,7 +1681,7 @@ changelist."
                (p4-push-window-config)
                (display-buffer (current-buffer)))))))
   (when (yes-or-no-p "Really revert? ")
-    (p4-call-command cmd args nil (p4-refresh-callback t))))
+    (p4-call-command cmd args :callback (p4-refresh-callback t))))
 
 (defp4cmd p4-set ()
   "set"
@@ -1684,7 +1693,7 @@ changelist."
   "Identify differences between the workspace with the depot."
   '("...")
   nil
-  (p4-call-command cmd args 'p4-status-list-mode))
+  (p4-call-command cmd args :mode 'p4-status-list-mode))
 
 (defun p4-empty-diff-buffer ()
   "If there exist any files opened for edit with an empty diff,
@@ -1725,7 +1734,8 @@ return a buffer listing those files. Otherwise, return NIL."
   "Synchronize the client with its view of the depot."
   nil
   nil
-  (p4-call-command cmd args 'p4-basic-list-mode 'p4-refresh-buffers))
+  (p4-call-command cmd args :mode 'p4-basic-list-mode
+                   :callback 'p4-refresh-buffers))
 
 (defalias 'p4-get 'p4-sync)
 
@@ -1733,13 +1743,14 @@ return a buffer listing those files. Otherwise, return NIL."
   "Release a locked file, leaving it open."
   (p4-buffer-file-name-args)
   nil
-  (p4-call-command cmd args nil (p4-refresh-callback t)))
+  (p4-call-command cmd args :callback (p4-refresh-callback t)))
 
 (defp4cmd* update ()
   "Synchronize the client with its view of the depot (with safety check)."
   nil
   nil
-  (p4-call-command cmd args 'p4-basic-list-mode 'p4-refresh-buffers))
+  (p4-call-command cmd args :mode 'p4-basic-list-mode
+                   :callback 'p4-refresh-buffers))
 
 (defp4cmd p4-user (&rest args)
   "user"
@@ -1751,10 +1762,10 @@ return a buffer listing those files. Otherwise, return NIL."
   "users"
   "List Perforce users."
   (interactive (p4-read-args* "p4 users: " "" 'user))
-  (p4-call-command "users" args nil
-		   (lambda ()
-		     (p4-regexp-create-links "^\\([^ ]+\\).*\n" 'user
-                                             "Describe user"))))
+  (p4-call-command "users" args
+   :callback (lambda ()
+               (p4-regexp-create-links "^\\([^ ]+\\).*\n" 'user
+                                       "Describe user"))))
 
 (defp4cmd* where ()
   "Show how file names are mapped by the client view."
@@ -1784,8 +1795,8 @@ return a buffer listing those files. Otherwise, return NIL."
         (goto-char (point-min))))))
 
 (defun p4-file-change-log (cmd file-list-spec)
-  (p4-call-command cmd (cons "-l" file-list-spec) 'p4-filelog-mode
-                   'p4-activate-file-change-log-buffer))
+  (p4-call-command cmd (cons "-l" file-list-spec) :mode 'p4-filelog-mode
+                   :callback 'p4-activate-file-change-log-buffer))
 
 (defun p4-activate-file-change-log-buffer ()
   (save-excursion
@@ -2543,7 +2554,7 @@ NIL if there is no such completion type."
         (rev (get-char-property pnt 'rev)))
     (cond ((and (not action) rev)
            (p4-call-command "print" (list (format "%s#%d" filename rev))
-                            nil 'p4-activate-print-buffer))
+                            :callback 'p4-activate-print-buffer))
 	  (action
            (if (<= rev 1)
                (error "There is no earlier revision to diff.")
