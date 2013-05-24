@@ -870,7 +870,6 @@ If there's no content in the buffer, pass `args' to error instead."
                       (goto-char (point-min))
                       (looking-at p4-no-session-regexp)))
                (p4-login)
-               (delete-region (point-min) (point-max))
                (p4-process-restart))
               ((not (string-equal message "finished\n"))
                (p4-process-show-error "Process %s %s" (process-name process)
@@ -886,6 +885,10 @@ If there's no content in the buffer, pass `args' to error instead."
 (defun p4-process-restart ()
   "Start a background Perforce process in the current buffer with
 command and arguments taken from the local variable `p4-process-args'."
+  (interactive)
+  (unless p4-process-args
+    (error "Can't restart Perforce process in this buffer."))
+  (let ((inhibit-read-only t)) (erase-buffer))
   (let ((process (apply 'start-process "P4" (current-buffer) (p4-executable)
                         p4-process-args)))
     (set-process-query-on-exit-flag process nil)
@@ -2669,6 +2672,7 @@ NIL if there is no such completion type."
 
 (defvar p4-basic-list-mode-map
   (let ((map (p4-make-derived-map p4-basic-mode-map)))
+    (define-key map "g" 'p4-process-restart)
     (define-key map "\C-m" 'p4-basic-list-activate)
     map)
   "The keymap to use in P4 Basic List Mode.")
