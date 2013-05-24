@@ -916,6 +916,11 @@ If :auto-login is NIL, don't try logging in if logged out."
     (p4-process-restart)
     (message "Running p4 %s %s..." cmd (p4-join-list args))))
 
+;; This empty function can be passed as an :after-show callback
+;; function to p4-call-command where it has the side effect of
+;; displaying the output buffer even if it contains a single line.
+(defun p4-display-one-line ())
+
 
 ;;; Form commands:
 
@@ -1595,9 +1600,7 @@ followed by \"delete\"."
   "List open files and display file status."
   nil
   nil
-  ;; Providing an after-show callback makes buffer display even if it
-  ;; contains a single line.
-  (p4-call-command cmd args :mode 'p4-basic-list-mode :after-show (lambda ())))
+  (p4-call-command cmd args :mode 'p4-basic-list-mode))
 
 (defp4cmd* print ()
   "Write a depot file to a buffer."
@@ -2690,6 +2693,7 @@ NIL if there is no such completion type."
     ("^\\(//.*#[1-9][0-9]*\\) - edit" 1 'p4-depot-edit-face)))
 
 (define-derived-mode p4-basic-list-mode p4-basic-mode "P4 Basic List"
+  (setq p4-process-after-show 'p4-display-one-line)
   (setq font-lock-defaults '(p4-basic-list-font-lock-keywords t)))
 
 (defun p4-basic-list-get-filename ()
