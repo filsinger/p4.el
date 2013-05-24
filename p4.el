@@ -1742,6 +1742,12 @@ return a buffer listing those files. Otherwise, return NIL."
 
 (defalias 'p4-get 'p4-sync)
 
+(defp4cmd* tickets ()
+  "Display list of session tickets for this user."
+  nil
+  nil
+  (p4-call-command cmd args))
+
 (defp4cmd* unlock ()
   "Release a locked file, leaving it open."
   (p4-buffer-file-name-args)
