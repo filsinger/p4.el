@@ -48,7 +48,7 @@
 (require 'comint) ; comint-check-proc
 (require 'dired) ; dired-get-filename
 (require 'diff-mode) ; diff-font-lock-defaults, ...
-(eval-when-compile (require 'cl)) ; defstruct, loop, dolist, ...
+(eval-when-compile (require 'cl)) ; defstruct, loop, dolist, lexical-let, ...
 
 (defvar p4-version "11.0" "Perforce-Emacs Integration version.")
 
@@ -66,11 +66,8 @@
 (eval-and-compile
   ;; This is needed at compile time by p4-help-text.
   (defcustom p4-executable
-    (let ((exe-name (if (memq system-type '(ms-dos windows-nt)) "p4.exe" "p4")))
-      (loop for dir in (append exec-path '("/usr/local/bin" "~/bin" ""))
-            for exe = (concat (file-name-as-directory dir) exe-name)
-            when (and (file-executable-p exe) (not (file-directory-p exe)))
-            return exe))
+    (locate-file "p4" (append exec-path '("/usr/local/bin" "~/bin" ""))
+                 (if (memq system-type '(ms-dos windows-nt)) '(".exe")))
     "The p4 executable."
     :type 'string
     :group 'p4))
@@ -1167,7 +1164,7 @@ making the file writable and write protected."
 ;;; Defining Perforce command interfaces:
 
 (eval-and-compile
-  (defvar p4-include-help-to-command-docstring (eval-when (compile) t))
+  (defvar p4-include-help-to-command-docstring (eval-when-compile t))
 
   (defun p4-help-text (cmd text)
     (concat
