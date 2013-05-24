@@ -2660,9 +2660,9 @@ NIL if there is no such completion type."
   "The keymap to use in P4 Basic List Mode.")
 
 (defvar p4-basic-list-font-lock-keywords
-  '(("^\\(//.*#[1-9][0-9]*\\) - add" 1 'p4-depot-add-face)
+  '(("^\\(//.*#[1-9][0-9]*\\) - \\(?:move/\\)?add" 1 'p4-depot-add-face)
     ("^\\(//.*#[1-9][0-9]*\\) - branch" 1 'p4-depot-branch-face)
-    ("^\\(//.*#[1-9][0-9]*\\) - delete" 1 'p4-depot-delete-face)
+    ("^\\(//.*#[1-9][0-9]*\\) - \\(?:move/\\)?delete" 1 'p4-depot-delete-face)
     ("^\\(//.*#[1-9][0-9]*\\) - edit" 1 'p4-depot-edit-face)))
 
 (define-derived-mode p4-basic-list-mode p4-basic-mode "P4 Basic List"
