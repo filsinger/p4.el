@@ -1533,17 +1533,23 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
   "Log in to Perforce by obtaining a session ticket."
   nil
   nil
-  (let ((pw (if (member "-s" args) ""
-              (read-passwd (format "Enter password for %s: "
-                                   (p4-current-server-port))))))
-    (with-temp-buffer
-      (insert pw)
-      (apply 'call-process-region (point-min) (point-max)
-             (p4-executable) t t nil cmd "-a" args)
-      (goto-char (point-min))
-      (when (re-search-forward "Enter password:.*\n" nil t)
-        (replace-match ""))
-      (message "%s" (buffer-substring (point-min) (1- (point-max)))))))
+  (let ((logged-in nil)
+        (prompt "Enter password for %s: "))
+    (while (not logged-in)
+      (let ((pw (if (member "-s" args) ""
+                  (read-passwd (format prompt (p4-current-server-port))))))
+        (with-temp-buffer
+          (insert pw)
+          (apply 'call-process-region (point-min) (point-max)
+                 (p4-executable) t t nil cmd "-a" args)
+          (goto-char (point-min))
+          (when (re-search-forward "Enter password:.*\n" nil t)
+            (replace-match ""))
+          (goto-char (point-min))
+          (if (looking-at "Password invalid")
+              (setq prompt "Password invalid. Enter password for %s: ")
+            (setq logged-in t)
+            (message "%s" (buffer-substring (point-min) (1- (point-max))))))))))
 
 (defp4cmd* logout ()
   "Log out from Perforce by removing or invalidating a ticket."
