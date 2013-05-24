@@ -39,7 +39,7 @@
 ;; To compile the Perforce help text into the Emacs documentation
 ;; strings for each command, you must byte-compile this file:
 ;;
-;;     $ emacs -batch -f batch-byte-compile /full/path/to/file/p4.el
+;;     $ emacs -Q -batch -f batch-byte-compile /full/path/to/file/p4.el
 
 
 ;;; Code:

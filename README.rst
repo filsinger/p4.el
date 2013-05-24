@@ -28,7 +28,7 @@ prefer a different key prefix, then you should customize the setting
 To compile the Perforce help text into the Emacs documentation
 strings for each command, you must byte-compile ``p4.el``::
 
-    $ emacs -batch -f batch-byte-compile p4.el
+    $ emacs -Q -batch -f batch-byte-compile p4.el
 
 
 License
