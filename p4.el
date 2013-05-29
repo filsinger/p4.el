@@ -1682,25 +1682,26 @@ changelist."
   "Discard changes from an opened file."
   (p4-buffer-file-name-args)
   nil
-  (unless args-orig
-    (let* ((diff-args (append (cons "diff" (p4-make-list-from-string p4-default-diff-options)) args))
-           (inhibit-read-only t))
-      (with-current-buffer
-          (p4-make-output-buffer (p4-process-buffer-name diff-args))
-        (p4-run diff-args)
-        (cond ((looking-at ".* - file(s) not opened on this client")
-               (p4-process-show-error))
-              ((looking-at ".* - file(s) not opened for edit")
-               (kill-buffer (current-buffer)))
-              ((looking-at p4-empty-diff-regexp)
-               (kill-buffer (current-buffer)))
-              (t
-               (p4-activate-diff-buffer)
-               (p4-push-window-config)
-               (display-buffer (current-buffer)))))))
-  (when (or (not (p4-buffer-changed))
-            (yes-or-no-p "Really revert? "))
-    (p4-call-command cmd args :callback (p4-refresh-callback))))
+  (let ((prompt t))
+    (unless args-orig
+      (let* ((diff-args (append (cons "diff" (p4-make-list-from-string p4-default-diff-options)) args))
+             (inhibit-read-only t))
+        (with-current-buffer
+            (p4-make-output-buffer (p4-process-buffer-name diff-args))
+          (p4-run diff-args)
+          (cond ((looking-at ".* - file(s) not opened on this client")
+                 (p4-process-show-error))
+                ((looking-at ".* - file(s) not opened for edit")
+                 (kill-buffer (current-buffer)))
+                ((looking-at p4-empty-diff-regexp)
+                 (kill-buffer (current-buffer))
+                 (setq prompt nil))
+                (t
+                 (p4-activate-diff-buffer)
+                 (p4-push-window-config)
+                 (display-buffer (current-buffer)))))))
+    (when (or (not prompt) (yes-or-no-p "Really revert? "))
+      (p4-call-command cmd args :callback (p4-refresh-callback)))))
 
 (defp4cmd p4-set ()
   "set"
