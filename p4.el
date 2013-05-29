@@ -256,6 +256,8 @@ NIL if file is not known to be under control of Perforce.
 (defvar p4-form-commit-command nil
   "p4 command to run when committing this form.")
 (defvar p4-form-committed nil "Form successfully committed?")
+(defvar p4-form-commit-fail-callback nil
+  "Function run if commit fails.")
 
 ;; Local variables in P4 depot buffers.
 (defvar p4-default-directory nil "Original value of default-directory.")
@@ -265,7 +267,7 @@ NIL if file is not known to be under control of Perforce.
                p4-process-buffers p4-process-after-show
                p4-process-auto-login p4-process-synchronous
                p4-form-commit-command p4-form-committed
-               p4-default-directory))
+               p4-form-commit-fail-callback p4-default-directory))
   (make-variable-buffer-local var)
   (put var 'permanent-local t))
 
@@ -879,7 +881,7 @@ If there's no content in the buffer, pass `args' to error instead."
          (p4-move-point-to-top)
          (apply 'error args))))
 
-(defun p4-process-finished (buffer message)
+(defun p4-process-finished (buffer process-name message)
   (let ((inhibit-read-only t))
     (with-current-buffer buffer
       (cond ((and p4-process-auto-login
@@ -889,7 +891,7 @@ If there's no content in the buffer, pass `args' to error instead."
              (p4-login)
              (p4-process-restart))
             ((not (string-equal message "finished\n"))
-             (p4-process-show-error "Process %s %s" (process-name process)
+             (p4-process-show-error "Process %s %s" process-name
                                     (replace-regexp-in-string "\n$" ""
                                                               message)))
             (t
@@ -902,11 +904,11 @@ If there's no content in the buffer, pass `args' to error instead."
 (defun p4-process-sentinel (process message)
   (let ((buffer (process-buffer process)))
     (when (buffer-live-p buffer)
-      (p4-process-finished buffer message))))
+      (p4-process-finished buffer (process-name process) message))))
 
 (defun p4-process-restart ()
-  "Start a background Perforce process in the current buffer with
-command and arguments taken from the local variable `p4-process-args'."
+  "Start a Perforce process in the current buffer with command
+and arguments taken from the local variable `p4-process-args'."
   (interactive)
   (unless p4-process-args
     (error "Can't restart Perforce process in this buffer."))
@@ -914,7 +916,7 @@ command and arguments taken from the local variable `p4-process-args'."
   (if p4-process-synchronous
       (let ((status (apply 'call-process (p4-executable) nil t nil
                            p4-process-args)))
-        (p4-process-finished (current-buffer)
+        (p4-process-finished (current-buffer) "P4"
                              (if (zerop status) "finished\n"
                                (format "exited with status %d\n" status))))
     (let ((process (apply 'start-process "P4" (current-buffer) (p4-executable)
@@ -930,7 +932,8 @@ command and arguments taken from the local variable `p4-process-args'."
   "Return a suitable buffer name for the p4 command."
   (format "*P4 %s*" (p4-join-list args)))
 
-(defun* p4-call-command (cmd &optional args &key mode callback after-show (auto-login t) synchronous)
+(defun* p4-call-command (cmd &optional args &key mode callback after-show
+                             (auto-login t) synchronous)
   "Start a Perforce command.
 First (required) argument `cmd' is the p4 command to run.
 Second (optional) argument `args' is a list of arguments to the p4 command.
@@ -958,7 +961,7 @@ If :synchronous is non-NIL, run command synchronously."
 
 ;;; Form commands:
 
-(defun p4-form-callback (regexp cmd)
+(defun p4-form-callback (regexp cmd fail-callback)
   (goto-char (point-min))
   ;; The Windows p4 client outputs this line before the spec unless
   ;; run via CMD.EXE.
@@ -971,6 +974,7 @@ If :synchronous is non-NIL, run command synchronously."
   (pop-to-buffer (current-buffer))
   (setq p4-form-commit-command cmd)
   (setq p4-form-committed nil)
+  (setq p4-form-commit-fail-callback fail-callback)
   (setq buffer-offer-save t)
   (set-buffer-modified-p nil)
   (setq buffer-undo-list nil)
@@ -978,27 +982,32 @@ If :synchronous is non-NIL, run command synchronously."
   (when regexp (re-search-forward regexp nil t))
   (message "C-c C-c to finish editing and exit buffer."))
 
-(defun p4-form-command (cmd &optional args regexp commit-cmd)
+(defun* p4-form-command (cmd &optional args &key move-to commit-cmd
+                             fail-callback)
   "Start a form-editing session.
 cmd is the p4 command to run \(it must take -o and output a form\).
 args is a list of arguments to pass to the p4 command.
-regexp is an optional regular expression to set the cursor on.
-commit-cmd is the command that will be called when
+Remaining arguments are keyword arguments:
+:move-to is an optional regular expression to set the cursor on.
+:commit-cmd is the command that will be called when
 `p4-form-commit' is called \(it must take -i and a form on
-standard input\). If not supplied, cmd is reused."
+standard input\). If not supplied, cmd is reused.
+:fail-callback is a function that is called if the commit fails."
   (setq args (remove "-i" (remove "-o" args)))
   ;; Is there already an uncommitted form with the same name? If so,
   ;; just switch to it.
   (lexical-let* ((args (cons "-o" args))
-                 (regexp regexp)
+                 (move-to move-to)
                  (commit-cmd (or commit-cmd cmd))
+                 (fail-callback fail-callback)
                  (buf (get-buffer (p4-process-buffer-name (cons cmd args)))))
     (if (and buf (with-current-buffer buf (not p4-form-committed)))
         (if (get-buffer-window buf)
             (select-window (get-buffer-window buf))
           (switch-to-buffer-other-window buf))
       (p4-call-command cmd args
-       :callback (lambda () (p4-form-callback regexp commit-cmd))))))
+       :callback (lambda ()
+                   (p4-form-callback move-to commit-cmd fail-callback))))))
 
 (defun p4-form-commit ()
   "Commit the form in the current buffer to the server."
@@ -1023,8 +1032,11 @@ standard input\). If not supplied, cmd is reused."
             (p4-partial-cache-cleanup (intern cmd))
             (when (string= cmd "submit")
               (p4-refresh-buffers))))
-      (with-current-buffer buffer
-        (p4-process-show-error "%s -i failed to complete successfully." cmd)))))
+      (if p4-form-commit-fail-callback
+          (funcall p4-form-commit-fail-callback buffer)
+        (with-current-buffer buffer
+          (p4-process-show-error
+           "%s -i failed to complete successfully." cmd))))))
 
 
 ;;; P4 mode:
@@ -1294,7 +1306,7 @@ twice in the expansion."
 		 (p4-read-arg-string "p4 branch: " "" 'branch))))
   (if (or (null args) (equal args (list "")))
       (error "Branch must be specified!")
-    (p4-form-command "branch" args "Description:\n\t")))
+    (p4-form-command "branch" args :move-to "Description:\n\t")))
 
 (defp4cmd* branches (&rest args)
   "Display list of branch specifications."
@@ -1309,7 +1321,7 @@ twice in the expansion."
   "Create or edit a changelist description."
   nil
   nil
-  (p4-form-command cmd args "Description:\n\t"))
+  (p4-form-command cmd args :move-to "Description:\n\t"))
 
 (defp4cmd* changes ()
   "Display list of pending and submitted changelists."
@@ -1321,7 +1333,7 @@ twice in the expansion."
   "client"
   "Create or edit a client workspace specification and its view."
   (interactive (p4-read-args* "p4 client: " "" 'client))
-  (p4-form-command "client" args "\\(Description\\|View\\):\n\t"))
+  (p4-form-command "client" args :move-to "\\(Description\\|View\\):\n\t"))
 
 (defp4cmd* clients ()
   "Display list of clients."
@@ -1530,7 +1542,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
   "job"
   "Create or edit a job (defect) specification."
   (interactive (p4-read-args* "p4 job: " "" 'job))
-  (p4-form-command "job" args "Description:\n\t"))
+  (p4-form-command "job" args :move-to "Description:\n\t"))
 
 (defp4cmd* jobs ()
   "Display list of jobs."
@@ -1550,7 +1562,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
   "Create or edit a label specification."
   (interactive (p4-read-args "p4 label: " "" 'label))
   (if args
-      (p4-form-command "label" args "Description:\n\t")
+      (p4-form-command "label" args :move-to "Description:\n\t")
     (error "label must be specified!")))
 
 (defp4cmd* labels ()
@@ -1750,6 +1762,23 @@ return a buffer listing those files. Otherwise, return NIL."
             (progn (kill-buffer (current-buffer)) nil)
           (current-buffer))))))
 
+(defun p4-submit-failed (buffer)
+  (let ((change 
+         (with-current-buffer buffer
+           (goto-char (point-min))
+           (when (re-search-forward "Submit failed -- fix problems above then use 'p4 submit -c \\([0-9]+\\)'\\." nil t)
+             (match-string 1)))))
+    (when change
+      (save-excursion
+        (goto-char (point-min))
+        (when (re-search-forward "^Change:\t\\(new\\)$" nil t)
+          (replace-match change t t nil 1))
+        (goto-char (point-min))
+        (when (re-search-forward "^Status:\t\\(new\\)$" nil t)
+          (replace-match "pending" t t nil 1))))
+    (with-current-buffer buffer
+      (p4-process-show-error "submit -i failed to complete successfully."))))
+
 (defp4cmd p4-submit (&optional args)
   "submit"
   "Submit open files to the depot."
@@ -1768,7 +1797,9 @@ return a buffer listing those files. Otherwise, return NIL."
                 (pop-to-buffer empty-buf)
                 (yes-or-no-p
                  "File with empty diff opened for edit. Submit anyway? ")))
-      (p4-form-command "change" args "Description:\n\t" "submit"))))
+      (p4-form-command "change" args :move-to "Description:\n\t"
+                       :commit-cmd "submit"
+                       :fail-callback 'p4-submit-failed))))
 
 (defp4cmd* sync ()
   "Synchronize the client with its view of the depot."
