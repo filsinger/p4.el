@@ -91,7 +91,8 @@ Set to:
   :group 'p4)
 
 (defcustom p4-auto-refresh t
-  "If non-NIL, automatically refresh files after submitting."
+  "If non-NIL, automatically refresh files under Perforce control
+when they change on disk."
   :type 'boolean
   :group 'p4)
 
@@ -810,22 +811,19 @@ the output, and evaluate BODY if the command completed successfully."
 
 (put 'p4-with-temp-buffer 'lisp-indent-function 1)
 
-(defun p4-refresh-callback (&optional revert all-buffers hook)
+(defun p4-refresh-callback (&optional hook)
   "Return a callback function that refreshes the status of the
-current buffer after a p4 command successfully completes. If
-optional argument `revert' is non-NIL, revert the buffer if
-modified; if optional argument `hook' is non-NIL, run that
-hook; if optional argument `all-buffers' is non-NIL, refresh
-all buffers."
+current buffer after a p4 command successfully completes (and, if
+p4-auto-refresh is non-NIL, refresh all buffers visiting files
+under Perforce control too). If optional argument `hook' is
+non-NIL, run that hook."
   (lexical-let ((buffer (current-buffer))
-                (revert revert)
-                (all-buffers all-buffers)
                 (hook hook))
     (lambda ()
       (with-current-buffer buffer
-        (p4-refresh-buffer revert)
+        (p4-refresh-buffer)
         (when hook (run-hooks hook))
-        (when all-buffers (p4-refresh-buffers))))))
+        (p4-refresh-buffers)))))
 
 (defun p4-process-show-output ()
   "Show the current buffer to the user and maybe kill it.
@@ -1111,29 +1109,26 @@ set in this buffer, `p4-mode' will be set appropriately, and if
               (push (list set b) p4-update-status-pending-alist)))))
       (p4-maybe-start-update-statuses))))
 
-(defun p4-refresh-buffer (&optional prompt)
-  "Refresh the current buffer if it is under Perforce control.
-With optional argument `prompt', offer to revert it if modified."
-  (let ((unmodified (not (buffer-modified-p))))
-    (cond ((not buffer-file-name))
-          ((and unmodified
-                (not (verify-visited-file-modtime (current-buffer)))
-                (file-readable-p buffer-file-name))
-           (revert-buffer t))
-          ((and (file-readable-p buffer-file-name)
-                (or unmodified prompt))
-           (revert-buffer t unmodified))
-          (t (p4-update-status)))))
+(defun p4-refresh-buffer (&optional verify-modtime)
+  "Refresh the current buffer if it is under Perforce control and
+the file on disk has changed. If it has unsaved changes, prompt
+first."
+  (and (or (not p4-do-find-file)
+           (memq p4-vc-status '(add branch delete edit sync)))
+       (not (and verify-modtime (verify-visited-file-modtime (current-buffer))))
+       buffer-file-name
+       (file-readable-p buffer-file-name)
+       (revert-buffer t (not (buffer-modified-p))))
+  (p4-update-status))
 
 (defun p4-refresh-buffers ()
   "Refresh all buffers that are known to be under Perforce
 control."
   (interactive)
-  (when (or p4-auto-refresh p4-do-find-file)
+  (when (and p4-auto-refresh p4-do-find-file)
     (dolist (buffer (buffer-list))
       (with-current-buffer buffer
-        (when p4-vc-status
-          (p4-refresh-buffer))))))
+        (p4-refresh-buffer t)))))
 
 (defun p4-toggle-vc-mode ()
   "In case, the Perforce server is not available, or when working
@@ -1243,11 +1238,11 @@ twice in the expansion."
 
 ;;; Perforce command interfaces:
 
-(defp4cmd* add (refresh-after)
+(defp4cmd* add ()
   "Open a new file to add it to the depot."
   (p4-buffer-file-name-args)
-  (t)
-  (p4-call-command cmd args :callback (p4-refresh-callback nil refresh-after)))
+  nile
+  (p4-call-command cmd args :callback (p4-refresh-callback)))
 
 (defp4cmd* annotate ()
   "Print file lines and their revisions."
@@ -1419,12 +1414,11 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
     (p4-call-command "print" (list diff-version1)
                      :after-show (p4-activate-ediff2-callback diff-version2))))
 
-(defp4cmd* edit (refresh-after)
+(defp4cmd* edit ()
   "Open an existing file for edit."
   (p4-buffer-file-name-args)
-  (t)
-  (p4-call-command cmd args
-   :callback (p4-refresh-callback t refresh-after 'p4-edit-hook)))
+  nil
+  (p4-call-command cmd args :callback (p4-refresh-callback 'p4-edit-hook)))
 
 (defp4cmd* filelog ()
   "List revision history of files."
@@ -1541,7 +1535,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
   "Lock an open file to prevent it from being submitted."
   (p4-buffer-file-name-args)
   nil
-  (p4-call-command cmd args :callback (p4-refresh-callback t)))
+  (p4-call-command cmd args :callback (p4-refresh-callback)))
 
 (defp4cmd* login (&optional args)
   "Log in to Perforce by obtaining a session ticket."
@@ -1638,7 +1632,7 @@ with workspace changes made outside of Perforce."
 changelist."
   (p4-buffer-file-name-args)
   nil
-  (p4-call-command cmd args :callback (p4-refresh-callback t)))
+  (p4-call-command cmd args :callback (p4-refresh-callback)))
 
 (defp4cmd* resolve ()
   "Resolve integrations and updates to workspace files."
@@ -1666,10 +1660,10 @@ changelist."
   "\\(?:==== .* ====\\|--- .*\n\\+\\+\\+ .*\\)\n\\'"
   "Regular expression matching p4 diff output when there are no changes.")
 
-(defp4cmd* revert (refresh-after)
+(defp4cmd* revert ()
   "Discard changes from an opened file."
   (p4-buffer-file-name-args)
-  (t)
+  nil
   (unless args-orig
     (let* ((diff-args (append (cons "diff" (p4-make-list-from-string p4-default-diff-options)) args))
            (inhibit-read-only t))
@@ -1687,7 +1681,7 @@ changelist."
                (p4-push-window-config)
                (display-buffer (current-buffer)))))))
   (when (yes-or-no-p "Really revert? ")
-    (p4-call-command cmd args :callback (p4-refresh-callback t))))
+    (p4-call-command cmd args :callback (p4-refresh-callback))))
 
 (defp4cmd p4-set ()
   "set"
@@ -1755,7 +1749,7 @@ return a buffer listing those files. Otherwise, return NIL."
   "Release a locked file, leaving it open."
   (p4-buffer-file-name-args)
   nil
-  (p4-call-command cmd args :callback (p4-refresh-callback t)))
+  (p4-call-command cmd args :callback (p4-refresh-callback)))
 
 (defp4cmd* update ()
   "Synchronize the client with its view of the depot (with safety check)."
