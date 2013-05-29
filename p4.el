@@ -806,25 +806,33 @@ To set the executable for future sessions, customize
           "Your session has expired, please login again\\)")
   "Regular expression matching output from Perforce when you are logged out.")
 
-(defun p4-run (args)
-  "Run p4 ARGS in the current buffer, with output after point.
-Return the status of the command. If the command cannot be run
-because the user is not logged in, prompt for a password and
-re-run the command."
+(defun p4-iterate-with-login (fun)
+  "Call FUN in the current buffer and return its result.
+If FUN returns non-zero because the user is not logged in, login
+and repeat."
   (let ((incomplete t)
         (default-directory (or p4-default-directory default-directory))
+        (inhibit-read-only t)
         status)
     (while incomplete
       (save-excursion
         (save-restriction
           (narrow-to-region (point) (point))
-          (setq status (apply 'call-process (p4-executable) nil t nil args))
+          (setq status (funcall fun))
           (goto-char (point-min))
           (setq incomplete (looking-at p4-no-session-regexp))
           (when incomplete
             (p4-login)
             (delete-region (point-min) (point-max))))))
     status))
+
+(defun p4-run (args)
+  "Run p4 ARGS in the current buffer, with output after point.
+Return the status of the command. If the command cannot be run
+because the user is not logged in, prompt for a password and
+re-run the command."
+  (p4-iterate-with-login
+   (lambda () (apply 'call-process (p4-executable) nil t nil args))))
 
 (defmacro p4-with-temp-buffer (args &rest body)
   "Run p4 ARGS in a temporary buffer, place point at the start of
@@ -1015,20 +1023,24 @@ standard input\). If not supplied, cmd is reused.
   "Commit the form in the current buffer to the server."
   (interactive)
   (when p4-form-committed (error "Form already committed successfully."))
-  (let* ((cmd p4-form-commit-command)
-         (args '("-i"))
-         (buffer (p4-make-output-buffer (p4-process-buffer-name (cons cmd args)))))
-    (if (zerop (apply 'call-process-region (point-min)
-                      (point-max) (p4-executable)
-                      nil buffer nil
-                      cmd args))
+  (lexical-let* ((form-buf (current-buffer))
+                 (cmd p4-form-commit-command)
+                 (args '("-i"))
+                 (buffer (p4-make-output-buffer (p4-process-buffer-name
+                                                 (cons cmd args)))))
+    (if (with-current-buffer buffer
+          (zerop
+           (p4-iterate-with-login
+            (lambda ()
+              (with-current-buffer form-buf
+                (apply 'call-process-region (point-min)
+                       (point-max) (p4-executable)
+                       nil buffer nil cmd args))))))
         (progn
-          (p4-basic-mode)
           (set-buffer-modified-p nil)
           (setq p4-form-committed t
                 buffer-read-only t
                 mode-name "P4 Form Committed")
-          (p4-pop-window-config)
           (with-current-buffer buffer
             (p4-process-show-output)
             (p4-partial-cache-cleanup (intern cmd))
