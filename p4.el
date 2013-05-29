@@ -249,6 +249,8 @@ NIL if file is not known to be under control of Perforce.
   "If non-NIL, automatically prompt user to log in.")
 (defvar p4-process-buffers nil
   "List of buffers whose status is being updated here.")
+(defvar p4-process-synchronous nil
+  "If non-NIL, run p4 command synchronously.")
 
 ;; Local variables in P4 Form buffers.
 (defvar p4-form-commit-command nil
@@ -261,8 +263,9 @@ NIL if file is not known to be under control of Perforce.
 (dolist (var '(p4-mode p4-offline-mode p4-vc-revision
                p4-vc-status p4-process-args p4-process-callback
                p4-process-buffers p4-process-after-show
-               p4-process-auto-login p4-form-commit-command
-               p4-form-committed p4-default-directory))
+               p4-process-auto-login p4-process-synchronous
+               p4-form-commit-command p4-form-committed
+               p4-default-directory))
   (make-variable-buffer-local var)
   (put var 'permanent-local t))
 
@@ -876,27 +879,30 @@ If there's no content in the buffer, pass `args' to error instead."
          (p4-move-point-to-top)
          (apply 'error args))))
 
+(defun p4-process-finished (buffer message)
+  (let ((inhibit-read-only t))
+    (with-current-buffer buffer
+      (cond ((and p4-process-auto-login
+                  (save-excursion
+                    (goto-char (point-min))
+                    (looking-at p4-no-session-regexp)))
+             (p4-login)
+             (p4-process-restart))
+            ((not (string-equal message "finished\n"))
+             (p4-process-show-error "Process %s %s" (process-name process)
+                                    (replace-regexp-in-string "\n$" ""
+                                                              message)))
+            (t
+             (when p4-process-callback (funcall p4-process-callback))
+             (set-buffer-modified-p nil)
+             (p4-process-show-output)
+             (when p4-process-after-show
+               (funcall p4-process-after-show)))))))
+
 (defun p4-process-sentinel (process message)
-  (let ((inhibit-read-only t)
-	(buffer (process-buffer process)))
+  (let ((buffer (process-buffer process)))
     (when (buffer-live-p buffer)
-      (with-current-buffer buffer
-	(cond ((and p4-process-auto-login
-                    (save-excursion
-                      (goto-char (point-min))
-                      (looking-at p4-no-session-regexp)))
-               (p4-login)
-               (p4-process-restart))
-              ((not (string-equal message "finished\n"))
-               (p4-process-show-error "Process %s %s" (process-name process)
-                                      (replace-regexp-in-string "\n$" ""
-                                                                message)))
-              (t
-               (when p4-process-callback (funcall p4-process-callback))
-               (set-buffer-modified-p nil)
-               (p4-process-show-output)
-               (when p4-process-after-show
-                 (funcall p4-process-after-show))))))))
+      (p4-process-finished buffer message))))
 
 (defun p4-process-restart ()
   "Start a background Perforce process in the current buffer with
@@ -905,32 +911,40 @@ command and arguments taken from the local variable `p4-process-args'."
   (unless p4-process-args
     (error "Can't restart Perforce process in this buffer."))
   (let ((inhibit-read-only t)) (erase-buffer))
-  (let ((process (apply 'start-process "P4" (current-buffer) (p4-executable)
-                        p4-process-args)))
-    (set-process-query-on-exit-flag process nil)
-    (set-process-sentinel process 'p4-process-sentinel)))
+  (if p4-process-synchronous
+      (let ((status (apply 'call-process (p4-executable) nil t nil
+                           p4-process-args)))
+        (p4-process-finished (current-buffer)
+                             (if (zerop status) "finished\n"
+                               (format "exited with status %d\n" status))))
+    (let ((process (apply 'start-process "P4" (current-buffer) (p4-executable)
+                          p4-process-args)))
+      (set-process-query-on-exit-flag process nil)
+      (set-process-sentinel process 'p4-process-sentinel)
+      (message "Running p4 %s..." (p4-join-list p4-process-args)))))
 
 (defun p4-process-buffer-name (args)
   "Return a suitable buffer name for the p4 command."
   (format "*P4 %s*" (p4-join-list args)))
 
-(defun* p4-call-command (cmd &optional args &key mode callback after-show (auto-login t))
-  "Start a Perforce command in the background.
+(defun* p4-call-command (cmd &optional args &key mode callback after-show (auto-login t) synchronous)
+  "Start a Perforce command.
 First (required) argument `cmd' is the p4 command to run.
 Second (optional) argument `args' is a list of arguments to the p4 command.
 Remaining arguments are keyword arguments:
 :mode is a function run when creating the output buffer.
 :callback is a function run when the p4 command completes successfully.
 :after-show is a function run after displaying the output.
-If :auto-login is NIL, don't try logging in if logged out."
+If :auto-login is NIL, don't try logging in if logged out.
+If :synchronous is non-NIL, run command synchronously."
   (with-current-buffer
       (p4-make-output-buffer (p4-process-buffer-name (cons cmd args)) mode)
     (setq p4-process-args (cons cmd args)
           p4-process-callback callback
           p4-process-after-show after-show
-          p4-process-auto-login auto-login)
-    (p4-process-restart)
-    (message "Running p4 %s %s..." cmd (p4-join-list args))))
+          p4-process-auto-login auto-login
+          p4-process-synchronous synchronous)
+    (p4-process-restart)))
 
 ;; This empty function can be passed as an :after-show callback
 ;; function to p4-call-command where it has the side effect of
@@ -1098,7 +1112,7 @@ an update is running already."
         (with-current-buffer
             (get-buffer-create p4-update-status-process-buffer)
           (setq default-directory
-                (with-current-buffer (car buffers) 
+                (with-current-buffer (car buffers)
                   (or p4-default-directory default-directory)))
           (let ((process (start-process "P4" (current-buffer)
                                         p4-executable "-s" "-x" "-" "opened")))
@@ -1260,7 +1274,7 @@ twice in the expansion."
   "Open a new file to add it to the depot."
   (p4-buffer-file-name-args)
   nile
-  (p4-call-command cmd args :callback (p4-refresh-callback)))
+  (p4-call-command cmd args :synchronous t :callback (p4-refresh-callback)))
 
 (defp4cmd* annotate ()
   "Print file lines and their revisions."
@@ -1319,7 +1333,7 @@ twice in the expansion."
   (p4-buffer-file-name-args)
   nil
   (when (yes-or-no-p "Really delete from depot? ")
-    (p4-call-command cmd args :callback (p4-refresh-callback))))
+    (p4-call-command cmd args :synchronous t :callback (p4-refresh-callback))))
 
 (defun p4-describe-internal (args)
   (p4-call-command "describe" args :mode 'p4-diff-mode
@@ -1436,7 +1450,8 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
   "Open an existing file for edit."
   (p4-buffer-file-name-args)
   nil
-  (p4-call-command cmd args :callback (p4-refresh-callback 'p4-edit-hook)))
+  (p4-call-command cmd args :synchronous t
+                   :callback (p4-refresh-callback 'p4-edit-hook)))
 
 (defp4cmd* filelog ()
   "List revision history of files."
@@ -1553,7 +1568,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
   "Lock an open file to prevent it from being submitted."
   (p4-buffer-file-name-args)
   nil
-  (p4-call-command cmd args :callback (p4-refresh-callback)))
+  (p4-call-command cmd args :synchronous t :callback (p4-refresh-callback)))
 
 (defp4cmd* login (&optional args)
   "Log in to Perforce by obtaining a session ticket."
@@ -1581,7 +1596,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
   "Log out from Perforce by removing or invalidating a ticket."
   nil
   nil
-  (p4-call-command cmd args :auto-login nil))
+  (p4-call-command cmd args :synchronous t :auto-login nil))
 
 (defun p4-move-complete-callback (from-file to-file)
   (lexical-let ((from-file from-file) (to-file to-file))
@@ -1650,7 +1665,7 @@ with workspace changes made outside of Perforce."
 changelist."
   (p4-buffer-file-name-args)
   nil
-  (p4-call-command cmd args :callback (p4-refresh-callback)))
+  (p4-call-command cmd args :synchronous t :callback (p4-refresh-callback)))
 
 (defp4cmd* resolve ()
   "Resolve integrations and updates to workspace files."
@@ -1701,7 +1716,8 @@ changelist."
                  (p4-push-window-config)
                  (display-buffer (current-buffer)))))))
     (when (or (not prompt) (yes-or-no-p "Really revert? "))
-      (p4-call-command cmd args :callback (p4-refresh-callback)))))
+      (p4-call-command cmd args :synchronous t
+                       :callback (p4-refresh-callback)))))
 
 (defp4cmd p4-set ()
   "set"
@@ -1769,7 +1785,7 @@ return a buffer listing those files. Otherwise, return NIL."
   "Release a locked file, leaving it open."
   (p4-buffer-file-name-args)
   nil
-  (p4-call-command cmd args :callback (p4-refresh-callback)))
+  (p4-call-command cmd args :synchronous t :callback (p4-refresh-callback)))
 
 (defp4cmd* update ()
   "Synchronize the client with its view of the depot (with safety check)."
