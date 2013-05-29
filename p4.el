@@ -1291,7 +1291,7 @@ twice in the expansion."
 (defp4cmd* add ()
   "Open a new file to add it to the depot."
   (p4-buffer-file-name-args)
-  nile
+  nil
   (p4-call-command cmd args :synchronous t :callback (p4-refresh-callback)))
 
 (defp4cmd* annotate ()
