@@ -645,11 +645,13 @@ restore the window configuration."
     (if cached (third cached)
       (let ((args (list "print" filespec)))
         (set-buffer (p4-make-output-buffer (p4-process-buffer-name args)))
-        (when (zerop (p4-run args))
-          (p4-activate-print-buffer t)
-          (push (list filespec (current-time) (current-buffer))
-                p4-filespec-buffer-cache)
-          (current-buffer))))))
+        (if (zerop (p4-run args))
+            (progn
+              (p4-activate-print-buffer t)
+              (push (list filespec (current-time) (current-buffer))
+                    p4-filespec-buffer-cache)
+              (current-buffer))
+          (p4-process-show-error))))))
 
 (defun p4-depot-find-file-noselect (filespec)
   "Read depot `filespec' in to a buffer and return the buffer.
