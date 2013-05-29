@@ -1219,7 +1219,7 @@ making the file writable and write protected."
 ;;; Defining Perforce command interfaces:
 
 (eval-and-compile
-  (defvar p4-include-help-to-command-docstring (eval-when-compile t))
+  (defvar p4-include-help-to-command-docstring (eval-when (compile) t))
 
   (defun p4-help-text (cmd text)
     (concat
