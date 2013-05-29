@@ -923,6 +923,9 @@ command and arguments taken from the local variable `p4-process-args'."
       (set-process-sentinel process 'p4-process-sentinel)
       (message "Running p4 %s..." (p4-join-list p4-process-args)))))
 
+(defun p4-revert-buffer (&optional ignore-auto noconfirm)
+  (p4-process-restart))
+
 (defun p4-process-buffer-name (args)
   "Return a suitable buffer name for the p4 command."
   (format "*P4 %s*" (p4-join-list args)))
@@ -939,11 +942,12 @@ If :auto-login is NIL, don't try logging in if logged out.
 If :synchronous is non-NIL, run command synchronously."
   (with-current-buffer
       (p4-make-output-buffer (p4-process-buffer-name (cons cmd args)) mode)
+    (set (make-local-variable 'revert-buffer-function) 'p4-revert-buffer)
     (setq p4-process-args (cons cmd args)
           p4-process-callback callback
-          p4-process-after-show after-show
           p4-process-auto-login auto-login
           p4-process-synchronous synchronous)
+    (when after-show (setq p4-process-after-show after-show))
     (p4-process-restart)))
 
 ;; This empty function can be passed as an :after-show callback
@@ -2711,7 +2715,7 @@ NIL if there is no such completion type."
 
 (defvar p4-basic-list-mode-map
   (let ((map (p4-make-derived-map p4-basic-mode-map)))
-    (define-key map "g" 'p4-process-restart)
+    (define-key map "g" 'revert-buffer)
     (define-key map "\C-m" 'p4-basic-list-activate)
     map)
   "The keymap to use in P4 Basic List Mode.")
