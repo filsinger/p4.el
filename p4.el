@@ -745,6 +745,24 @@ characters."
   (let ((l (length prefix)))
     (and (>= (length string) l) (string-equal (substring string 0 l) prefix))))
 
+(defun p4-buffer-changed ()
+  "Return T if the current buffer is changed from the file on disk."
+  (and buffer-file-name
+       (file-readable-p buffer-file-name)
+       (save-restriction
+         (widen)
+         (let ((file-name buffer-file-name)
+               (buf (current-buffer))
+               (beg (point-min))
+               (end (point-max)))
+           (with-temp-buffer
+             (insert-file-contents file-name)
+             (or (/= beg (point-min))
+                 (/= end (point-max))
+                 (/= 0 (compare-buffer-substrings
+                        buf beg end
+                        (current-buffer) (point-min) (point-max)))))))))
+
 
 ;;; Running Perforce:
 
@@ -1680,7 +1698,8 @@ changelist."
                (p4-activate-diff-buffer)
                (p4-push-window-config)
                (display-buffer (current-buffer)))))))
-  (when (yes-or-no-p "Really revert? ")
+  (when (or (not (p4-buffer-changed))
+            (yes-or-no-p "Really revert? "))
     (p4-call-command cmd args :callback (p4-refresh-callback))))
 
 (defp4cmd p4-set ()
