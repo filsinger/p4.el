@@ -2770,7 +2770,7 @@ NIL if there is no such completion type."
   '(("^\\(//.*#[1-9][0-9]*\\) - \\(?:move/\\)?add" 1 'p4-depot-add-face)
     ("^\\(//.*#[1-9][0-9]*\\) - branch" 1 'p4-depot-branch-face)
     ("^\\(//.*#[1-9][0-9]*\\) - \\(?:move/\\)?delete" 1 'p4-depot-delete-face)
-    ("^\\(//.*#[1-9][0-9]*\\) - edit" 1 'p4-depot-edit-face)))
+    ("^\\(//.*#[1-9][0-9]*\\) - \\(?:edit\\|updating\\)" 1 'p4-depot-edit-face)))
 
 (define-derived-mode p4-basic-list-mode p4-basic-mode "P4 Basic List"
   (setq p4-process-after-show 'p4-display-one-line)
