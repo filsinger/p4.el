@@ -2961,6 +2961,7 @@ NIL if there is no such completion type."
 
 (defvar p4-diff-mode-map
   (let ((map (p4-make-derived-map p4-basic-mode-map)))
+    (define-key map "g" 'revert-buffer)
     (define-key map "n" 'diff-hunk-next)
     (define-key map "N" 'diff-file-next)
     (define-key map "p" 'diff-hunk-prev)
