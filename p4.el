@@ -1,25 +1,38 @@
 ;;; p4.el --- Simple Perforce-Emacs Integration
 
-;;    Copyright (c) 1996-1997 Eric Promislow
-;;    Copyright (c) 1997-2004 Rajesh Vaidheeswarran
-;;    Copyright (c) 2005      Peter Osterlund
-;;    Copyright (c) 2009      Fujii Hironori
-;;    Copyright (c) 2012      Jason Filsinger
-;;    Copyright (c) 2013      Gareth Rees <gdr@garethrees.org>
+;; Copyright (c) 1996-1997 Eric Promislow
+;; Copyright (c) 1997-2004 Rajesh Vaidheeswarran
+;; Copyright (c) 2005      Peter Osterlund
+;; Copyright (c) 2009      Fujii Hironori
+;; Copyright (c) 2012      Jason Filsinger
+;; Copyright (c) 2013      Gareth Rees <gdr@garethrees.org>
+
+;; Author: Gareth Rees <gdr@garethrees.org>
+;; URL: https://github.com/gareth-rees/p4.el
+;; Version: 11.0
+
+;;; Commentary:
+
+;; p4.el integrates the Perforce software version management system
+;; into Emacs. It is designed for users who are familiar with Perforce
+;; and want to access it from Emacs: it provides Emacs interfaces that
+;; map directly to Perforce commands.
+
+;;; License:
+
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation; either version 2 of the License, or
+;; (at your option) any later version.
 ;;
-;;    This program is free software; you can redistribute it and/or modify
-;;    it under the terms of the GNU General Public License as published by
-;;    the Free Software Foundation; either version 2 of the License, or
-;;    (at your option) any later version.
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
 ;;
-;;    This program is distributed in the hope that it will be useful,
-;;    but WITHOUT ANY WARRANTY; without even the implied warranty of
-;;    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-;;    GNU General Public License for more details.
-;;
-;;    You should have received a copy of the GNU General Public License
-;;    along with this program; if not, write to the Free Software
-;;    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+;; You should have received a copy of the GNU General Public License
+;; along with this program; if not, write to the Free Software
+;; Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 ;;; Installation:
 
