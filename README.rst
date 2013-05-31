@@ -42,11 +42,9 @@ strings for each command, you must byte-compile ``p4.el``::
 Use
 ---
 
-.. note::
-
-    This section assumes that you are using the default key prefix,
-    ``C-x p``. If you've customized ``p4-global-key-prefix``, then
-    change the key sequences accordingly.
+*Note:* This section assumes that you are using the default key
+prefix, ``C-x p``. If you've customized ``p4-global-key-prefix``, then
+change the key sequences accordingly.
 
 ``p4.el`` provides an Emacs command for nearly all Perforce commands,
 and they have the same name: for example the Perforce command ``p4
@@ -94,6 +92,39 @@ most important options are ``p4-executable`` (the location of the
 Perforce client executable, in case it can't be found on your
 ``PATH``), and ``p4-global-key-prefix`` (the prefix for all Perforce
 key bindings, in case the default ``C-x p`` is unsuitable).
+
+
+What's new
+----------
+
+If you've been using the `old Emacs-P4`_ from SourceForge, then here
+are the significant new and improved features in this version:
+
+.. _old Emacs-P4: http://p4el.sourceforge.net/
+
+- The "mode check" (and many user commands) run Perforce in the
+  background, so that Emacs does not hang when the Perforce server is
+  unavailable or when operations take a long time.
+- You no longer lose unsaved changes in a buffer when you run the
+  p4-edit command. Instead, you are prompted as to whether you want to
+  revert the buffer.
+- If you are logged out of Perforce, running any Perforce command
+  prompts you to log in.
+- When you revert a file with changes, you get shown the diffs that
+  you are about to revert.
+- Errors from Perforce commands are shown to you reliably.
+- New interfaces to Perforce commands ``grep``, ``move``,
+  ``reconcile``, ``status``, ``tickets``, and ``update``.
+- The ``p4-blame`` command makes use of ``p4 annotate`` if your server
+  supports it, and so is much faster. The annotation also includes a
+  snippet from the change description if there's space.
+- Diffs are opened in diff-mode, and you can jump from a line in a
+  hunk to the corresponding line in the source.
+
+These features have been removed:
+
+- The "notify" feature: superseded by the Perforce review daemon.
+- ``p4-colorized-diffs``: superseded by ``global-font-lock-mode``.
 
 
 License
