@@ -39,6 +39,63 @@ strings for each command, you must byte-compile ``p4.el``::
     $ emacs -Q -batch -f batch-byte-compile p4.el
 
 
+Use
+---
+
+.. note::
+
+    This section assumes that you are using the default key prefix,
+    ``C-x p``. If you've customized ``p4-global-key-prefix``, then
+    change the key sequences accordingly.
+
+``p4.el`` provides an Emacs command for nearly all Perforce commands,
+and they have the same name: for example the Perforce command ``p4
+edit`` corresponds to the Emacs command ``p4-edit``. You can type
+``C-x p C-h`` to see a list of all key bindings (but not every
+Perforce command has a key binding).
+
+Commands in ``p4.el`` operate on the "current" file by default -- this
+is the file you're visiting in the current buffer, if any, or the file
+on the current line in a Dired buffer. But if they are given a prefix
+argument then you can enter any arguments to the command. For example
+``C-x p e`` opens the current file for edit. But ``C-u C-x p e * RET``
+opens all files in the current directory for edit.
+
+These are the most useful commands:
+
+================  ============  ===========================================
+Perforce command  Key sequence  Description
+================  ============  ===========================================
+``add``           ``C-x p a``   Open file for add.
+``annotate``      ``C-x p V``   Annotate each line with the revision it was
+                                last updated.
+``client``        ``C-x p c``   Edit client workspace mapping.
+``edit``          ``C-x p e``   Open file for edit.
+``delete``        ``C-x p x``   Open file for delete.
+``diff``          ``C-x p =``   Diff local file against the depot.
+``filelog``       ``C-x p f``   Show revision history of file.
+``move``          ``C-x p m``   Move (rename) a file that's open for edit.
+``opened``        ``C-x p o``   List open files.
+``revert``        ``C-x p r``   Revert file, discarding local changes.
+``submit``        ``C-x p S``   Submit changes to the depot.
+``update``        ``C-x p g``   Get files from depot.
+================  ============  ===========================================
+
+Commands like ``submit`` and ``client`` open a form for editing in
+Emacs. When done, submit the form to the Perforce server by typing
+``C-c C-c``.
+
+
+Customization
+-------------
+
+Type ``M-x customize-group RET p4 RET`` to see all the options. The
+most important options are ``p4-executable`` (the location of the
+Perforce client executable, in case it can't be found on your
+``PATH``), and ``p4-global-key-prefix`` (the prefix for all Perforce
+key bindings, in case the default ``C-x p`` is unsuitable).
+
+
 License
 -------
 This program is free software; you can redistribute it and/or modify
