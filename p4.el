@@ -9,7 +9,7 @@
 
 ;; Author: Gareth Rees <gdr@garethrees.org>
 ;; URL: https://github.com/gareth-rees/p4.el
-;; Version: 11.0
+;; Version: 12.0
 
 ;;; Commentary:
 
@@ -63,7 +63,7 @@
 (require 'diff-mode) ; diff-font-lock-defaults, ...
 (eval-when-compile (require 'cl)) ; defstruct, loop, dolist, lexical-let, ...
 
-(defvar p4-version "11.0" "Perforce-Emacs Integration version.")
+(defvar p4-version "12.0" "Perforce-Emacs Integration version.")
 
 ;; Forward declarations to avoid byte-compile warning "reference to
 ;; free variable"
