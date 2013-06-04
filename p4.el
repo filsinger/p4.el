@@ -444,6 +444,19 @@ functions are called.")
 (easy-menu-change '("tools") "P4" p4-menu-spec "Version Control")
 
 
+;;; Macro (must be defined before use if compilation is to work)
+
+(defmacro p4-with-temp-buffer (args &rest body)
+  "Run p4 ARGS in a temporary buffer, place point at the start of
+the output, and evaluate BODY if the command completed successfully."
+  `(let ((dir (or p4-default-directory default-directory)))
+     (with-temp-buffer
+       (cd dir)
+       (when (zerop (p4-run ,args)) ,@body))))
+
+(put 'p4-with-temp-buffer 'lisp-indent-function 1)
+
+
 ;;; Environment:
 
 (defun p4-version ()
@@ -846,16 +859,6 @@ because the user is not logged in, prompt for a password and
 re-run the command."
   (p4-iterate-with-login
    (lambda () (apply 'call-process (p4-executable) nil t nil args))))
-
-(defmacro p4-with-temp-buffer (args &rest body)
-  "Run p4 ARGS in a temporary buffer, place point at the start of
-the output, and evaluate BODY if the command completed successfully."
-  `(let ((dir (or p4-default-directory default-directory)))
-     (with-temp-buffer
-       (cd dir)
-       (when (zerop (p4-run ,args)) ,@body))))
-
-(put 'p4-with-temp-buffer 'lisp-indent-function 1)
 
 (defun p4-refresh-callback (&optional hook)
   "Return a callback function that refreshes the status of the
