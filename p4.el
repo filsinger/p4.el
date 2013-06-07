@@ -1120,7 +1120,10 @@ revision number is not known or not applicable."
                        (p4-update-mode b (intern (match-string 2))
                                        (string-to-number (match-string 1))))
                       ((looking-at "^error: .* - file(s) not opened on this client")
-                       (push b have-buffers))))
+                       (push b have-buffers))
+                      ;; Just in case p4-executable is bogus.
+                      ((not (looking-at "^\\(?:error\\|warning\\|info\\|text\\|exit\\):"))
+                       (error "Unexpected output from p4 -s -x - opened: maybe p4-executable is wrong?"))))
               (forward-line 1))
             (erase-buffer)
             (if (and p4-executable have-buffers)
