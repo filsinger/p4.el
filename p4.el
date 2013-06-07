@@ -870,7 +870,7 @@ non-NIL, run that hook."
                 (hook hook))
     (lambda ()
       (with-current-buffer buffer
-        (p4-refresh-buffer)
+        (p4-refresh-buffer 'force)
         (when hook (run-hooks hook))
         (p4-refresh-buffers)))))
 
@@ -1187,11 +1187,12 @@ set in this buffer, `p4-mode' will be set appropriately, and if
               (push (list set b) p4-update-status-pending-alist)))))
       (p4-maybe-start-update-statuses))))
 
-(defun p4-refresh-buffer (&optional verify-modtime)
+(defun p4-refresh-buffer (&optional force verify-modtime)
   "Refresh the current buffer if it is under Perforce control and
 the file on disk has changed. If it has unsaved changes, prompt
 first."
-  (and (or (not p4-do-find-file)
+  (and (or force
+           (not p4-do-find-file)
            (memq p4-vc-status '(add branch delete edit sync)))
        (not (and verify-modtime (verify-visited-file-modtime (current-buffer))))
        buffer-file-name
@@ -1206,7 +1207,7 @@ control."
   (when (and p4-auto-refresh p4-do-find-file)
     (dolist (buffer (buffer-list))
       (with-current-buffer buffer
-        (p4-refresh-buffer t)))))
+        (p4-refresh-buffer nil 'verify-modtime)))))
 
 (defun p4-toggle-vc-mode ()
   "In case, the Perforce server is not available, or when working
