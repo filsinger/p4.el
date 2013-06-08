@@ -832,6 +832,21 @@ To set the executable for future sessions, customize
           "Your session has expired, please login again\\)")
   "Regular expression matching output from Perforce when you are logged out.")
 
+(defvar p4-untrusted-regexp
+  (concat "\\(?:error: \\)?"
+          "The authenticity of '.*' can't be established")
+  "Regular expression matching output from an untrusted Perforce server.")
+
+(defun p4-request-trust ()
+  "Ask the user for permission to trust the Perforce server."
+  (display-buffer (current-buffer))
+  (unless (yes-or-no-p "Trust server?")
+    (error "Server not trusted."))
+  (with-temp-buffer
+    (insert "yes\n")
+    (call-process-region (point-min) (point-max)
+                         (p4-executable) t t nil "trust")))
+
 (defun p4-iterate-with-login (fun)
   "Call FUN in the current buffer and return its result.
 If FUN returns non-zero because the user is not logged in, login
@@ -846,10 +861,13 @@ and repeat."
           (narrow-to-region (point) (point))
           (setq status (funcall fun))
           (goto-char (point-min))
-          (setq incomplete (looking-at p4-no-session-regexp))
-          (when incomplete
-            (p4-login)
-            (delete-region (point-min) (point-max))))))
+          (cond ((looking-at p4-no-session-regexp)
+                 (setq incomplete t)
+                 (p4-login)
+                 (delete-region (point-min) (point-max)))
+                ((looking-at p4-untrusted-regexp)
+                 (setq incomplete t)
+                 (p4-request-trust))))))
     status))
 
 (defun p4-run (args)
@@ -915,6 +933,11 @@ If there's no content in the buffer, pass `args' to error instead."
                     (goto-char (point-min))
                     (looking-at p4-no-session-regexp)))
              (p4-login)
+             (p4-process-restart))
+            ((save-excursion
+               (goto-char (point-min))
+               (looking-at p4-untrusted-regexp))
+             (p4-request-trust)
              (p4-process-restart))
             ((not (string-equal message "finished\n"))
              (p4-process-show-error "Process %s %s" process-name
@@ -1722,7 +1745,7 @@ changelist."
   "Resolve integrations and updates to workspace files."
   nil
   nil
-  (let (buffer (buf-name "*p4 resolve*"))
+  (let (buffer (buf-name "*P4 resolve*"))
     (setq buffer (get-buffer buf-name))
     (if (and (buffer-live-p buffer)
              (not (comint-check-proc buffer)))
@@ -1733,7 +1756,7 @@ changelist."
 	    (goto-char (point-max))
 	    (insert "\n--------\n\n"))))
     (setq args (cons cmd args))
-    (setq buffer (apply 'make-comint "p4 resolve" (p4-executable) nil args))
+    (setq buffer (apply 'make-comint "P4 resolve" (p4-executable) nil args))
     (set-buffer buffer)
     (comint-mode)
     (display-buffer buffer)
