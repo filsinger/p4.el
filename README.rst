@@ -110,6 +110,8 @@ are the significant new and improved features in this version:
   revert the buffer.
 - If you are logged out of Perforce, running any Perforce command
   prompts you to log in.
+- If your Perforce server is untrusted, running any Perforce command
+  asks you whether you want to trust the server.
 - When you revert a file with changes, you get shown the diffs that
   you are about to revert.
 - Errors from Perforce commands are shown to you reliably.
