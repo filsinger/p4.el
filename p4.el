@@ -1018,8 +1018,8 @@ If :synchronous is non-NIL, run command synchronously."
   ;; run via CMD.EXE.
   (when (looking-at "Found client MATCH : .*\n") (replace-match ""))
   (insert "# Created using " (p4-version) ".\n"
-          "# Type C-c C-c to submit changes and exit buffer.\n"
-          "# Type C-x k to kill current changes.\n"
+          "# Type C-c C-c to send the form to the server.\n"
+          "# Type C-x k to cancel the operation.\n"
           "#\n")
   (p4-form-mode)
   (pop-to-buffer (current-buffer))
@@ -1534,6 +1534,12 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
   nil
   (p4-call-command cmd args))
 
+(defp4cmd* flush
+  "Synchronize the client with its view of the depot (without copying files)."
+  nil
+  (p4-call-command cmd args :mode 'p4-basic-list-mode
+                   :callback 'p4-refresh-buffers))
+
 (defp4cmd p4-grep (args)
   "grep"
   "Print lines matching a pattern."
@@ -1770,6 +1776,19 @@ changelist."
   (interactive)
   (p4-call-command "set"))
 
+(defp4cmd p4-shelve (&optional args)
+  "shelve"
+  "Submit open files to the depot."
+  (interactive
+   (cond ((integerp current-prefix-arg)
+	  (list (format "%d" current-prefix-arg)))
+	 (current-prefix-arg
+	  (list (p4-read-args "p4 change: " "" 'change)))))
+  (save-some-buffers nil (lambda () (or (not p4-do-find-file) p4-vc-status)))
+  (let ((empty-buf (and p4-check-empty-diffs (p4-empty-diff-buffer))))
+    (p4-form-command "change" args :move-to "Description:\n\t"
+                     :commit-cmd "shelve")))
+
 (defp4cmd* status
   "Identify differences between the workspace with the depot."
   '("...")
@@ -1846,6 +1865,12 @@ return a buffer listing those files. Otherwise, return NIL."
   "Release a locked file, leaving it open."
   (p4-buffer-file-name-args)
   (p4-call-command cmd args :synchronous t :callback (p4-refresh-callback)))
+
+(defp4cmd p4-unshelve (&rest args)
+  "unshelve"
+  "Restore shelved files from a pending change into a workspace."
+  (interactive (p4-read-args "p4 unshelve: " ""))
+  (p4-call-command "unshelve" args))
 
 (defp4cmd* update
   "Synchronize the client with its view of the depot (with safety check)."
