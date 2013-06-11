@@ -332,7 +332,7 @@ functions are called.")
     (define-key map "o" 'p4-opened)
     (define-key map "p" 'p4-print)
     (define-key map "P" 'p4-set-p4-port)
-    (define-key map "q" 'p4-pop-window-config)
+    (define-key map "q" 'quit-window)
     (define-key map "r" 'p4-revert)
     (define-key map "R" 'p4-refresh)
     (define-key map "\C-r" 'p4-resolve)
@@ -528,41 +528,6 @@ exact match."
   (if (or (null p4port) (string-equal p4port ""))
       (setenv "P4PORT" nil)
     (setenv "P4PORT" p4port)))
-
-
-;;; Window configuration:
-
-(defvar p4-window-config-stack nil
-  "Stack of saved window configurations.")
-
-(defcustom p4-window-config-stack-size 20
-  "Maximum stack size for saved window configurations."
-  :type 'integer
-  :group 'p4)
-
-(defun p4-push-window-config ()
-  "Push the current window configuration on the `p4-window-config-stack'
-stack."
-  (interactive)
-  (setq p4-window-config-stack
-	(cons (current-window-configuration)
-	      p4-window-config-stack))
-  (while (> (length p4-window-config-stack) p4-window-config-stack-size)
-    (setq p4-window-config-stack
-	  (nreverse (cdr (nreverse p4-window-config-stack))))))
-
-(defun p4-pop-window-config (&optional num)
-  "Pop `num' elements (default: 1) from the
-`p4-window-config-stack' stack and use the last popped element to
-restore the window configuration."
-  (interactive "p")
-  (setq num (or num 1))
-  (when (> num 0)
-    (setq p4-window-config-stack (nthcdr (1- num) p4-window-config-stack))
-    (unless p4-window-config-stack
-      (error "window config stack empty"))
-    (set-window-configuration (car p4-window-config-stack))
-    (setq p4-window-config-stack (cdr p4-window-config-stack))))
 
 
 ;;; File handler:
@@ -1464,13 +1429,7 @@ buffer and the P4 output buffer."
       (when (buffer-live-p orig-buffer)
         (p4-fontify-print-buffer t)
         (lexical-let ((depot-buffer (current-buffer)))
-          (ediff-buffers
-           orig-buffer depot-buffer
-           (list (lambda ()
-                   (make-local-variable 'ediff-cleanup-hook)
-                   (add-hook 'ediff-cleanup-hook
-                             (lambda ()
-                               (p4-pop-window-config pop-count)))))))))))
+          (ediff-buffers orig-buffer depot-buffer))))))
 
 (defun p4-ediff (prefix)
   "Use ediff to compare file with its original client version."
@@ -2638,7 +2597,7 @@ NIL if there is no such completion type."
     (define-key map "\e\t" 'p4-backward-active-link)
     (define-key map [(shift tab)] 'p4-backward-active-link)
     (define-key map "\C-m" 'p4-buffer-commands)
-    (define-key map "q"	 'p4-quit-current-buffer)
+    (define-key map "q"	 'quit-window)
     (define-key map "k"	 'p4-scroll-down-1-line)
     (define-key map "j"	 'p4-scroll-up-1-line)
     (define-key map "b"	 'p4-scroll-down-1-window)
@@ -2746,12 +2705,6 @@ NIL if there is no such completion type."
   (while (and (not (bobp))
 	      (goto-char (previous-overlay-change (point)))
 	      (not (get-char-property (point) 'face)))))
-
-(defun p4-quit-current-buffer ()
-  "Quit a buffer"
-  (interactive)
-  (kill-buffer (current-buffer))
-  (p4-pop-window-config))
 
 (defun p4-scroll-down-1-line ()
   "Scroll down one line"
