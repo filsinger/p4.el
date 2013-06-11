@@ -866,7 +866,6 @@ if it was shown in a window."
   (let ((lines (count-lines (point-min) (point-max))))
     (if (or p4-process-after-show (> lines 1))
         (unless (eq (selected-window) (get-buffer-window (current-buffer)))
-          (p4-push-window-config)
           (display-buffer (current-buffer))
           (p4-move-point-to-top))
       (when (eql lines 1)
@@ -887,7 +886,6 @@ If there's no content in the buffer, pass `args' to error instead."
            (kill-buffer (current-buffer))
            (error message)))
         (t
-         (p4-push-window-config)
          (display-buffer (current-buffer))
          (p4-move-point-to-top)
          (apply 'error args))))
@@ -1723,7 +1721,6 @@ changelist."
                  (setq prompt nil))
                 (t
                  (p4-activate-diff-buffer)
-                 (p4-push-window-config)
                  (display-buffer (current-buffer)))))))
     (when (or (not prompt) (yes-or-no-p "Really revert? "))
       (p4-call-command cmd args :synchronous t
@@ -1874,8 +1871,7 @@ return a buffer listing those files. Otherwise, return NIL."
 (defun p4-move-point-to-top ()
   (let ((w (get-buffer-window (current-buffer))))
     (when w
-      (save-selected-window
-        (select-window w)
+      (with-selected-window w
         (goto-char (point-min))))))
 
 (defun p4-file-change-log (cmd file-list-spec)
