@@ -1168,7 +1168,8 @@ successfully, then `p4-vc-revision' and `p4-vc-status' will be
 set in this buffer, `p4-mode' will be set appropriately, and if
 `p4-mode' is turned on, then `p4-mode-hook' will be run."
   (let ((b (current-buffer)))
-    (when (and p4-do-find-file buffer-file-name (not p4-default-directory)
+    (when (and p4-executable p4-do-find-file buffer-file-name
+               (not p4-default-directory)
                (file-directory-p default-directory))
       (p4-with-temp-buffer '("set")
         (when (save-excursion (re-search-forward "^P4PORT=" nil t))
