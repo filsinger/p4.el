@@ -257,11 +257,14 @@ NIL if file is not known to be under control of Perforce.
 (defvar p4-process-callback nil
   "Function run when p4 command completes successfully.")
 (defvar p4-process-after-show nil
-  "Function run when p4 command completes successfully.")
+  "Function run after showing output of successful p4 command.")
 (defvar p4-process-auto-login nil
   "If non-NIL, automatically prompt user to log in.")
 (defvar p4-process-buffers nil
   "List of buffers whose status is being updated here.")
+(defvar p4-process-pop-up-output nil
+  "Function that returns non-NIL to display output in a pop-up
+window, or NIL to display it in the echo area.")
 (defvar p4-process-synchronous nil
   "If non-NIL, run p4 command synchronously.")
 
@@ -278,7 +281,8 @@ NIL if file is not known to be under control of Perforce.
 (dolist (var '(p4-mode p4-offline-mode p4-vc-revision
                p4-vc-status p4-process-args p4-process-callback
                p4-process-buffers p4-process-after-show
-               p4-process-auto-login p4-process-synchronous
+               p4-process-auto-login p4-process-pop-up-output
+               p4-process-synchronous
                p4-form-commit-command p4-form-committed
                p4-form-commit-fail-callback p4-default-directory))
   (make-variable-buffer-local var)
@@ -875,13 +879,16 @@ non-NIL, run that hook."
 Return NIL if it was shown in minibuffer and killed, or non-NIL
 if it was shown in a window."
   (let ((lines (count-lines (point-min) (point-max))))
-    (if (or p4-process-after-show (> lines 1))
+    (if (or p4-process-after-show 
+            (if p4-process-pop-up-output
+                (funcall p4-process-pop-up-output)
+              (> lines 1)))
         (unless (eq (selected-window) (get-buffer-window (current-buffer)))
           (display-buffer (current-buffer))
           (p4-move-point-to-top))
-      (when (eql lines 1)
-        (goto-char (point-min))
-        (message (buffer-substring (point) (line-end-position))))
+      (when (> lines 0)
+        (goto-char (point-max))
+        (message (buffer-substring (point-min) (line-end-position 0))))
       (kill-buffer (current-buffer))
       nil)))
 
@@ -958,7 +965,7 @@ and arguments taken from the local variable `p4-process-args'."
   (format "*P4 %s*" (p4-join-list args)))
 
 (defun* p4-call-command (cmd &optional args &key mode callback after-show
-                             (auto-login t) synchronous)
+                             (auto-login t) synchronous pop-up-output)
   "Start a Perforce command.
 First (required) argument `cmd' is the p4 command to run.
 Second (optional) argument `args' is a list of arguments to the p4 command.
@@ -967,15 +974,19 @@ Remaining arguments are keyword arguments:
 :callback is a function run when the p4 command completes successfully.
 :after-show is a function run after displaying the output.
 If :auto-login is NIL, don't try logging in if logged out.
-If :synchronous is non-NIL, run command synchronously."
+If :synchronous is non-NIL, run command synchronously.
+If :pop-up-output is non-NIL, call that function to determine
+whether or not to pop up the output of a command in a window (as
+opposed to showing it in the echo area)."
   (with-current-buffer
       (p4-make-output-buffer (p4-process-buffer-name (cons cmd args)) mode)
     (set (make-local-variable 'revert-buffer-function) 'p4-revert-buffer)
     (setq p4-process-args (cons cmd args)
-          p4-process-callback callback
+          p4-process-after-show after-show
           p4-process-auto-login auto-login
+          p4-process-callback callback
+          p4-process-pop-up-output pop-up-output
           p4-process-synchronous synchronous)
-    (when after-show (setq p4-process-after-show after-show))
     (p4-process-restart)))
 
 ;; This empty function can be passed as an :after-show callback
@@ -1482,10 +1493,19 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
     (p4-call-command "print" (list diff-version1)
                      :after-show (p4-activate-ediff2-callback diff-version2))))
 
+(defun p4-edit-pop-up-output-p ()
+  "Show the output of p4 edit in the echo area if it concerns a
+single file (but possibly with \"... also opened by\"
+continuation lines); show it in a pop-up window otherwise."
+  (save-excursion
+    (goto-char (point-min))
+    (not (looking-at ".*\n\\(?:\\.\\.\\. .*\n\\)*\\'"))))
+
 (defp4cmd* edit
   "Open an existing file for edit."
   (p4-context-filenames-list)
   (p4-call-command cmd args :synchronous t
+                   :pop-up-output 'p4-edit-pop-up-output-p
                    :callback (p4-refresh-callback 'p4-edit-hook)))
 
 (defp4cmd* filelog
