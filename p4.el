@@ -706,24 +706,35 @@ characters."
       (redraw-modeline)
     (force-mode-line-update)))
 
-;; Return the file name associated with a buffer. If the real buffer file
-;; name doesn't exist, try special filename tags set in some of the p4
-;; buffers.
-(defun p4-buffer-file-name-2 ()
-  (cond ((p4-buffer-file-name))
+(defun p4-context-single-filename ()
+  "Return a single filename based on the current context, or NIL
+if no filename can be found in the current context. Try the
+following, in order, until one succeeds:
+1. the file that the current buffer is visiting;
+2. the link at point;
+3. the marked file in a Dired buffer;
+4. the file at point in a Dired buffer;
+5. the file on the current line in a P4 Basic List buffer."
+  (cond (buffer-file-name (p4-follow-link-name buffer-file-name))
 	((get-char-property (point) 'link-client-name))
 	((get-char-property (point) 'link-depot-name))
 	((get-char-property (point) 'block-client-name))
 	((get-char-property (point) 'block-depot-name))
-	((if (and (fboundp 'dired-get-filename)
-		  (dired-get-filename nil t))
-	     (p4-follow-link-name (dired-get-filename nil t))))
+	((let ((f (and (fboundp 'dired-get-marked-files)
+                       (dired-get-marked-files nil))))
+           (and f (p4-follow-link-name (first f)))))
+	((let ((f (and (fboundp 'dired-get-filename)
+                       (dired-get-filename nil t))))
+           (and f (p4-follow-link-name f))))
 	((p4-basic-list-get-filename))))
 
-(defun p4-buffer-file-name ()
-  (cond (buffer-file-name
-	 (p4-follow-link-name buffer-file-name))
-	(t nil)))
+(defun p4-context-filenames-list ()
+  "Return a list of filenames based on the current context."
+  (let ((f (and (fboundp 'dired-get-marked-files)
+                (dired-get-marked-files nil))))
+    (if f (mapcar 'p4-follow-link-name f)
+      (let ((f (p4-context-single-filename)))
+        (when f (list f))))))
 
 (defun p4-follow-link-name (name)
   (p4-cygpath
@@ -1286,14 +1297,20 @@ twice in the expansion."
            (args (or args-orig ,args-default)))
        ,@body)))
 
-(defun p4-buffer-file-name-args ()
-  (let ((f (p4-buffer-file-name-2)))
-    (if (not f) nil
-      (list f))))
+(defun p4-context-single-filename-args ()
+  "Return an argument list consisting of a single filename based
+on the current context, or NIL if no filename can be found in the
+current context."
+  (let ((f (p4-context-single-filename)))
+    (when f (list f))))
 
-(defun p4-buffer-file-revision-args ()
-  (let ((f (p4-buffer-file-name-2)))
-    (if (not f) nil
+(defun p4-context-single-filename-revision-args ()
+  "Return an argument list consisting of a single filename with a
+revision or changelevel, based on the current context, or NIL if
+the current context doesn't contain a filename with a revision or
+changelevel."
+  (let ((f (p4-context-single-filename)))
+    (when f
       (let ((rev (get-char-property (point) 'rev)))
         (if rev (list (format "%s#%d" f rev))
           (let ((change (get-char-property (point) 'change)))
@@ -1305,12 +1322,12 @@ twice in the expansion."
 
 (defp4cmd* add
   "Open a new file to add it to the depot."
-  (p4-buffer-file-name-args)
+  (p4-context-filenames-list)
   (p4-call-command cmd args :synchronous t :callback (p4-refresh-callback)))
 
 (defp4cmd* annotate
   "Print file lines and their revisions."
-  (p4-buffer-file-revision-args)
+  (p4-context-single-filename-revision-args)
   (p4-annotate-internal (car args)))
 
 (defp4cmd p4-branch (args)
@@ -1357,7 +1374,7 @@ twice in the expansion."
 
 (defp4cmd* delete
   "Open an existing file for deletion from the depot."
-  (p4-buffer-file-name-args)
+  (p4-context-filenames-list)
   (when (yes-or-no-p "Really delete from depot? ")
     (p4-call-command cmd args :synchronous t :callback (p4-refresh-callback))))
 
@@ -1374,7 +1391,7 @@ twice in the expansion."
 
 (defp4cmd* diff
   "Display diff of client file with depot file."
-  (cons p4-default-diff-options (p4-buffer-file-name-args))
+  (cons p4-default-diff-options (p4-context-filenames-list))
   (p4-call-command cmd args :mode 'p4-diff-mode
                    :callback 'p4-activate-diff-buffer))
 
@@ -1411,8 +1428,8 @@ twice in the expansion."
                            "Optional argument: "
                            (concat p4-default-diff-options " ")))))
     ;; try to find out if this is a revision number, or a depot file
-    (setq diff-version1 (p4-get-file-rev (p4-buffer-file-name-2) version1))
-    (setq diff-version2 (p4-get-file-rev (p4-buffer-file-name-2) version2))
+    (setq diff-version1 (p4-get-file-rev (p4-context-single-filename) version1))
+    (setq diff-version2 (p4-get-file-rev (p4-context-single-filename) version2))
 
     (p4-call-command "diff2" (append diff-options
 				     (list diff-version1
@@ -1435,7 +1452,7 @@ buffer and the P4 output buffer."
   (interactive "P")
   (if prefix
       (call-interactively 'p4-ediff2)
-    (p4-call-command "print" (list (concat (p4-buffer-file-name) "#have"))
+    (p4-call-command "print" (list (concat (p4-context-single-filename) "#have"))
                      :after-show (p4-activate-ediff-callback))))
 
 (defun p4-activate-ediff2-callback (other-file)
@@ -1456,7 +1473,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
                                (when (> rev 1) (format "%d" (1- rev))))
 	   (p4-read-arg-string "Second filespec/revision to diff: "
                                (when (> rev 1) (format "%d" rev))))))
-  (let* ((file-name (p4-buffer-file-name-2))
+  (let* ((file-name (p4-context-single-filename))
          (basename (file-name-nondirectory file-name))
          (bufname1 (concat "*P4 ediff " basename "#" version1  "*"))
          (bufname2 (concat "*P4 ediff " basename "#" version2  "*"))
@@ -1467,18 +1484,18 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
 
 (defp4cmd* edit
   "Open an existing file for edit."
-  (p4-buffer-file-name-args)
+  (p4-context-filenames-list)
   (p4-call-command cmd args :synchronous t
                    :callback (p4-refresh-callback 'p4-edit-hook)))
 
 (defp4cmd* filelog
   "List revision history of files."
-  (p4-buffer-file-name-args)
+  (p4-context-filenames-list)
   (p4-file-change-log cmd args))
 
 (defp4cmd* files
   "List files in the depot."
-  (p4-buffer-file-name-args)
+  (p4-context-filenames-list)
   (p4-call-command cmd args :mode 'p4-basic-list-mode))
 
 (defp4cmd p4-fix (&rest args)
@@ -1521,7 +1538,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
 
 (defp4cmd* have
   "List the revisions most recently synced to the current workspace."
-  (p4-buffer-file-name-args)
+  (p4-context-filenames-list)
   (p4-call-command cmd args :mode 'p4-basic-list-mode))
 
 (defp4cmd p4-help (&rest args)
@@ -1584,7 +1601,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
 
 (defp4cmd* lock
   "Lock an open file to prevent it from being submitted."
-  (p4-buffer-file-name-args)
+  (p4-context-filenames-list)
   (p4-call-command cmd args :synchronous t :callback (p4-refresh-callback)))
 
 (defp4cmd* login
@@ -1628,8 +1645,8 @@ If the \"move\" command is unavailable, use \"integrate\"
 followed by \"delete\"."
   (interactive
    (list
-    (p4-read-arg-string "move from: " (p4-buffer-file-name-2))
-    (p4-read-arg-string "move to: " (p4-buffer-file-name-2))))
+    (p4-read-arg-string "move from: " (p4-context-single-filename))
+    (p4-read-arg-string "move to: " (p4-context-single-filename))))
   (if (< (p4-server-version) 2009)
       (p4-call-command "integ" (list from-file to-file)
        :callback (lambda () (p4-call-command "delete" (list from-file))))
@@ -1645,7 +1662,7 @@ followed by \"delete\"."
 
 (defp4cmd* print
   "Write a depot file to a buffer."
-  (p4-buffer-file-revision-args)
+  (p4-context-single-filename-revision-args)
   (p4-call-command cmd args :mode 'p4-activate-print-buffer))
 
 (defp4cmd p4-passwd (old-pw new-pw new-pw2)
@@ -1662,19 +1679,19 @@ followed by \"delete\"."
 (defp4cmd* reconcile
   "Open files for add, delete, and/or edit to reconcile client
 with workspace changes made outside of Perforce."
-  (p4-buffer-file-name-args)
+  (p4-context-filenames-list)
   (p4-call-command cmd args :mode 'p4-basic-list-mode))
 
 (defp4cmd* refresh
   "Refresh the contents of an unopened file. Alias for \"sync -f\"."
-  (cons "-f" (p4-buffer-file-name-args))
+  (cons "-f" (p4-context-filenames-list))
   (p4-call-command "sync" args :mode 'p4-basic-list-mode
                    :callback 'p4-refresh-buffers))
 
 (defp4cmd* reopen
   "Change the filetype of an open file or move it to another
 changelist."
-  (p4-buffer-file-name-args)
+  (p4-context-filenames-list)
   (p4-call-command cmd args :synchronous t :callback (p4-refresh-callback)))
 
 (defp4cmd* resolve
@@ -1704,7 +1721,7 @@ changelist."
 
 (defp4cmd* revert
   "Discard changes from an opened file."
-  (p4-buffer-file-name-args)
+  (p4-context-filenames-list)
   (let ((prompt t))
     (unless args-orig
       (let* ((diff-args (append (cons "diff" (p4-make-list-from-string p4-default-diff-options)) args))
@@ -1820,7 +1837,7 @@ return a buffer listing those files. Otherwise, return NIL."
 
 (defp4cmd* unlock
   "Release a locked file, leaving it open."
-  (p4-buffer-file-name-args)
+  (p4-context-filenames-list)
   (p4-call-command cmd args :synchronous t :callback (p4-refresh-callback)))
 
 (defp4cmd p4-unshelve (&rest args)
@@ -1852,7 +1869,7 @@ return a buffer listing those files. Otherwise, return NIL."
 
 (defp4cmd* where
   "Show how file names are mapped by the client view."
-  (p4-buffer-file-name-args)
+  (p4-context-filenames-list)
   (p4-call-command cmd args))
 
 
@@ -2098,7 +2115,7 @@ argument delete-filespec is non-NIL, remove the first line."
 (defun p4-annotate-line ()
   "Print a depot file with revision history to a buffer,
 and jump to the current line in the revision buffer."
-  (p4-annotate-internal (car (p4-buffer-file-revision-args))
+  (p4-annotate-internal (car (p4-context-single-filename-revision-args))
                         (line-number-at-pos (point))))
 
 (defalias 'p4-blame-line 'p4-annotate-line)
@@ -2627,7 +2644,7 @@ NIL if there is no such completion type."
 	(branch (get-char-property pnt 'branch))
 	(change (get-char-property pnt 'change))
 	(client (get-char-property pnt 'client))
-	(filename (p4-buffer-file-name-2))
+	(filename (p4-context-single-filename))
 	(group (get-char-property pnt 'group))
 	(job (get-char-property pnt 'job))
 	(label (get-char-property pnt 'label))
