@@ -53,11 +53,12 @@ edit`` corresponds to the Emacs command ``p4-edit``. You can type
 Perforce command has a key binding).
 
 Commands in ``p4.el`` operate on the "current" file by default -- this
-is the file you're visiting in the current buffer, if any, or the file
-on the current line in a Dired buffer. But if they are given a prefix
-argument then you can enter any arguments to the command. For example
-``C-x p e`` opens the current file for edit. But ``C-u C-x p e * RET``
-opens all files in the current directory for edit.
+is the file you're visiting in the current buffer, if any; the marked
+file(s) in a Dired buffer, if any; or the file on the current line in
+a Dired buffer. But if they are given a prefix argument then you can
+enter any arguments to the command. For example ``C-x p e`` opens the
+current file for edit. But ``C-u C-x p e * RET`` opens all files in
+the current directory for edit.
 
 These are the most useful commands:
 
@@ -115,8 +116,9 @@ are the significant new and improved features in this version:
 - When you revert a file with changes, you get shown the diffs that
   you are about to revert.
 - Errors from Perforce commands are shown to you reliably.
-- New interfaces to Perforce commands ``grep``, ``move``,
-  ``reconcile``, ``status``, ``tickets``, and ``update``.
+- New interfaces to Perforce commands ``flush``, ``grep``, ``move``,
+  ``reconcile``, ``status``, ``shelve``, ``tickets``, ``unshelve``,
+  and ``update``.
 - The ``p4-blame`` command makes use of ``p4 annotate`` if your server
   supports it, and so is much faster. The annotation also includes a
   snippet from the change description if there's space.
