@@ -710,6 +710,12 @@ characters."
       (redraw-modeline)
     (force-mode-line-update)))
 
+(defun p4-dired-get-marked-files ()
+  ;; Wrapper for `dired-get-marked-files'. In Emacs 24.2 (and earlier)
+  ;; this raises an error if there are no marked files and no file on
+  ;; the current line, so we suppress the error here.
+  (ignore-errors (dired-get-marked-files nil)))
+
 (defun p4-context-single-filename ()
   "Return a single filename based on the current context, or NIL
 if no filename can be found in the current context. Try the
@@ -724,18 +730,13 @@ following, in order, until one succeeds:
 	((get-char-property (point) 'link-depot-name))
 	((get-char-property (point) 'block-client-name))
 	((get-char-property (point) 'block-depot-name))
-	((let ((f (and (fboundp 'dired-get-marked-files)
-                       (dired-get-marked-files nil))))
+        ((let ((f (p4-dired-get-marked-files)))
            (and f (p4-follow-link-name (first f)))))
-	((let ((f (and (fboundp 'dired-get-filename)
-                       (dired-get-filename nil t))))
-           (and f (p4-follow-link-name f))))
 	((p4-basic-list-get-filename))))
 
 (defun p4-context-filenames-list ()
   "Return a list of filenames based on the current context."
-  (let ((f (and (fboundp 'dired-get-marked-files)
-                (dired-get-marked-files nil))))
+  (let ((f (p4-dired-get-marked-files)))
     (if f (mapcar 'p4-follow-link-name f)
       (let ((f (p4-context-single-filename)))
         (when f (list f))))))
