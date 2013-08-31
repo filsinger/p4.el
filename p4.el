@@ -950,18 +950,19 @@ and arguments taken from the local variable `p4-process-args'."
   (interactive)
   (unless p4-process-args
     (error "Can't restart Perforce process in this buffer."))
-  (let ((inhibit-read-only t)) (erase-buffer))
-  (if p4-process-synchronous
-      (let ((status (apply 'call-process (p4-executable) nil t nil
-                           p4-process-args)))
-        (p4-process-finished (current-buffer) "P4"
-                             (if (zerop status) "finished\n"
-                               (format "exited with status %d\n" status))))
-    (let ((process (apply 'start-process "P4" (current-buffer) (p4-executable)
-                          p4-process-args)))
-      (set-process-query-on-exit-flag process nil)
-      (set-process-sentinel process 'p4-process-sentinel)
-      (message "Running p4 %s..." (p4-join-list p4-process-args)))))
+  (let ((inhibit-read-only t))
+    (erase-buffer)
+    (if p4-process-synchronous
+        (let ((status (apply 'call-process (p4-executable) nil t nil
+                             p4-process-args)))
+          (p4-process-finished (current-buffer) "P4"
+                               (if (zerop status) "finished\n"
+                                 (format "exited with status %d\n" status))))
+      (let ((process (apply 'start-process "P4" (current-buffer) (p4-executable)
+                            p4-process-args)))
+        (set-process-query-on-exit-flag process nil)
+        (set-process-sentinel process 'p4-process-sentinel)
+        (message "Running p4 %s..." (p4-join-list p4-process-args))))))
 
 (defun p4-revert-buffer (&optional ignore-auto noconfirm)
   (p4-process-restart))
