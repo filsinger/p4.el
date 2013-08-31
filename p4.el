@@ -1640,7 +1640,7 @@ continuation lines); show it in a pop-up window otherwise."
       (let ((pw (if (member "-s" args) ""
                   (read-passwd (format prompt (p4-current-server-port))))))
         (with-temp-buffer
-          (insert pw)
+          (insert pw "\n")
           (apply 'call-process-region (point-min) (point-max)
                  (p4-executable) t t nil cmd "-a" args)
           (goto-char (point-min))
