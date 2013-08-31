@@ -719,7 +719,7 @@ following, in order, until one succeeds:
 3. the marked file in a Dired buffer;
 4. the file at point in a Dired buffer;
 5. the file on the current line in a P4 Basic List buffer."
-  (cond (buffer-file-name (p4-follow-link-name buffer-file-name))
+  (cond ((p4-buffer-file-name))
 	((get-char-property (point) 'link-client-name))
 	((get-char-property (point) 'link-depot-name))
 	((get-char-property (point) 'block-client-name))
@@ -745,6 +745,12 @@ following, in order, until one succeeds:
    (if p4-follow-symlinks
        (file-truename name)
      name)))
+
+(defun p4-buffer-file-name (&optional buffer)
+  "Return name of file BUFFER is visiting, or NIL if none,
+respecting the `p4-follow-symlinks' setting."
+  (let ((f (buffer-file-name buffer)))
+    (when f (p4-follow-link-name f))))
 
 (defun p4-cygpath (name)
   (if (memq system-type '(cygwin32 cygwin))
@@ -1144,7 +1150,7 @@ revision number is not known or not applicable."
                   (set-process-query-on-exit-flag process nil)
                   (set-process-sentinel process 'p4-update-status-sentinel-2)
                   (loop for b in have-buffers
-                        do (process-send-string process (buffer-file-name b))
+                        do (process-send-string process (p4-buffer-file-name b))
                         do (process-send-string process "\n"))
                   (process-send-eof process))
               (kill-buffer (current-buffer))
@@ -1179,7 +1185,7 @@ an update is running already."
             (set-process-sentinel process 'p4-update-status-sentinel-1)
             (setq p4-process-buffers buffers)
             (loop for b in buffers
-                  do (process-send-string process (buffer-file-name b))
+                  do (process-send-string process (p4-buffer-file-name b))
                   do (process-send-string process "\n"))
             (process-send-eof process)))))))
 
