@@ -2289,6 +2289,7 @@ only be used when p4 annotate is unavailable."
               (p4-annotate-changes filespec)))
            (lines (length line-changes))
            (inhibit-read-only t)
+           (inhibit-modification-hooks t)
            (current-line 0)
            (current-repeats 0)
            (current-percent -1)
