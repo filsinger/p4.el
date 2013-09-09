@@ -23,7 +23,7 @@ Download `p4.el`_. Then, in your ``.emacs``:
 
 1. Ensure the directory containing ``p4.el`` is on your ``load-path``::
 
-    (push "/full/path/to/dir/containing/p4.el" load-path)
+    (add-to-list 'load-path "/full/path/to/dir/containing/p4.el")
 
 2. Load the library::
 

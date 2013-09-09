@@ -39,7 +39,7 @@
 ;; In your .emacs, ensure the path to the directory containing p4.el
 ;; is in the `load-path' variable:
 ;;
-;;     (push "/full/path/to/dir/containing/p4.el/" load-path)
+;;     (add-to-list 'load-path "/full/path/to/dir/containing/p4.el/")
 ;;
 ;; Then load the library:
 ;;
