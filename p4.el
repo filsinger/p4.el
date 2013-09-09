@@ -61,6 +61,7 @@
 (require 'comint) ; comint-check-proc
 (require 'dired) ; dired-get-filename
 (require 'diff-mode) ; diff-font-lock-defaults, ...
+(require 'ps-print) ; ps-print-ensure-fontified
 (eval-when-compile (require 'cl)) ; defstruct, loop, dolist, lexical-let, ...
 
 (defvar p4-version "12.0" "Perforce-Emacs Integration version.")
@@ -1759,7 +1760,7 @@ followed by \"delete\"."
 (defp4cmd* print
   "Write a depot file to a buffer."
   (p4-context-single-filename-revision-args)
-  (p4-call-command cmd args :mode 'p4-activate-print-buffer))
+  (p4-call-command cmd args :callback 'p4-activate-print-buffer))
 
 (defp4cmd p4-passwd (old-pw new-pw new-pw2)
   "passwd"
@@ -2096,6 +2097,15 @@ argument delete-filespec is non-NIL, remove the first line."
             (inhibit-read-only t))
         (replace-match "" t t)
         (set-auto-mode)
+        ;; Ensure that the entire buffer is fontified, even if jit-lock or
+        ;; lazy-lock is being used.
+        (ps-print-ensure-fontified (point-min) (point-max))
+        ;; But then turn off the major mode, freezing the fontification so that
+        ;; when we add contents to the buffer (such as restoring the first line
+        ;; containing the filespec, or adding annotations) these additions
+        ;; don't get fontified.
+        (remove-hook 'change-major-mode-hook 'font-lock-change-mode t)
+        (fundamental-mode)
         (goto-char (point-min))
         (unless delete-filespec (insert first-line))))))
 
