@@ -124,6 +124,9 @@ are the significant new and improved features in this version:
   snippet from the change description if there's space.
 - Diffs are opened in diff-mode, and you can jump from a line in a
   hunk to the corresponding line in the source.
+- Support for Unicode characters. (If the Perforce server is not
+  Unicode enabled, the UTF-8 encoding is used so that in future the
+  server can be converted to Unicode.)
 
 These features have been removed:
 
