@@ -448,7 +448,7 @@ functions are called.")
 (easy-menu-change '("tools") "P4" p4-menu-spec "Version Control")
 
 
-;;; Macro (must be defined before use if compilation is to work)
+;;; Macros (must be defined before use if compilation is to work)
 
 (defmacro p4-with-temp-buffer (args &rest body)
   "Run p4 ARGS in a temporary buffer, place point at the start of
@@ -460,6 +460,29 @@ the output, and evaluate BODY if the command completed successfully."
 
 (put 'p4-with-temp-buffer 'lisp-indent-function 1)
 
+(defmacro p4-with-set-output (&rest body)
+  "Run p4 set in a temporary buffer, place point at the start of
+the output, and evaluate BODY if the command completed successfully."
+  ;; Can't use `p4-with-temp-buffer' for this, because that would lead
+  ;; to infinite recursion via `p4-charset-option'.
+  `(let ((dir (or p4-default-directory default-directory)))
+     (with-temp-buffer
+       (cd dir)
+       (when (zerop (save-excursion 
+                      (call-process (p4-executable) nil t nil "set")))
+         ,@body))))
+
+(put 'p4-with-set-output 'lisp-indent-function 0)
+
+(defmacro p4-with-coding-system (&rest body)
+  "Evaluate BODY with coding-system-for-read and -write set to 'utf-8."
+  `(let* ((coding (p4-coding-system))
+          (coding-system-for-read coding)
+          (coding-system-for-write coding))
+     ,@body))
+
+(put 'p4-with-coding-system 'lisp-indent-function 0)
+
 
 ;;; Environment:
 
@@ -468,22 +491,51 @@ the output, and evaluate BODY if the command completed successfully."
   (interactive)
   (message "Emacs-P4 Integration version %s" p4-version))
 
+(defun p4-current-setting (var &optional default)
+  "Return the current Perforce client setting for VAR, or DEFAULT
+if there is no setting."
+  (or (p4-with-set-output
+        (let ((re (format "^%s=\\(\\S-+\\)" (regexp-quote var))))
+          (when (re-search-forward re nil t)
+            (match-string 1))))
+      default))
+
+(defun p4-current-charset ()
+  "Return the current Perforce client."
+  (p4-current-setting "P4CHARSET" "none"))
+
+(defun p4-current-server-unicode-enabled ()
+  "Return T if we believe that the current Perforce server is
+Unicode enabled, NIL if not."
+  (string-equal (downcase (p4-current-charset)) "none"))
+
+(defun p4-charset-option ()
+  "Return a value suitable for passing as the -C (charset) option
+to the Perforce client. Either \"utf8\" (if P4CHARSET is set
+locally) or \"none\" (otherwise)."
+  (if (p4-current-server-unicode-enabled) "none" "utf8"))
+
+(defun p4-coding-system ()
+  "Return an Emacs coding system equivalent to `p4-charset-option'."
+  'utf-8)
+
+(defun p4-set-process-coding-system (process)
+  "Set coding systems of PROCESS appropriately."
+  (let ((coding (p4-coding-system)))
+    (set-process-coding-system process coding coding)))
+
 (defun p4-current-client ()
   "Return the current Perforce client."
-  (p4-with-temp-buffer '("set")
-    (when (re-search-forward "^P4CLIENT=\\(\\S-+\\)" nil t)
-      (match-string 1))))
+  (p4-current-setting "P4CLIENT"))
 
 (defun p4-get-client-name ()
-  "Displat the name of the current Perforce client."
+  "Display the name of the current Perforce client."
   (interactive)
   (message "P4CLIENT=%s" (p4-current-client)))
 
 (defun p4-current-server-port ()
   "Return the current Perforce port."
-  (p4-with-temp-buffer '("set")
-    (when (re-search-forward "^P4PORT=\\(\\S-+\\)" nil t)
-      (match-string 1))))
+  (p4-current-setting "P4PORT"))
 
 (defvar p4-server-version-cache nil
   "Association list mapping P4PORT to Perforce server version on that port.")
@@ -831,8 +883,10 @@ To set the executable for future sessions, customize
     (error "Server not trusted."))
   (with-temp-buffer
     (insert "yes\n")
-    (call-process-region (point-min) (point-max)
-                         (p4-executable) t t nil "trust")))
+    (p4-with-coding-system
+      (call-process-region (point-min) (point-max)
+                           (p4-executable) t t nil
+                           "-C" (p4-charset-option) "trust"))))
 
 (defun p4-iterate-with-login (fun)
   "Call FUN in the current buffer and return its result.
@@ -865,7 +919,10 @@ Return the status of the command. If the command cannot be run
 because the user is not logged in, prompt for a password and
 re-run the command."
   (p4-iterate-with-login
-   (lambda () (apply 'call-process (p4-executable) nil t nil args))))
+   (lambda ()
+     (p4-with-coding-system
+       (apply 'call-process (p4-executable) nil t nil
+              "-C" (p4-charset-option) args)))))
 
 (defun p4-refresh-callback (&optional hook)
   "Return a callback function that refreshes the status of the
@@ -886,7 +943,7 @@ non-NIL, run that hook."
 Return NIL if it was shown in minibuffer and killed, or non-NIL
 if it was shown in a window."
   (let ((lines (count-lines (point-min) (point-max))))
-    (if (or p4-process-after-show 
+    (if (or p4-process-after-show
             (if p4-process-pop-up-output
                 (funcall p4-process-pop-up-output)
               (> lines 1)))
@@ -954,15 +1011,17 @@ and arguments taken from the local variable `p4-process-args'."
   (let ((inhibit-read-only t))
     (erase-buffer)
     (if p4-process-synchronous
-        (let ((status (apply 'call-process (p4-executable) nil t nil
-                             p4-process-args)))
-          (p4-process-finished (current-buffer) "P4"
-                               (if (zerop status) "finished\n"
-                                 (format "exited with status %d\n" status))))
+        (p4-with-coding-system
+          (let ((status (apply 'call-process (p4-executable) nil t nil
+                               p4-process-args)))
+            (p4-process-finished (current-buffer) "P4"
+                                 (if (zerop status) "finished\n"
+                                   (format "exited with status %d\n" status)))))
       (let ((process (apply 'start-process "P4" (current-buffer) (p4-executable)
                             p4-process-args)))
         (set-process-query-on-exit-flag process nil)
         (set-process-sentinel process 'p4-process-sentinel)
+        (p4-set-process-coding-system process)
         (message "Running p4 %s..." (p4-join-list p4-process-args))))))
 
 (defun p4-revert-buffer (&optional ignore-auto noconfirm)
@@ -989,7 +1048,7 @@ opposed to showing it in the echo area)."
   (with-current-buffer
       (p4-make-output-buffer (p4-process-buffer-name (cons cmd args)) mode)
     (set (make-local-variable 'revert-buffer-function) 'p4-revert-buffer)
-    (setq p4-process-args (cons cmd args)
+    (setq p4-process-args (append (list "-C" (p4-charset-option) cmd) args)
           p4-process-after-show after-show
           p4-process-auto-login auto-login
           p4-process-callback callback
@@ -1067,9 +1126,11 @@ standard input\). If not supplied, cmd is reused.
            (p4-iterate-with-login
             (lambda ()
               (with-current-buffer form-buf
-                (apply 'call-process-region (point-min)
-                       (point-max) (p4-executable)
-                       nil buffer nil cmd args))))))
+                (p4-with-coding-system
+                  (apply 'call-process-region (point-min)
+                         (point-max) (p4-executable)
+                         nil buffer nil "-C" (p4-charset-option)
+                         cmd args)))))))
         (progn
           (set-buffer-modified-p nil)
           (setq p4-form-committed t
@@ -1147,10 +1208,12 @@ revision number is not known or not applicable."
             (if (and p4-executable have-buffers)
                 (let ((process (start-process "P4" (current-buffer)
                                               p4-executable
+                                              "-C" (p4-charset-option)
                                               "-s" "-x" "-" "have")))
                   (setq p4-process-buffers have-buffers)
                   (set-process-query-on-exit-flag process nil)
                   (set-process-sentinel process 'p4-update-status-sentinel-2)
+                  (p4-set-process-coding-system process)
                   (loop for b in have-buffers
                         do (process-send-string process (p4-buffer-file-name b))
                         do (process-send-string process "\n"))
@@ -1182,9 +1245,12 @@ an update is running already."
                 (with-current-buffer (car buffers)
                   (or p4-default-directory default-directory)))
           (let ((process (start-process "P4" (current-buffer)
-                                        p4-executable "-s" "-x" "-" "opened")))
+                                        p4-executable
+                                        "-C" (p4-charset-option)
+                                        "-s" "-x" "-" "opened")))
             (set-process-query-on-exit-flag process nil)
             (set-process-sentinel process 'p4-update-status-sentinel-1)
+            (p4-set-process-coding-system process)
             (setq p4-process-buffers buffers)
             (loop for b in buffers
                   do (process-send-string process (p4-buffer-file-name b))
@@ -1201,7 +1267,7 @@ set in this buffer, `p4-mode' will be set appropriately, and if
     (when (and p4-executable p4-do-find-file buffer-file-name
                (not p4-default-directory)
                (file-directory-p default-directory))
-      (p4-with-temp-buffer '("set")
+      (p4-with-set-output
         (when (save-excursion (re-search-forward "^P4PORT=" nil t))
           (let* ((set (buffer-substring-no-properties (point-min) (point-max)))
                  (pending (assoc set p4-update-status-pending-alist)))
@@ -1642,8 +1708,10 @@ continuation lines); show it in a pop-up window otherwise."
                   (read-passwd (format prompt (p4-current-server-port))))))
         (with-temp-buffer
           (insert pw "\n")
-          (apply 'call-process-region (point-min) (point-max)
-                 (p4-executable) t t nil cmd "-a" args)
+          (p4-with-coding-system
+            (apply 'call-process-region (point-min) (point-max)
+                   (p4-executable) t t nil "-C" (p4-charset-option)
+                   cmd "-a" args))
           (goto-char (point-min))
           (when (re-search-forward "Enter password:.*\n" nil t)
             (replace-match ""))
@@ -1736,7 +1804,8 @@ changelist."
 	    (goto-char (point-max))
 	    (insert "\n--------\n\n"))))
     (setq args (cons cmd args))
-    (setq buffer (apply 'make-comint "P4 resolve" (p4-executable) nil args))
+    (setq buffer (apply 'make-comint "P4 resolve" (p4-executable) nil
+                        "-C" (p4-charset-option) args))
     (set-buffer buffer)
     (comint-mode)
     (display-buffer buffer)
