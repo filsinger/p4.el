@@ -120,6 +120,18 @@ when they change on disk."
   :type 'boolean
   :group 'p4)
 
+(defcustom p4-synchronous-commands '(add delete edit lock logout reopen revert
+                                     unlock)
+  "List of Perforce commands that are run synchronously."
+  :type (let ((cmds '(add branch branches change changes client clients delete
+                      describe diff diff2 edit filelog files fix fixes flush
+                      group groups have info integ job jobs jobspec label
+                      labels labelsync lock logout move opened passwd print
+                      reconcile reopen revert set shelve status submit sync
+                      tickets unlock unshelve update user users where)))
+          (cons 'set (loop for cmd in cmds collect (list 'const cmd))))
+  :group 'p4)
+
 (defcustom p4-mode-hook nil
   "Hook run by `p4-mode'."
   :type 'hook
@@ -1042,7 +1054,8 @@ Remaining arguments are keyword arguments:
 :callback is a function run when the p4 command completes successfully.
 :after-show is a function run after displaying the output.
 If :auto-login is NIL, don't try logging in if logged out.
-If :synchronous is non-NIL, run command synchronously.
+If :synchronous is non-NIL, or command appears in
+`p4-synchronous-commands', run command synchronously.
 If :pop-up-output is non-NIL, call that function to determine
 whether or not to pop up the output of a command in a window (as
 opposed to showing it in the echo area)."
@@ -1054,7 +1067,8 @@ opposed to showing it in the echo area)."
           p4-process-auto-login auto-login
           p4-process-callback callback
           p4-process-pop-up-output pop-up-output
-          p4-process-synchronous synchronous)
+          p4-process-synchronous
+          (or synchronous (memq (intern cmd) p4-synchronous-commands)))
     (p4-process-restart)))
 
 ;; This empty function can be passed as an :after-show callback
@@ -1409,7 +1423,7 @@ changelevel."
 (defp4cmd* add
   "Open a new file to add it to the depot."
   (p4-context-filenames-list)
-  (p4-call-command cmd args :synchronous t :callback (p4-refresh-callback)))
+  (p4-call-command cmd args :callback (p4-refresh-callback)))
 
 (defp4cmd* annotate
   "Print file lines and their revisions."
@@ -1462,7 +1476,7 @@ changelevel."
   "Open an existing file for deletion from the depot."
   (p4-context-filenames-list)
   (when (yes-or-no-p "Really delete from depot? ")
-    (p4-call-command cmd args :synchronous t :callback (p4-refresh-callback))))
+    (p4-call-command cmd args :callback (p4-refresh-callback))))
 
 (defun p4-describe-internal (args)
   (p4-call-command "describe" args :mode 'p4-diff-mode
@@ -1579,7 +1593,7 @@ continuation lines); show it in a pop-up window otherwise."
 (defp4cmd* edit
   "Open an existing file for edit."
   (p4-context-filenames-list)
-  (p4-call-command cmd args :synchronous t
+  (p4-call-command cmd args
                    :pop-up-output 'p4-edit-pop-up-output-p
                    :callback (p4-refresh-callback 'p4-edit-hook)))
 
@@ -1697,7 +1711,7 @@ continuation lines); show it in a pop-up window otherwise."
 (defp4cmd* lock
   "Lock an open file to prevent it from being submitted."
   (p4-context-filenames-list)
-  (p4-call-command cmd args :synchronous t :callback (p4-refresh-callback)))
+  (p4-call-command cmd args :callback (p4-refresh-callback)))
 
 (defp4cmd* login
   "Log in to Perforce by obtaining a session ticket."
@@ -1725,7 +1739,7 @@ continuation lines); show it in a pop-up window otherwise."
 (defp4cmd* logout
   "Log out from Perforce by removing or invalidating a ticket."
   nil
-  (p4-call-command cmd args :synchronous t :auto-login nil))
+  (p4-call-command cmd args :auto-login nil))
 
 (defun p4-move-complete-callback (from-file to-file)
   (lexical-let ((from-file from-file) (to-file to-file))
@@ -1789,7 +1803,7 @@ with workspace changes made outside of Perforce."
   "Change the filetype of an open file or move it to another
 changelist."
   (p4-context-filenames-list)
-  (p4-call-command cmd args :synchronous t :callback (p4-refresh-callback)))
+  (p4-call-command cmd args :callback (p4-refresh-callback)))
 
 (defp4cmd* resolve
   "Resolve integrations and updates to workspace files."
@@ -1839,8 +1853,7 @@ changelist."
                  (p4-activate-diff-buffer)
                  (display-buffer (current-buffer)))))))
     (when (or (not prompt) (yes-or-no-p "Really revert? "))
-      (p4-call-command cmd args :synchronous t
-                       :callback (p4-refresh-callback)))))
+      (p4-call-command cmd args :callback (p4-refresh-callback)))))
 
 (defp4cmd p4-set ()
   "set"
@@ -1936,7 +1949,7 @@ return a buffer listing those files. Otherwise, return NIL."
 (defp4cmd* unlock
   "Release a locked file, leaving it open."
   (p4-context-filenames-list)
-  (p4-call-command cmd args :synchronous t :callback (p4-refresh-callback)))
+  (p4-call-command cmd args :callback (p4-refresh-callback)))
 
 (defp4cmd p4-unshelve (&rest args)
   "unshelve"

@@ -103,9 +103,11 @@ are the significant new and improved features in this version:
 
 .. _old Emacs-P4: http://p4el.sourceforge.net/
 
-- The "mode check" (and many user commands) run Perforce in the
+- The "mode check", and most user commands, run Perforce in the
   background, so that Emacs does not hang when the Perforce server is
-  unavailable or when operations take a long time.
+  unavailable or when operations take a long time. You can control
+  which commands get run in the background and which get run in the
+  foreground by customizing the setting ``p4-synchronous-commands``.
 - You no longer lose unsaved changes in a buffer when you run the
   p4-edit command. Instead, you are prompted as to whether you want to
   revert the buffer.
