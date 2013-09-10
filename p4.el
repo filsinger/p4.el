@@ -1790,7 +1790,7 @@ followed by \"delete\"."
 (defp4cmd* reconcile
   "Open files for add, delete, and/or edit to reconcile client
 with workspace changes made outside of Perforce."
-  (p4-context-filenames-list)
+  '("...")
   (p4-call-command cmd args :mode 'p4-basic-list-mode))
 
 (defp4cmd* refresh
