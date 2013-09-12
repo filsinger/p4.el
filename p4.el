@@ -763,8 +763,8 @@ characters."
 (defun p4-make-list-from-string (str)
   (let (lst)
     (while (or (string-match "^ *\"\\([^\"]*\\)\"" str)
-	       (string-match "^ *\'\\([^\']*\\)\'" str)
-	       (string-match "^ *\\([^ ]+\\)" str))
+               (string-match "^ *\'\\([^\']*\\)\'" str)
+               (string-match "^ *\\([^ ]+\\)" str))
       (setq lst (append lst (list (match-string 1 str))))
       (setq str (substring str (match-end 0))))
     lst))
@@ -791,13 +791,13 @@ following, in order, until one succeeds:
 4. the file at point in a Dired buffer;
 5. the file on the current line in a P4 Basic List buffer."
   (cond ((p4-buffer-file-name))
-	((get-char-property (point) 'link-client-name))
-	((get-char-property (point) 'link-depot-name))
-	((get-char-property (point) 'block-client-name))
-	((get-char-property (point) 'block-depot-name))
+        ((get-char-property (point) 'link-client-name))
+        ((get-char-property (point) 'link-depot-name))
+        ((get-char-property (point) 'block-client-name))
+        ((get-char-property (point) 'block-depot-name))
         ((let ((f (p4-dired-get-marked-files)))
            (and f (p4-follow-link-name (first f)))))
-	((p4-basic-list-get-filename))))
+        ((p4-basic-list-get-filename))))
 
 (defun p4-context-filenames-list ()
   "Return a list of filenames based on the current context."
@@ -869,7 +869,7 @@ To set the executable for future sessions, customize
 (defun p4-make-output-buffer (buffer-name &optional mode)
   "Make read only buffer and return the buffer."
   (let ((dir (or p4-default-directory default-directory))
-	(inhibit-read-only t))
+        (inhibit-read-only t))
     (with-current-buffer (get-buffer-create buffer-name)
       (erase-buffer)
       (funcall (or mode 'p4-basic-mode))
@@ -1333,20 +1333,20 @@ making the file writable and write protected."
   (interactive "P")
   (if (and arg p4-mode)
       (setq p4-mode nil
-	    p4-offline-mode t))
+            p4-offline-mode t))
   (cond
    (p4-mode
     (if buffer-read-only
-	(p4-edit)
+        (p4-edit)
       (p4-revert)))
    (p4-offline-mode
-	(setq buffer-read-only (not buffer-read-only)) ;; this used to be  (toggle-read-only), but toggle-read-only shouldnt be called from elsip... lets hope this works.
+        (setq buffer-read-only (not buffer-read-only)) ;; this used to be  (toggle-read-only), but toggle-read-only shouldnt be called from elsip... lets hope this works.
     (if buffer-file-name
-	(let ((mode (file-modes buffer-file-name)))
-	  (if buffer-read-only
-	      (setq mode (logand mode (lognot 128)))
-	    (setq mode (logior mode 128)))
-	  (set-file-modes buffer-file-name mode))))))
+        (let ((mode (file-modes buffer-file-name)))
+          (if buffer-read-only
+              (setq mode (logand mode (lognot 128)))
+            (setq mode (logior mode 128)))
+          (set-file-modes buffer-file-name mode))))))
 
 
 ;;; Defining Perforce command interfaces:
@@ -1434,8 +1434,8 @@ changelevel."
   "branch"
   "Create, modify, or delete a branch view specification."
   (interactive (list
-		(p4-make-list-from-string
-		 (p4-read-arg-string "p4 branch: " "" 'branch))))
+                (p4-make-list-from-string
+                 (p4-read-arg-string "p4 branch: " "" 'branch))))
   (if (or (null args) (equal args (list "")))
       (error "Branch must be specified!")
     (p4-form-command "branch" args :move-to "Description:\n\t")))
@@ -1503,11 +1503,11 @@ changelevel."
   (if (string-match "^\\([1-9][0-9]*\\|none\\|head\\|have\\)$" rev)
       (setq rev (concat "#" rev)))
   (cond ((string-match "^[#@]" rev)
-	 (concat default-name rev))
-	((string= "" rev)
-	 default-name)
-	(t
-	 rev)))
+         (concat default-name rev))
+        ((string= "" rev)
+         default-name)
+        (t
+         rev)))
 
 (defp4cmd p4-diff2 (prefix version1 version2)
   "diff2"
@@ -1517,11 +1517,11 @@ changelevel."
      (list current-prefix-arg
            (p4-read-arg-string "First filespec/revision to diff: "
                                (when (> rev 1) (format "%d" (1- rev))))
-	   (p4-read-arg-string "Second filespec/revision to diff: "
+           (p4-read-arg-string "Second filespec/revision to diff: "
                                (when (> rev 1) (format "%d" rev))))))
   (let (diff-version1
-	diff-version2
-	(diff-options (p4-make-list-from-string p4-default-diff-options)))
+        diff-version2
+        (diff-options (p4-make-list-from-string p4-default-diff-options)))
     (when prefix
       (setq diff-options (p4-make-list-from-string
                           (p4-read-arg-string
@@ -1532,9 +1532,9 @@ changelevel."
     (setq diff-version2 (p4-get-file-rev (p4-context-single-filename) version2))
 
     (p4-call-command "diff2" (append diff-options
-				     (list diff-version1
-					   diff-version2))
-		     :mode 'p4-diff-mode :callback 'p4-activate-diff-buffer)))
+                                     (list diff-version1
+                                           diff-version2))
+                     :mode 'p4-diff-mode :callback 'p4-activate-diff-buffer)))
 
 (defun p4-activate-ediff-callback (&optional pop-count)
   "Return a callback function that runs ediff on the current
@@ -1571,7 +1571,7 @@ When visiting a depot file, type \\[p4-ediff2] and enter the versions."
    (let ((rev (or (get-char-property (point) 'rev) p4-vc-revision 0)))
      (list (p4-read-arg-string "First filespec/revision to diff: "
                                (when (> rev 1) (format "%d" (1- rev))))
-	   (p4-read-arg-string "Second filespec/revision to diff: "
+           (p4-read-arg-string "Second filespec/revision to diff: "
                                (when (> rev 1) (format "%d" rev))))))
   (let* ((file-name (p4-context-single-filename))
          (basename (file-name-nondirectory file-name))
@@ -1812,12 +1812,12 @@ changelist."
     (setq buffer (get-buffer buf-name))
     (if (and (buffer-live-p buffer)
              (not (comint-check-proc buffer)))
-	(save-excursion
-	  (let ((cur-dir default-directory))
-	    (set-buffer buffer)
-	    (cd cur-dir)
-	    (goto-char (point-max))
-	    (insert "\n--------\n\n"))))
+        (save-excursion
+          (let ((cur-dir default-directory))
+            (set-buffer buffer)
+            (cd cur-dir)
+            (goto-char (point-max))
+            (insert "\n--------\n\n"))))
     (setq args (cons cmd args))
     (setq buffer (apply 'make-comint "P4 resolve" (p4-executable) nil
                         "-C" (p4-charset-option) args))
@@ -1866,9 +1866,9 @@ changelist."
   "Submit open files to the depot."
   (interactive
    (cond ((integerp current-prefix-arg)
-	  (list (format "%d" current-prefix-arg)))
-	 (current-prefix-arg
-	  (list (p4-read-args "p4 change: " "" 'change)))))
+          (list (format "%d" current-prefix-arg)))
+         (current-prefix-arg
+          (list (p4-read-args "p4 change: " "" 'change)))))
   (save-some-buffers nil (lambda () (or (not p4-do-find-file) p4-vc-status)))
   (let ((empty-buf (and p4-check-empty-diffs (p4-empty-diff-buffer))))
     (p4-form-command "change" args :move-to "Description:\n\t"
@@ -1916,9 +1916,9 @@ return a buffer listing those files. Otherwise, return NIL."
   "Submit open files to the depot."
   (interactive
    (cond ((integerp current-prefix-arg)
-	  (list (format "%d" current-prefix-arg)))
-	 (current-prefix-arg
-	  (list (p4-read-args "p4 change: " "" 'change)))))
+          (list (format "%d" current-prefix-arg)))
+         (current-prefix-arg
+          (list (p4-read-args "p4 change: " "" 'change)))))
   (p4-with-temp-buffer (list "-s" "opened")
     (unless (re-search-forward "^info: " nil t)
       (error "Files not opened on this client.")))
@@ -2079,24 +2079,24 @@ clickable."
 (defun p4-mark-depot-list-buffer (&optional print-buffer)
   (save-excursion
     (let ((depot-regexp
-	   (if print-buffer
-	       "\\(^\\)\\(//[^/@# ][^/@#]*/[^@#]+#[1-9][0-9]*\\) - "
-	     "^\\(\\.\\.\\. [^/\n]*\\|==== \\)?\\(//[^/@# ][^/@#]*/[^#\n]*\\(?:#[1-9][0-9]*\\)?\\)")))
+           (if print-buffer
+               "\\(^\\)\\(//[^/@# ][^/@#]*/[^@#]+#[1-9][0-9]*\\) - "
+             "^\\(\\.\\.\\. [^/\n]*\\|==== \\)?\\(//[^/@# ][^/@#]*/[^#\n]*\\(?:#[1-9][0-9]*\\)?\\)")))
       (goto-char (point-min))
       (while (re-search-forward depot-regexp nil t)
-	(let* ((p4-depot-file (match-string-no-properties 2))
+        (let* ((p4-depot-file (match-string-no-properties 2))
                (start (match-beginning 2))
                (end (match-end 2))
                (branching-op-p (and (match-string 1)
                                     (string-match "\\.\\.\\. \\.\\.\\..*"
                                                   (match-string 1))))
                (prop-list `(link-depot-name ,p4-depot-file)))
-	  ;; some kind of operation related to branching/integration
-	  (when branching-op-p
+          ;; some kind of operation related to branching/integration
+          (when branching-op-p
             (setq prop-list (append `(history-for ,p4-depot-file
                                       face p4-depot-branch-face)
-				      prop-list)))
-	  (p4-create-active-link start end prop-list "Visit file"))))))
+                                      prop-list)))
+          (p4-create-active-link start end prop-list "Visit file"))))))
 
 (defun p4-fontify-print-buffer (&optional delete-filespec)
   "Fontify a p4-print buffer according to the filename in the
@@ -2161,8 +2161,8 @@ argument delete-filespec is non-NIL, remove the first line."
     (goto-char (point-min))
     (while (re-search-forward regexp nil t)
       (let ((start (match-beginning 0))
-	    (end (match-end 0)))
-	(add-text-properties start end `(face ,face-property))))))
+            (end (match-end 0)))
+        (add-text-properties start end `(face ,face-property))))))
 
 (defun p4-activate-diff-buffer ()
   (save-excursion
@@ -2170,30 +2170,30 @@ argument delete-filespec is non-NIL, remove the first line."
     (p4-find-jobs (point-min) (point-max))
     (goto-char (point-min))
     (while (re-search-forward "^\\(==== //\\).*\n"
-			      nil t)
+                              nil t)
       (let* ((link-depot-name (get-char-property (match-end 1) 'link-depot-name))
-	     (start (match-beginning 0))
-	     (end (save-excursion
-		    (if (re-search-forward "^==== " nil t)
-			(match-beginning 0)
-		      (point-max)))))
-	(when link-depot-name
+             (start (match-beginning 0))
+             (end (save-excursion
+                    (if (re-search-forward "^==== " nil t)
+                        (match-beginning 0)
+                      (point-max)))))
+        (when link-depot-name
           (add-text-properties start end `(block-depot-name ,link-depot-name)))))
 
     (goto-char (point-min))
     (while (re-search-forward
-	    (concat "^[@0-9].*\\([cad+]\\)\\([0-9]*\\).*\n"
-		    "\\(\\(\n\\|[^@0-9\n].*\n\\)*\\)") nil t)
+            (concat "^[@0-9].*\\([cad+]\\)\\([0-9]*\\).*\n"
+                    "\\(\\(\n\\|[^@0-9\n].*\n\\)*\\)") nil t)
       (let ((first-line (string-to-number (match-string 2)))
-	    (start (match-beginning 3))
-	    (end (match-end 3)))
-	(add-text-properties start end `(first-line ,first-line start ,start))))
+            (start (match-beginning 3))
+            (end (match-end 3)))
+        (add-text-properties start end `(first-line ,first-line start ,start))))
 
     (goto-char (point-min))
     (let ((stop
-	   (if (re-search-forward "^\\(\\.\\.\\.\\|====\\)" nil t)
-	       (match-beginning 0)
-	     (point-max))))
+           (if (re-search-forward "^\\(\\.\\.\\.\\|====\\)" nil t)
+               (match-beginning 0)
+             (point-max))))
       (p4-find-change-numbers (point-min) stop))
 
     (goto-char (point-min))
@@ -2216,18 +2216,18 @@ argument delete-filespec is non-NIL, remove the first line."
 
 (defconst p4-blame-change-regex
   (concat "^\\.\\.\\. #"     "\\([1-9][0-9]*\\)"   ; revision
-	  "\\s-+change\\s-+" "\\([1-9][0-9]*\\)"   ; change
-	  "\\s-+"            "\\([^ \t]+\\)"       ; type
-	  "\\s-+on\\s-+"     "\\([^ \t]+\\)"       ; date
-	  "\\s-+by\\s-+"     "\\([^ \t]+\\)"       ; author
-	  "@.*\n\n\t\\(.*\\)"))                    ; description
+          "\\s-+change\\s-+" "\\([1-9][0-9]*\\)"   ; change
+          "\\s-+"            "\\([^ \t]+\\)"       ; type
+          "\\s-+on\\s-+"     "\\([^ \t]+\\)"       ; date
+          "\\s-+by\\s-+"     "\\([^ \t]+\\)"       ; author
+          "@.*\n\n\t\\(.*\\)"))                    ; description
 
 (defconst p4-blame-revision-regex
   (concat "^\\([0-9]+\\),?"
-	  "\\([0-9]*\\)"
-	  "\\([acd]\\)"
-	  "\\([0-9]+\\),?"
-	  "\\([0-9]*\\)"))
+          "\\([0-9]*\\)"
+          "\\([acd]\\)"
+          "\\([0-9]+\\),?"
+          "\\([0-9]*\\)"))
 
 (defalias 'p4-blame 'p4-annotate)
 (defalias 'p4-print-with-rev-history 'p4-annotate)
@@ -2293,7 +2293,7 @@ first)."
     (message "Running p4 %s..." (p4-join-list args))
     (p4-with-temp-buffer args
       (while (not (eobp))
-	(cond ((looking-at "^//.*$")
+        (cond ((looking-at "^//.*$")
                (setq current-file (match-string 0)))
               ((looking-at p4-blame-change-regex)
                (let ((op (match-string 3))
@@ -2637,51 +2637,51 @@ NIL if there is no such completion type."
 (defun p4-arg-string-completion (string predicate action)
   (let ((first-part "") completion)
     (if (string-match "^\\(.* +\\)\\(.*\\)" string)
-	(progn
-	  (setq first-part (match-string 1 string))
-	  (setq string (match-string 2 string))))
+        (progn
+          (setq first-part (match-string 1 string))
+          (setq string (match-string 2 string))))
     (cond ((string-match "-b +$" first-part)
-	   (setq completion (p4-arg-complete 'branch string predicate action)))
-	  ((string-match "-t +$" first-part)
-	   (setq completion (p4-list-completion
-			     string (list "text " "xtext " "binary "
-					  "xbinary " "symlink ")
-			     predicate action)))
-	  ((string-match "-j +$" first-part)
-	   (setq completion (p4-arg-complete 'job string predicate action)))
-	  ((string-match "-l +$" first-part)
-	   (setq completion (p4-arg-complete 'label string predicate action)))
-	  ((string-match "\\(.*status=\\)\\(.*\\)" string)
-	   (setq first-part (concat first-part (match-string 1 string)))
-	   (setq string (match-string 2 string))
-	   (setq completion (p4-list-completion
-			     string (list "open " "closed " "suspended ")
-			     predicate action)))
-	  ((or (string-match "\\(.*@.+,\\)\\(.*\\)" string)
-	       (string-match "\\(.*@\\)\\(.*\\)" string))
-	   (setq first-part (concat first-part (match-string 1 string)))
-	   (setq string (match-string 2 string))
-	   (setq completion (p4-arg-complete 'label string predicate action)))
-	  ((string-match "\\(.*#\\)\\(.*\\)" string)
-	   (setq first-part (concat first-part (match-string 1 string)))
-	   (setq string (match-string 2 string))
-	   (setq completion (p4-list-completion
-			     string (list "none" "head" "have")
-			     predicate action)))
-	  ((string-match "^//" string)
-	   (setq completion (p4-arg-complete 'filespec string predicate action)))
-	  ((string-match "\\(^-\\)\\(.*\\)" string)
-	   (setq first-part (concat first-part (match-string 1 string)))
-	   (setq string (match-string 2 string))
-	   (setq completion (p4-list-completion
-			     string (list "a " "af " "am " "as " "at " "ay "
-					  "b " "c " "d " "dc " "dn "
-					  "ds " "du " "e " "f " "i " "j "
-					  "l " "m " "n " "q " "r " "s " "sa "
-					  "sd " "se " "sr " "t " "v ")
-			     predicate action)))
-	  (t
-	   (setq completion (p4-file-name-completion string predicate action))))
+           (setq completion (p4-arg-complete 'branch string predicate action)))
+          ((string-match "-t +$" first-part)
+           (setq completion (p4-list-completion
+                             string (list "text " "xtext " "binary "
+                                          "xbinary " "symlink ")
+                             predicate action)))
+          ((string-match "-j +$" first-part)
+           (setq completion (p4-arg-complete 'job string predicate action)))
+          ((string-match "-l +$" first-part)
+           (setq completion (p4-arg-complete 'label string predicate action)))
+          ((string-match "\\(.*status=\\)\\(.*\\)" string)
+           (setq first-part (concat first-part (match-string 1 string)))
+           (setq string (match-string 2 string))
+           (setq completion (p4-list-completion
+                             string (list "open " "closed " "suspended ")
+                             predicate action)))
+          ((or (string-match "\\(.*@.+,\\)\\(.*\\)" string)
+               (string-match "\\(.*@\\)\\(.*\\)" string))
+           (setq first-part (concat first-part (match-string 1 string)))
+           (setq string (match-string 2 string))
+           (setq completion (p4-arg-complete 'label string predicate action)))
+          ((string-match "\\(.*#\\)\\(.*\\)" string)
+           (setq first-part (concat first-part (match-string 1 string)))
+           (setq string (match-string 2 string))
+           (setq completion (p4-list-completion
+                             string (list "none" "head" "have")
+                             predicate action)))
+          ((string-match "^//" string)
+           (setq completion (p4-arg-complete 'filespec string predicate action)))
+          ((string-match "\\(^-\\)\\(.*\\)" string)
+           (setq first-part (concat first-part (match-string 1 string)))
+           (setq string (match-string 2 string))
+           (setq completion (p4-list-completion
+                             string (list "a " "af " "am " "as " "at " "ay "
+                                          "b " "c " "d " "dc " "dn "
+                                          "ds " "du " "e " "f " "i " "j "
+                                          "l " "m " "n " "q " "r " "s " "sa "
+                                          "sd " "se " "sr " "t " "v ")
+                             predicate action)))
+          (t
+           (setq completion (p4-file-name-completion string predicate action))))
     (if (and (null action)              ; try-completion
              (stringp completion))
         (concat first-part completion)
@@ -2690,11 +2690,11 @@ NIL if there is no such completion type."
 (defun p4-list-completion (string lst predicate action)
   (let ((collection (mapcar 'list lst)))
     (cond ((not action)
-	   (try-completion string collection predicate))
-	  ((eq action t)
-	   (all-completions string collection predicate))
-	  (t
-	   (eq (try-completion string collection predicate) t)))))
+           (try-completion string collection predicate))
+          ((eq action t)
+           (all-completions string collection predicate))
+          (t
+           (eq (try-completion string collection predicate) t)))))
 
 (defun p4-file-name-completion (string predicate action)
   (if (string-match "//\\(.*\\)" string)
@@ -2703,18 +2703,18 @@ NIL if there is no such completion type."
   (setq string (p4-follow-link-name (expand-file-name string)))
   (let ((dir-path "") completion)
     (if (string-match "^\\(.*[/\\]\\)\\(.*\\)" string)
-	(progn
-	  (setq dir-path (match-string 1 string))
-	  (setq string (match-string 2 string))))
+        (progn
+          (setq dir-path (match-string 1 string))
+          (setq string (match-string 2 string))))
     (cond ((not action)
-	   (setq completion (file-name-completion string dir-path))
-	   (if (stringp completion)
-	       (concat dir-path completion)
-	     completion))
-	  ((eq action t)
-	   (file-name-all-completions string dir-path))
-	  (t
-	   (eq (file-name-completion string dir-path) t)))))
+           (setq completion (file-name-completion string dir-path))
+           (if (stringp completion)
+               (concat dir-path completion)
+             completion))
+          ((eq action t)
+           (file-name-all-completions string dir-path))
+          (t
+           (eq (file-name-completion string dir-path) t)))))
 
 
 ;;; Basic mode:
@@ -2732,18 +2732,18 @@ NIL if there is no such completion type."
     (define-key map "\e\t" 'p4-backward-active-link)
     (define-key map [(shift tab)] 'p4-backward-active-link)
     (define-key map "\C-m" 'p4-buffer-commands)
-    (define-key map "q"	 'quit-window)
-    (define-key map "g"	 'revert-buffer)
-    (define-key map "k"	 'p4-scroll-down-1-line)
-    (define-key map "j"	 'p4-scroll-up-1-line)
-    (define-key map "b"	 'p4-scroll-down-1-window)
-    (define-key map "n"	 'next-line)
-    (define-key map "p"	 'previous-line)
+    (define-key map "q" 'quit-window)
+    (define-key map "g" 'revert-buffer)
+    (define-key map "k" 'p4-scroll-down-1-line)
+    (define-key map "j" 'p4-scroll-up-1-line)
+    (define-key map "b" 'p4-scroll-down-1-window)
+    (define-key map "n" 'next-line)
+    (define-key map "p" 'previous-line)
     (define-key map [backspace] 'p4-scroll-down-1-window)
-    (define-key map " "	 'p4-scroll-up-1-window)
-    (define-key map "<"	 'p4-top-of-buffer)
-    (define-key map ">"	 'p4-bottom-of-buffer)
-    (define-key map "="	 'delete-other-windows)
+    (define-key map " " 'p4-scroll-up-1-window)
+    (define-key map "<" 'p4-top-of-buffer)
+    (define-key map ">" 'p4-bottom-of-buffer)
+    (define-key map "=" 'delete-other-windows)
     map))
 
 (define-derived-mode p4-basic-mode nil "P4 Basic")
@@ -2762,85 +2762,85 @@ NIL if there is no such completion type."
   "Function to get a given property and do the appropriate command on it"
   (interactive "d\nP")
   (let ((action (get-char-property pnt 'action))
-	(active (get-char-property pnt 'active))
-	(branch (get-char-property pnt 'branch))
-	(change (get-char-property pnt 'change))
-	(client (get-char-property pnt 'client))
-	(filename (p4-context-single-filename))
-	(group (get-char-property pnt 'group))
-	(job (get-char-property pnt 'job))
-	(label (get-char-property pnt 'label))
-	(user (get-char-property pnt 'user))
+        (active (get-char-property pnt 'active))
+        (branch (get-char-property pnt 'branch))
+        (change (get-char-property pnt 'change))
+        (client (get-char-property pnt 'client))
+        (filename (p4-context-single-filename))
+        (group (get-char-property pnt 'group))
+        (job (get-char-property pnt 'job))
+        (label (get-char-property pnt 'label))
+        (user (get-char-property pnt 'user))
         (rev (get-char-property pnt 'rev)))
     (cond ((and (not action) rev)
            (p4-call-command "print" (list (format "%s#%d" filename rev))
                             :callback 'p4-activate-print-buffer))
-	  (action
+          (action
            (if (<= rev 1)
                (error "There is no earlier revision to diff.")
              (p4-diff2 nil (format "%d" (1- rev)) (format "%d" rev))))
-	  (change (p4-describe-internal
-		   (append (p4-make-list-from-string p4-default-diff-options)
-			   (list (format "%d" change)))))
-	  (user (p4-user user))
-	  (group (p4-group group))
-	  (client (p4-client client))
-	  (label (p4-label (list label)))
-	  (branch (p4-branch (list branch)))
-	  (job (p4-job job))
+          (change (p4-describe-internal
+                   (append (p4-make-list-from-string p4-default-diff-options)
+                           (list (format "%d" change)))))
+          (user (p4-user user))
+          (group (p4-group group))
+          (client (p4-client client))
+          (label (p4-label (list label)))
+          (branch (p4-branch (list branch)))
+          (job (p4-job job))
           ((and (not active) (eq major-mode 'p4-diff-mode))
            (p4-diff-goto-source arg))
 
-	  ;; Check if a "filename link" or an active "diff buffer area" was
-	  ;; selected.
-	  (t
-	   (let ((link-client-name (get-char-property pnt 'link-client-name))
-		 (link-depot-name (get-char-property pnt 'link-depot-name))
-		 (block-client-name (get-char-property pnt 'block-client-name))
-		 (block-depot-name (get-char-property pnt 'block-depot-name))
-		 (p4-history-for (get-char-property pnt 'history-for))
-		 (first-line (get-char-property pnt 'first-line))
-		 (start (get-char-property pnt 'start)))
-	     (cond
-	      (p4-history-for
-	       (p4-file-change-log "filelog" (list p4-history-for)))
-	      ((or link-client-name link-depot-name)
-	       (p4-find-file-or-print-other-window
-		link-client-name link-depot-name))
-	      ((or block-client-name block-depot-name)
-	       (if first-line
-		   (let ((c (max 0 (- pnt
-				      (save-excursion
-					(goto-char pnt)
-					(beginning-of-line)
-					(point))
-				      1)))
-			 (r first-line))
-		     (save-excursion
-		       (goto-char start)
-		       (while (re-search-forward "^[ +>].*\n" pnt t)
-			 (setq r (1+ r))))
-		     (p4-find-file-or-print-other-window
-		      block-client-name block-depot-name)
-		     (p4-goto-line r)
-		     (if (not block-client-name)
-			 (forward-line 1))
-		     (beginning-of-line)
-		     (goto-char (+ (point) c)))
-		 (p4-find-file-or-print-other-window
-		  block-client-name block-depot-name)))))))))
+          ;; Check if a "filename link" or an active "diff buffer area" was
+          ;; selected.
+          (t
+           (let ((link-client-name (get-char-property pnt 'link-client-name))
+                 (link-depot-name (get-char-property pnt 'link-depot-name))
+                 (block-client-name (get-char-property pnt 'block-client-name))
+                 (block-depot-name (get-char-property pnt 'block-depot-name))
+                 (p4-history-for (get-char-property pnt 'history-for))
+                 (first-line (get-char-property pnt 'first-line))
+                 (start (get-char-property pnt 'start)))
+             (cond
+              (p4-history-for
+               (p4-file-change-log "filelog" (list p4-history-for)))
+              ((or link-client-name link-depot-name)
+               (p4-find-file-or-print-other-window
+                link-client-name link-depot-name))
+              ((or block-client-name block-depot-name)
+               (if first-line
+                   (let ((c (max 0 (- pnt
+                                      (save-excursion
+                                        (goto-char pnt)
+                                        (beginning-of-line)
+                                        (point))
+                                      1)))
+                         (r first-line))
+                     (save-excursion
+                       (goto-char start)
+                       (while (re-search-forward "^[ +>].*\n" pnt t)
+                         (setq r (1+ r))))
+                     (p4-find-file-or-print-other-window
+                      block-client-name block-depot-name)
+                     (p4-goto-line r)
+                     (if (not block-client-name)
+                         (forward-line 1))
+                     (beginning-of-line)
+                     (goto-char (+ (point) c)))
+                 (p4-find-file-or-print-other-window
+                  block-client-name block-depot-name)))))))))
 
 (defun p4-forward-active-link ()
   (interactive)
   (while (and (not (eobp))
-	      (goto-char (next-overlay-change (point)))
-	      (not (get-char-property (point) 'face)))))
+              (goto-char (next-overlay-change (point)))
+              (not (get-char-property (point) 'face)))))
 
 (defun p4-backward-active-link ()
   (interactive)
   (while (and (not (bobp))
-	      (goto-char (previous-overlay-change (point)))
-	      (not (get-char-property (point) 'face)))))
+              (goto-char (previous-overlay-change (point)))
+              (not (get-char-property (point) 'face)))))
 
 (defun p4-scroll-down-1-line ()
   "Scroll down one line"
@@ -2958,28 +2958,28 @@ NIL if there is no such completion type."
 (define-derived-mode p4-form-mode indented-text-mode "P4 Form"
   "Major mode for P4 form derived from `indented-text-mode'"
   (setq fill-column 80
-	indent-tabs-mode t
-	font-lock-defaults '(p4-form-font-lock-keywords t)))
+        indent-tabs-mode t
+        font-lock-defaults '(p4-form-font-lock-keywords t)))
 
 
 ;;; Filelog mode:
 
 (defvar p4-filelog-mode-map
   (let ((map (p4-make-derived-map p4-basic-mode-map)))
-    (define-key map "d"	 'p4-diff2)
-    (define-key map "f"	 'p4-find-file-other-window)
-    (define-key map "s"	 'p4-filelog-short-format)
-    (define-key map "l"	 'p4-filelog-long-format)
-    (define-key map "k"	 'p4-scroll-down-1-line-other-w)
-    (define-key map "j"	 'p4-scroll-up-1-line-other-w)
-    (define-key map "b"	 'p4-scroll-down-1-window-other-w)
+    (define-key map "d" 'p4-diff2)
+    (define-key map "f" 'p4-find-file-other-window)
+    (define-key map "s" 'p4-filelog-short-format)
+    (define-key map "l" 'p4-filelog-long-format)
+    (define-key map "k" 'p4-scroll-down-1-line-other-w)
+    (define-key map "j" 'p4-scroll-up-1-line-other-w)
+    (define-key map "b" 'p4-scroll-down-1-window-other-w)
     (define-key map [backspace] 'p4-scroll-down-1-window-other-w)
-    (define-key map " "	 'p4-scroll-up-1-window-other-w)
-    (define-key map "<"	 'p4-top-of-buffer-other-w)
-    (define-key map ">"	 'p4-bottom-of-buffer-other-w)
-    (define-key map "="	 'p4-delete-other-windows)
-    (define-key map "n"	 'p4-goto-next-change)
-    (define-key map "p"	 'p4-goto-prev-change)
+    (define-key map " " 'p4-scroll-up-1-window-other-w)
+    (define-key map "<" 'p4-top-of-buffer-other-w)
+    (define-key map ">" 'p4-bottom-of-buffer-other-w)
+    (define-key map "=" 'p4-delete-other-windows)
+    (define-key map "n" 'p4-goto-next-change)
+    (define-key map "p" 'p4-goto-prev-change)
     (define-key map "N" (lookup-key map "p"))
     map)
   "The key map to use for selecting filelog properties.")
@@ -2999,17 +2999,17 @@ NIL if there is no such completion type."
   "Open/print file"
   (interactive)
   (let ((link-client-name (get-char-property (point) 'link-client-name))
-	(link-depot-name (get-char-property (point) 'link-depot-name))
-	(block-client-name (get-char-property (point) 'block-client-name))
-	(block-depot-name (get-char-property (point) 'block-depot-name)))
+        (link-depot-name (get-char-property (point) 'link-depot-name))
+        (block-client-name (get-char-property (point) 'block-client-name))
+        (block-depot-name (get-char-property (point) 'block-depot-name)))
     (cond ((or link-client-name link-depot-name)
-	   (p4-find-file-or-print-other-window
-	    link-client-name link-depot-name)
-	   (other-window 1))
-	  ((or block-client-name block-depot-name)
-	   (p4-find-file-or-print-other-window
-	    block-client-name block-depot-name)
-	   (other-window 1)))))
+           (p4-find-file-or-print-other-window
+            link-client-name link-depot-name)
+           (other-window 1))
+          ((or block-client-name block-depot-name)
+           (p4-find-file-or-print-other-window
+            block-client-name block-depot-name)
+           (other-window 1)))))
 
 (defun p4-filelog-short-format ()
   "Short format"
@@ -3153,20 +3153,20 @@ characters."
   (save-excursion
     (let* ((char-offset (- (point) (diff-beginning-of-hunk t)))
            (_ (diff-sanity-check-hunk))
-	   (hunk (buffer-substring
+           (hunk (buffer-substring
                   (point) (save-excursion (diff-end-of-hunk) (point))))
-	   (old (diff-hunk-text hunk nil char-offset))
-	   (new (diff-hunk-text hunk t char-offset))
-	   ;; Find the location specification.
-	   (line (if (not (looking-at "\\(?:\\*\\{15\\}.*\n\\)?[-@* ]*\\([0-9,]+\\)\\([ acd+]+\\([0-9,]+\\)\\)?"))
-		     (error "Can't find the hunk header")
-		   (if reverse (match-string 1)
-		     (if (match-end 3) (match-string 3)
-		       (unless (re-search-forward
+           (old (diff-hunk-text hunk nil char-offset))
+           (new (diff-hunk-text hunk t char-offset))
+           ;; Find the location specification.
+           (line (if (not (looking-at "\\(?:\\*\\{15\\}.*\n\\)?[-@* ]*\\([0-9,]+\\)\\([ acd+]+\\([0-9,]+\\)\\)?"))
+                     (error "Can't find the hunk header")
+                   (if reverse (match-string 1)
+                     (if (match-end 3) (match-string 3)
+                       (unless (re-search-forward
                                 diff-context-mid-hunk-header-re nil t)
-			 (error "Can't find the hunk separator"))
-		       (match-string 1)))))
-	   (file (or (p4-diff-find-file-name reverse)
+                         (error "Can't find the hunk separator"))
+                       (match-string 1)))))
+           (file (or (p4-diff-find-file-name reverse)
                      (error "Can't find the file"))))
       (list file (string-to-number line) (cdr (if reverse old new))))))
 
@@ -3188,10 +3188,10 @@ file, but a prefix argument reverses this."
 
 (defvar p4-annotate-mode-map
   (let ((map (p4-make-derived-map p4-basic-mode-map)))
-    (define-key map "n"	 'p4-next-change-rev-line)
-    (define-key map "p"	 'p4-prev-change-rev-line)
+    (define-key map "n" 'p4-next-change-rev-line)
+    (define-key map "p" 'p4-prev-change-rev-line)
     (define-key map "N" (lookup-key map "p"))
-    (define-key map "l"	 'p4-toggle-line-wrap)
+    (define-key map "l" 'p4-toggle-line-wrap)
     map)
   "The key map to use for browsing annotate buffers.")
 
@@ -3199,16 +3199,16 @@ file, but a prefix argument reverses this."
 
 (defun p4-moveto-print-rev-column (old-column)
   (let ((colon (save-excursion
-		 (move-to-column 0)
-		 (if (looking-at "[^:\n]*:")
-		     (progn
-		       (goto-char (match-end 0))
-		       (current-column))
-		   0))))
+                 (move-to-column 0)
+                 (if (looking-at "[^:\n]*:")
+                     (progn
+                       (goto-char (match-end 0))
+                       (current-column))
+                   0))))
     (move-to-column old-column)
     (if (and (< (current-column) colon)
-	     (re-search-forward "[^ ][ :]" nil t))
-	(goto-char (match-beginning 0)))))
+             (re-search-forward "[^ ][ :]" nil t))
+        (goto-char (match-beginning 0)))))
 
 (defun p4-next-change-rev-line ()
   "Next change/revision line"
