@@ -2733,6 +2733,7 @@ NIL if there is no such completion type."
     (define-key map [(shift tab)] 'p4-backward-active-link)
     (define-key map "\C-m" 'p4-buffer-commands)
     (define-key map "q"	 'quit-window)
+    (define-key map "g"	 'revert-buffer)
     (define-key map "k"	 'p4-scroll-down-1-line)
     (define-key map "j"	 'p4-scroll-up-1-line)
     (define-key map "b"	 'p4-scroll-down-1-window)
@@ -2882,7 +2883,6 @@ NIL if there is no such completion type."
 
 (defvar p4-basic-list-mode-map
   (let ((map (p4-make-derived-map p4-basic-mode-map)))
-    (define-key map "g" 'revert-buffer)
     (define-key map "\C-m" 'p4-basic-list-activate)
     map)
   "The keymap to use in P4 Basic List Mode.")
@@ -3082,7 +3082,6 @@ NIL if there is no such completion type."
 
 (defvar p4-diff-mode-map
   (let ((map (p4-make-derived-map p4-basic-mode-map)))
-    (define-key map "g" 'revert-buffer)
     (define-key map "n" 'diff-hunk-next)
     (define-key map "N" 'diff-file-next)
     (define-key map "p" 'diff-hunk-prev)
