@@ -1428,7 +1428,11 @@ changelevel."
 (defp4cmd* annotate
   "Print file lines and their revisions."
   (p4-context-single-filename-revision-args)
-  (p4-annotate-internal (car args)))
+  (when (null args) (error "No file to annotate!"))
+  (when (> (length args) 1) (error "Can't annotate multiples files."))
+  (let ((f (car args)))
+    (p4-annotate-internal f (and (string-equal f (p4-buffer-file-name))
+                                 (line-number-at-pos (point))))))
 
 (defp4cmd p4-branch (args)
   "branch"
@@ -2231,14 +2235,8 @@ argument delete-filespec is non-NIL, remove the first line."
 
 (defalias 'p4-blame 'p4-annotate)
 (defalias 'p4-print-with-rev-history 'p4-annotate)
-
-(defun p4-annotate-line ()
-  "Print a depot file with revision history to a buffer,
-and jump to the current line in the revision buffer."
-  (p4-annotate-internal (car (p4-context-single-filename-revision-args))
-                        (line-number-at-pos (point))))
-
-(defalias 'p4-blame-line 'p4-annotate-line)
+(defalias 'p4-annotate-line 'p4-annotate)
+(defalias 'p4-blame-line 'p4-annotate)
 
 (defstruct p4-file-revision filespec filename revision change date user description links desc)
 
@@ -2375,49 +2373,49 @@ only be used when p4 annotate is unavailable."
   (p4-with-temp-buffer (list "files" filespec)
     (when (> (count-lines (point-min) (point-max)) 1)
       (error "File pattern maps to more than one file.")))
-  (let ((file-change-alist (p4-parse-filelog filespec)))
-    (unless file-change-alist (error "%s not available" filespec))
-    (let* ((line-changes
-            (if (< (p4-server-version) 2004)
-                (p4-annotate-changes-by-patching filespec file-change-alist)
-              (p4-annotate-changes filespec)))
-           (lines (length line-changes))
-           (inhibit-read-only t)
-           (inhibit-modification-hooks t)
-           (current-line 0)
-           (current-repeats 0)
-           (current-percent -1)
-           current-change)
-      (with-current-buffer
-          (p4-make-output-buffer (p4-process-buffer-name (list "annotate" filespec)))
-        (p4-run (list "print" filespec))
-        (p4-fontify-print-buffer)
-        (forward-line 1)
-        (dolist (change line-changes)
-          (incf current-line)
-          (let ((percent (/ (* current-line 100) lines)))
-            (when (> percent current-percent)
-              (message "Formatting...%d%%" percent)
-              (incf current-percent 10)))
-          (if (eql change current-change)
-              (incf current-repeats)
-            (setq current-repeats 0))
-          (let ((rev (cdr (assoc change file-change-alist))))
-            (case current-repeats
-              (0 (insert (p4-file-revision-annotate-links rev)))
-              (1 (insert (p4-file-revision-annotate-desc rev)))
-              (t (insert (format "%33s: " "")))))
-          (setq current-change change)
-          (forward-line))
-        (goto-char (point-min))
-        (p4-mark-print-buffer)
-        (message "Formatting...done")
-        (setq truncate-lines t)
-        (use-local-map p4-annotate-mode-map)
-        (display-buffer (current-buffer))
-        (when src-line
-          (switch-to-buffer-other-window (current-buffer))
-          (p4-goto-line (+ 2 src-line)))))))
+  (let ((buf (p4-process-buffer-name (list "annotate" filespec))))
+    (unless (get-buffer buf)
+      (let ((file-change-alist (p4-parse-filelog filespec)))
+        (unless file-change-alist (error "%s not available" filespec))
+        (with-current-buffer (p4-make-output-buffer buf)
+          (let* ((line-changes
+                  (if (< (p4-server-version) 2004)
+                      (p4-annotate-changes-by-patching filespec file-change-alist)
+                    (p4-annotate-changes filespec)))
+                 (lines (length line-changes))
+                 (inhibit-read-only t)
+                 (inhibit-modification-hooks t)
+                 (current-line 0)
+                 (current-repeats 0)
+                 (current-percent -1)
+                 current-change)
+            (p4-run (list "print" filespec))
+            (p4-fontify-print-buffer)
+            (forward-line 1)
+            (dolist (change line-changes)
+              (incf current-line)
+              (let ((percent (/ (* current-line 100) lines)))
+                (when (> percent current-percent)
+                  (message "Formatting...%d%%" percent)
+                  (incf current-percent 10)))
+              (if (eql change current-change)
+                  (incf current-repeats)
+                (setq current-repeats 0))
+              (let ((rev (cdr (assoc change file-change-alist))))
+                (case current-repeats
+                  (0 (insert (p4-file-revision-annotate-links rev)))
+                  (1 (insert (p4-file-revision-annotate-desc rev)))
+                  (t (insert (format "%33s: " "")))))
+              (setq current-change change)
+              (forward-line))
+            (goto-char (point-min))
+            (p4-mark-print-buffer)
+            (message "Formatting...done")
+            (setq truncate-lines t)
+            (use-local-map p4-annotate-mode-map)))))
+    (with-selected-window (display-buffer buf)
+      (when src-line
+        (p4-goto-line (+ 1 src-line))))))
 
 
 ;;; Completion:
