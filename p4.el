@@ -832,24 +832,6 @@ respecting the `p4-follow-symlinks' setting."
   (let ((l (length prefix)))
     (and (>= (length string) l) (string-equal (substring string 0 l) prefix))))
 
-(defun p4-buffer-changed ()
-  "Return T if the current buffer is changed from the file on disk."
-  (and buffer-file-name
-       (file-readable-p buffer-file-name)
-       (save-restriction
-         (widen)
-         (let ((file-name buffer-file-name)
-               (buf (current-buffer))
-               (beg (point-min))
-               (end (point-max)))
-           (with-temp-buffer
-             (insert-file-contents file-name)
-             (or (/= beg (point-min))
-                 (/= end (point-max))
-                 (/= 0 (compare-buffer-substrings
-                        buf beg end
-                        (current-buffer) (point-min) (point-max)))))))))
-
 
 ;;; Running Perforce:
 
