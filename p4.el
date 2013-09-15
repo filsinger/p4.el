@@ -251,8 +251,6 @@ complete on all clients."
 
 ;; Local variables in all buffers.
 (defvar p4-mode nil "P4 minor mode.")
-(defvar p4-offline-mode nil
-  "Is this file under Perforce control but handled in offline mode?")
 (defvar p4-vc-revision nil
   "Perforce revision to which this buffer's file is synced.")
 (defvar p4-vc-status nil
@@ -293,8 +291,8 @@ window, or NIL to display it in the echo area.")
 ;; Local variables in P4 depot buffers.
 (defvar p4-default-directory nil "Original value of default-directory.")
 
-(dolist (var '(p4-mode p4-offline-mode p4-vc-revision
-               p4-vc-status p4-process-args p4-process-callback
+(dolist (var '(p4-mode p4-vc-revision p4-vc-status
+               p4-process-args p4-process-callback
                p4-process-buffers p4-process-pending
                p4-process-after-show p4-process-auto-login
                p4-process-pop-up-output p4-process-synchronous
@@ -311,8 +309,6 @@ window, or NIL to display it in the echo area.")
 (fset 'p4-minor-map p4-minor-map)
 (add-to-list 'minor-mode-alist '(p4-mode p4-mode))
 (add-to-list 'minor-mode-map-alist '(p4-mode . p4-minor-map))
-(add-to-list 'minor-mode-alist '(p4-offline-mode p4-offline-mode))
-(add-to-list 'minor-mode-map-alist '(p4-offline-mode . p4-minor-map))
 
 (defvar p4-set-client-hooks nil
   "List of functions to be called after a p4 client is changed.
@@ -1335,30 +1331,12 @@ off-line, toggle the status check on/off when opening files."
 (defalias 'p4-toggle-vc-mode-off 'p4-toggle-vc-mode)
 (defalias 'p4-toggle-vc-mode-on 'p4-toggle-vc-mode)
 
-;; Wrap C-x C-q to allow p4-edit/revert and also to ensure that
-;; we don't stomp on vc-toggle-read-only.
-(defun p4-toggle-read-only (&optional arg)
-  "If p4-mode is non-nil, \\[p4-toggle-read-only] toggles between `p4-edit'
-and `p4-revert'. If ARG is non-nil, p4-offline-mode will be enabled for this
-buffer before the toggling takes place. In p4-offline-mode, toggle between
-making the file writable and write protected."
-  (interactive "P")
-  (if (and arg p4-mode)
-      (setq p4-mode nil
-            p4-offline-mode t))
-  (cond
-   (p4-mode
-    (if buffer-read-only
-        (p4-edit)
-      (p4-revert)))
-   (p4-offline-mode
-        (setq buffer-read-only (not buffer-read-only)) ;; this used to be  (toggle-read-only), but toggle-read-only shouldnt be called from elsip... lets hope this works.
-    (if buffer-file-name
-        (let ((mode (file-modes buffer-file-name)))
-          (if buffer-read-only
-              (setq mode (logand mode (lognot 128)))
-            (setq mode (logior mode 128)))
-          (set-file-modes buffer-file-name mode))))))
+(defun p4-toggle-read-only ()
+  "Toggle between `p4-edit' and `p4-revert'."
+  (interactive)
+  (case p4-vc-status
+    (edit (p4-revert))
+    (sync (p4-edit))))
 
 
 ;;; Defining Perforce command interfaces:
