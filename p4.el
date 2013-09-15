@@ -1813,8 +1813,9 @@ changelist."
             (goto-char (point-max))
             (insert "\n--------\n\n"))))
     (setq args (cons cmd args))
-    (setq buffer (apply 'make-comint "P4 resolve" (p4-executable) nil
-                        "-C" (p4-charset-option) args))
+    (let ((process-environment (cons "P4PAGER=" process-environment)))
+      (setq buffer (apply 'make-comint "P4 resolve" (p4-executable) nil
+                          "-C" (p4-charset-option) args)))
     (set-buffer buffer)
     (comint-mode)
     (display-buffer buffer)
