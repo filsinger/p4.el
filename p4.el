@@ -275,6 +275,8 @@ NIL if file is not known to be under control of Perforce.
   "If non-NIL, automatically prompt user to log in.")
 (defvar p4-process-buffers nil
   "List of buffers whose status is being updated here.")
+(defvar p4-process-pending nil
+  "Pending status update structure being updated here.")
 (defvar p4-process-pop-up-output nil
   "Function that returns non-NIL to display output in a pop-up
 window, or NIL to display it in the echo area.")
@@ -293,9 +295,9 @@ window, or NIL to display it in the echo area.")
 
 (dolist (var '(p4-mode p4-offline-mode p4-vc-revision
                p4-vc-status p4-process-args p4-process-callback
-               p4-process-buffers p4-process-after-show
-               p4-process-auto-login p4-process-pop-up-output
-               p4-process-synchronous
+               p4-process-buffers p4-process-pending
+               p4-process-after-show p4-process-auto-login
+               p4-process-pop-up-output p4-process-synchronous
                p4-form-commit-command p4-form-committed
                p4-form-commit-fail-callback p4-default-directory))
   (make-variable-buffer-local var)
@@ -1165,6 +1167,37 @@ standard input\). If not supplied, cmd is reused.
 
 ;;; P4 mode:
 
+(defvar p4-update-status-pending-alist nil
+  "Association list mapping Perforce settings (the output of p4
+set) to the value of (current-time) when the status update for
+these Perforce settings was created or last run; and a list of
+buffers with these Perforce settings whose status needs
+updating.")
+
+(defun p4-update-status-pending-add (set buffer)
+  "Add BUFFER to the set of pending updates for the Perforce settings SET."
+  (let ((pending (assoc set p4-update-status-pending-alist)))
+    (unless pending
+      (setq pending (list set (current-time) nil))
+      (push pending p4-update-status-pending-alist))
+    (pushnew buffer (third pending))))
+
+(defun p4-update-status-pending-sort ()
+  "Tidy up `p4-update-status-pending-alist': discard buffers that
+no longer exist; discard servers for which no updates are
+pending; and sort pending updates into order by time of last
+update (oldest first)."
+  (setq p4-update-status-pending-alist
+        (sort (loop for pending in p4-update-status-pending-alist
+                    do (setf (third pending)
+                             (loop for b in (third pending)
+                                   if (and (buffer-live-p b)
+                                           (buffer-file-name b))
+                                   collect b))
+                    if (third pending)
+                    collect pending)
+              (lambda (a b) (time-less-p (second a)) (second b)))))
+
 (defun p4-update-mode (buffer status revision)
   "Turn p4-mode on or off in `buffer' according to Perforce status.
 Argument `status' is a symbol (see `p4-vc-status' for the
@@ -1210,6 +1243,8 @@ revision number is not known or not applicable."
             (goto-char (point-min))
             (while (not (eobp))
               (let ((b (pop p4-process-buffers)))
+                (setf (third p4-process-pending)
+                      (remove buffer (third p4-process-pending)))
                 (cond ((looking-at "^info: //[^#\n]+#\\([1-9][0-9]*\\) - \\(add\\|branch\\|delete\\|edit\\) ")
                        (p4-update-mode b (intern (match-string 2))
                                        (string-to-number (match-string 1))))
@@ -1236,11 +1271,6 @@ revision number is not known or not applicable."
               (kill-buffer (current-buffer))
               (p4-maybe-start-update-statuses))))))))
 
-(defvar p4-update-status-pending-alist nil
-  "Association list mapping the output of p4 set to a list of
-buffers for which a status update is pending and in which p4 set
-produces that output.")
-
 (defvar p4-update-status-process-buffer " *P4 update status*"
   "Name of the buffer in which the status update may be running.")
 
@@ -1248,12 +1278,14 @@ produces that output.")
   "Start an asychronous update of the Perforce statuses of some
 of the buffers in `p4-update-status-pending-alist', unless such
 an update is running already."
+  (p4-update-status-pending-sort)
   (when (and p4-executable
+             p4-update-status-pending-alist
              (not (get-buffer-process p4-update-status-process-buffer)))
-    (let* ((buffers (loop for b in (cdr (pop p4-update-status-pending-alist))
-                          when (and (buffer-live-p b) (buffer-file-name b))
-                          collect b)))
+    (let* ((pending (first p4-update-status-pending-alist))
+           (buffers (copy-list (third pending))))
       (when buffers
+        (setf (second pending) (current-time))
         (with-current-buffer
             (get-buffer-create p4-update-status-process-buffer)
           (setq default-directory
@@ -1267,6 +1299,7 @@ an update is running already."
             (set-process-sentinel process 'p4-update-status-sentinel-1)
             (p4-set-process-coding-system process)
             (setq p4-process-buffers buffers)
+            (setq p4-process-pending pending)
             (loop for b in buffers
                   do (process-send-string process (p4-buffer-file-name b))
                   do (process-send-string process "\n"))
@@ -1284,11 +1317,8 @@ set in this buffer, `p4-mode' will be set appropriately, and if
                (file-directory-p default-directory))
       (p4-with-set-output
         (when (save-excursion (re-search-forward "^P4PORT=" nil t))
-          (let* ((set (buffer-substring-no-properties (point-min) (point-max)))
-                 (pending (assoc set p4-update-status-pending-alist)))
-            (if pending
-                (pushnew b (cdr pending))
-              (push (list set b) p4-update-status-pending-alist)))))
+          (let ((set (buffer-substring-no-properties (point-min) (point-max))))
+            (p4-update-status-pending-add set b))))
       (p4-maybe-start-update-statuses))))
 
 (defun p4-refresh-buffer (&optional force verify-modtime)
