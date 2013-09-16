@@ -486,7 +486,8 @@ the output, and evaluate BODY if the command completed successfully."
 (put 'p4-with-set-output 'lisp-indent-function 0)
 
 (defmacro p4-with-coding-system (&rest body)
-  "Evaluate BODY with coding-system-for-read and -write set to 'utf-8."
+  "Evaluate BODY with coding-system-for-read and -write set to
+the result of `p4-coding-system'."
   `(let* ((coding (p4-coding-system))
           (coding-system-for-read coding)
           (coding-system-for-write coding))
