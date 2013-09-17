@@ -942,7 +942,9 @@ non-NIL, run that hook."
         (unless (eq (window-buffer) (current-buffer))
           (with-selected-window (display-buffer (current-buffer))
             (goto-char (point-min))))
-      (when (> lines 0)
+      (if (zerop lines)
+          (message "Running p4 %s...done (no output)"
+                   (p4-join-list p4-process-args))
         (goto-char (point-max))
         (message (buffer-substring (point-min) (line-end-position 0))))
       (kill-buffer (current-buffer)))))
