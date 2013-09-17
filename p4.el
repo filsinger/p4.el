@@ -933,22 +933,19 @@ non-NIL, run that hook."
         (p4-refresh-buffers)))))
 
 (defun p4-process-show-output ()
-  "Show the current buffer to the user and maybe kill it.
-Return NIL if it was shown in minibuffer and killed, or non-NIL
-if it was shown in a window."
+  "Show the current buffer to the user and maybe kill it."
   (let ((lines (count-lines (point-min) (point-max))))
     (if (or p4-process-after-show
             (if p4-process-pop-up-output
                 (funcall p4-process-pop-up-output)
               (> lines 1)))
-        (unless (eq (selected-window) (get-buffer-window (current-buffer)))
-          (display-buffer (current-buffer))
-          (p4-move-point-to-top))
+        (unless (eq (window-buffer) (current-buffer))
+          (with-selected-window (display-buffer (current-buffer))
+            (goto-char (point-min))))
       (when (> lines 0)
         (goto-char (point-max))
         (message (buffer-substring (point-min) (line-end-position 0))))
-      (kill-buffer (current-buffer))
-      nil)))
+      (kill-buffer (current-buffer)))))
 
 (defun p4-process-show-error (&rest args)
   "Show the contents of the current buffer as an error message.
@@ -962,8 +959,8 @@ If there's no content in the buffer, pass `args' to error instead."
            (kill-buffer (current-buffer))
            (error message)))
         (t
-         (display-buffer (current-buffer))
-         (p4-move-point-to-top)
+         (with-selected-window (display-buffer (current-buffer))
+           (goto-char (point-min)))
          (apply 'error args))))
 
 (defun p4-process-finished (buffer process-name message)
@@ -1101,9 +1098,7 @@ standard input\). If not supplied, cmd is reused.
                  (fail-callback fail-callback)
                  (buf (get-buffer (p4-process-buffer-name (cons cmd args)))))
     (if (and buf (with-current-buffer buf (not p4-form-committed)))
-        (if (get-buffer-window buf)
-            (select-window (get-buffer-window buf))
-          (switch-to-buffer-other-window buf))
+        (select-window (display-buffer buf))
       (p4-call-command cmd args
        :callback (lambda ()
                    (p4-form-callback move-to commit-cmd fail-callback))))))
@@ -1817,11 +1812,8 @@ changelist."
     (let ((process-environment (cons "P4PAGER=" process-environment)))
       (setq buffer (apply 'make-comint "P4 resolve" (p4-executable) nil
                           "-C" (p4-charset-option) args)))
-    (set-buffer buffer)
-    (comint-mode)
-    (display-buffer buffer)
-    (select-window (get-buffer-window buffer))
-    (goto-char (point-max))))
+    (with-selected-window (display-buffer buffer)
+      (goto-char (point-max)))))
 
 (defvar p4-empty-diff-regexp
   "\\(?:==== .* ====\\|--- .*\n\\+\\+\\+ .*\\)\n\\'"
@@ -1992,12 +1984,6 @@ return a buffer listing those files. Otherwise, return NIL."
 (defun p4-create-active-link-group (group prop-list &optional help-echo)
   (p4-create-active-link (match-beginning group) (match-end group)
                          prop-list help-echo))
-
-(defun p4-move-point-to-top ()
-  (let ((w (get-buffer-window (current-buffer))))
-    (when w
-      (with-selected-window w
-        (goto-char (point-min))))))
 
 (defun p4-file-change-log (cmd file-list-spec)
   (p4-call-command cmd (cons "-l" file-list-spec) :mode 'p4-filelog-mode
