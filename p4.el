@@ -870,6 +870,13 @@ To set the executable for future sessions, customize
           "The authenticity of '.*' can't be established")
   "Regular expression matching output from an untrusted Perforce server.")
 
+(defvar p4-connect-failed-regexp
+  (concat "\\(?:error: \\)?"
+          "Perforce client error:\n"
+          "\tConnect to server failed")
+  "Regular expression matching output from Perforce when it can't
+connect to the server.")
+
 (defun p4-request-trust ()
   "Ask the user for permission to trust the Perforce server."
   (display-buffer (current-buffer))
@@ -961,7 +968,13 @@ If there's no content in the buffer, pass `args' to error instead."
            (kill-buffer (current-buffer))
            (error message)))
         (t
-         (with-selected-window (display-buffer (current-buffer))
+         (let ((set (p4-with-set-output
+                      (buffer-substring (point-min) (point-max)))))
+           (with-selected-window (display-buffer (current-buffer))
+             (goto-char (point-max))
+             (if (string-match "\\S-" set)
+                 (insert "\n\"p4 set\" shows that you have the following Perforce configuration:\n" set)
+               (insert "\n\"p4 set\" shows that you have no Perforce configuration.\n")))
            (goto-char (point-min)))
          (apply 'error args))))
 
