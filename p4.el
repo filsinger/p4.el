@@ -974,8 +974,8 @@ If there's no content in the buffer, pass `args' to error instead."
              (goto-char (point-max))
              (if (string-match "\\S-" set)
                  (insert "\n\"p4 set\" shows that you have the following Perforce configuration:\n" set)
-               (insert "\n\"p4 set\" shows that you have no Perforce configuration.\n")))
-           (goto-char (point-min)))
+               (insert "\n\"p4 set\" shows that you have no Perforce configuration.\n"))
+             (goto-char (point-min))))
          (apply 'error args))))
 
 (defun p4-process-finished (buffer process-name message)
