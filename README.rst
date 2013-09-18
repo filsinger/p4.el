@@ -75,7 +75,10 @@ Perforce command  Key sequence  Description
 ``filelog``       ``C-x p f``   Show revision history of file.
 ``move``          ``C-x p m``   Move (rename) a file that's open for edit.
 ``opened``        ``C-x p o``   List open files.
+``reconcile``     ``C-x p z``   Reconcile client with workspace changes.
 ``revert``        ``C-x p r``   Revert file, discarding local changes.
+``status``        ``C-x p s``   Identify differences between the workspace
+                                and the depot.
 ``submit``        ``C-x p S``   Submit changes to the depot.
 ``update``        ``C-x p g``   Get files from depot.
 ================  ============  ===========================================
