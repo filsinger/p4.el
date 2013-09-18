@@ -6,11 +6,10 @@ Perforce/Emacs integration
 
 Introduction
 ------------
-**p4.el** integrates the `Perforce`_ software version management system into `GNU Emacs`_ and `XEmacs`_. It provides Emacs interfaces that map directly to Perforce commands, and so is most useful if you are already familiar with Perforce and want to access it from Emacs. (If, on the other hand, you are already familiar with the Emacs `VC`_ interface, and want to add Perforce as a VC backend, then you might look at Jonathan Kamens' `VC-P4`_.)
+**p4.el** integrates the `Perforce`_ software version management system into `GNU Emacs`_. It provides Emacs interfaces that map directly to Perforce commands, and so is most useful if you are already familiar with Perforce and want to access it from Emacs. (If, on the other hand, you are already familiar with the Emacs `VC`_ interface, and want to add Perforce as a VC backend, then you might look at Jonathan Kamens' `VC-P4`_.)
 
 .. _Perforce: http://www.perforce.com/
 .. _GNU Emacs: http://www.gnu.org/software/emacs/
-.. _XEmacs: http://www.xemacs.org/
 .. _VC: http://www.gnu.org/software/emacs/manual/html_node/emacs/Version-Control.html
 .. _VC-P4: http://public.perforce.com/wiki/Emacs_VC-P4
 
@@ -41,7 +40,6 @@ strings for each command, you must byte-compile ``p4.el``::
 
 Use
 ---
-
 *Note:* This section assumes that you are using the default key
 prefix, ``C-x p``. If you've customized ``p4-global-key-prefix``, then
 change the key sequences accordingly.
