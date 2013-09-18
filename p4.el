@@ -476,11 +476,11 @@ the output, and evaluate BODY if the command completed successfully."
   "Run p4 set in a temporary buffer, place point at the start of
 the output, and evaluate BODY if the command completed successfully."
   ;; Can't use `p4-with-temp-buffer' for this, because that would lead
-  ;; to infinite recursion via `p4-charset-option'.
+  ;; to infinite recursion via `p4-coding-system'.
   `(let ((dir (or p4-default-directory default-directory)))
      (with-temp-buffer
        (cd dir)
-       (when (zerop (save-excursion 
+       (when (zerop (save-excursion
                       (call-process (p4-executable) nil t nil "set")))
          ,@body))))
 
@@ -513,24 +513,41 @@ if there is no setting."
             (match-string 1))))
       default))
 
-(defun p4-current-charset ()
-  "Return the current Perforce client."
-  (p4-current-setting "P4CHARSET" "none"))
-
-(defun p4-current-server-unicode-enabled ()
-  "Return T if we believe that the current Perforce server is
-Unicode enabled, NIL if not."
-  (string-equal (downcase (p4-current-charset)) "none"))
-
-(defun p4-charset-option ()
-  "Return a value suitable for passing as the -C (charset) option
-to the Perforce client. Either \"utf8\" (if P4CHARSET is set
-locally) or \"none\" (otherwise)."
-  (if (p4-current-server-unicode-enabled) "none" "utf8"))
+(defvar p4-coding-system-alist
+  ;; I've preferred the IANA name, where possible. See
+  ;; <http://www.iana.org/assignments/character-sets/character-sets.xhtml>
+  ;; Note that Emacs (as of 24.3) does not support utf-32 and its
+  ;; variants; these will lead to an error in `p4-coding-system'.
+  '(("cp1251"      . windows-1251)
+    ("cp936"       . windows-936)
+    ("cp949"       . euc-kr)
+    ("cp950"       . big5)
+    ("eucjp"       . euc-jp)
+    ("iso8859-1"   . iso-8859-1)
+    ("iso8859-15"  . iso-8859-15)
+    ("iso8859-5"   . iso-8859-5)
+    ("koi8-r"      . koi8-r)
+    ("macosroman"  . macintosh)
+    ("shiftjis"    . shift_jis)
+    ("utf16"       . utf-16-with-signature)
+    ("utf16-nobom" . utf-16)
+    ("utf16be"     . utf-16be)
+    ("utf16be-bom" . utf-16be-with-signature)
+    ("utf16le"     . utf-16le)
+    ("utf16le-bom" . utf-16le-with-signature)
+    ("utf8"        . utf-8)
+    ("utf8-bom"    . utf-8-with-signature)
+    ("winansi"     . windows-1252)
+    ("none"        . utf-8)
+    (nil           . utf-8))
+  "Association list mapping P4CHARSET to Emacs coding system.")
 
 (defun p4-coding-system ()
-  "Return an Emacs coding system equivalent to `p4-charset-option'."
-  'utf-8)
+  "Return an Emacs coding system equivalent to P4CHARSET."
+  (let* ((charset (p4-current-setting "P4CHARSET"))
+         (c (assoc charset p4-coding-system-alist)))
+    (if c (cdr c)
+      (error "Coding system %s not available in Emacs" charset))))
 
 (defun p4-set-process-coding-system (process)
   "Set coding systems of PROCESS appropriately."
@@ -887,8 +904,7 @@ connect to the server.")
     (insert "yes\n")
     (p4-with-coding-system
       (call-process-region (point-min) (point-max)
-                           (p4-executable) t t nil
-                           "-C" (p4-charset-option) "trust"))))
+                           (p4-executable) t t nil "trust"))))
 
 (defun p4-iterate-with-login (fun)
   "Call FUN in the current buffer and return its result.
@@ -923,8 +939,7 @@ re-run the command."
   (p4-iterate-with-login
    (lambda ()
      (p4-with-coding-system
-       (apply 'call-process (p4-executable) nil t nil
-              "-C" (p4-charset-option) args)))))
+       (apply 'call-process (p4-executable) nil t nil args)))))
 
 (defun p4-refresh-callback (&optional hook)
   "Return a callback function that refreshes the status of the
@@ -1056,7 +1071,7 @@ opposed to showing it in the echo area)."
   (with-current-buffer
       (p4-make-output-buffer (p4-process-buffer-name (cons cmd args)) mode)
     (set (make-local-variable 'revert-buffer-function) 'p4-revert-buffer)
-    (setq p4-process-args (append (list "-C" (p4-charset-option) cmd) args)
+    (setq p4-process-args (cons cmd args)
           p4-process-after-show after-show
           p4-process-auto-login auto-login
           p4-process-callback callback
@@ -1136,8 +1151,7 @@ standard input\). If not supplied, cmd is reused.
                 (p4-with-coding-system
                   (apply 'call-process-region (point-min)
                          (point-max) (p4-executable)
-                         nil buffer nil "-C" (p4-charset-option)
-                         cmd args)))))))
+                         nil buffer nil cmd args)))))))
         (progn
           (set-buffer-modified-p nil)
           (setq p4-form-committed t
@@ -1248,7 +1262,6 @@ revision number is not known or not applicable."
             (if (and p4-executable have-buffers)
                 (let ((process (start-process "P4" (current-buffer)
                                               p4-executable
-                                              "-C" (p4-charset-option)
                                               "-s" "-x" "-" "have")))
                   (setq p4-process-buffers have-buffers)
                   (set-process-query-on-exit-flag process nil)
@@ -1283,7 +1296,6 @@ an update is running already."
                   (or p4-default-directory default-directory)))
           (let ((process (start-process "P4" (current-buffer)
                                         p4-executable
-                                        "-C" (p4-charset-option)
                                         "-s" "-x" "-" "opened")))
             (set-process-query-on-exit-flag process nil)
             (set-process-sentinel process 'p4-update-status-sentinel-1)
@@ -1731,8 +1743,7 @@ continuation lines); show it in a pop-up window otherwise."
           (insert pw "\n")
           (p4-with-coding-system
             (apply 'call-process-region (point-min) (point-max)
-                   (p4-executable) t t nil "-C" (p4-charset-option)
-                   cmd "-a" args))
+                   (p4-executable) t t nil cmd "-a" args))
           (goto-char (point-min))
           (when (re-search-forward "Enter password:.*\n" nil t)
             (replace-match ""))
@@ -1826,8 +1837,7 @@ changelist."
             (insert "\n--------\n\n"))))
     (setq args (cons cmd args))
     (let ((process-environment (cons "P4PAGER=" process-environment)))
-      (setq buffer (apply 'make-comint "P4 resolve" (p4-executable) nil
-                          "-C" (p4-charset-option) args)))
+      (setq buffer (apply 'make-comint "P4 resolve" (p4-executable) nil args)))
     (with-selected-window (display-buffer buffer)
       (goto-char (point-max)))))
 
