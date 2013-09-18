@@ -1186,7 +1186,7 @@ update (oldest first)."
                                    collect b))
                     if (third pending)
                     collect pending)
-              (lambda (a b) (time-less-p (second a)) (second b)))))
+              (lambda (a b) (time-less-p (second a) (second b))))))
 
 (defun p4-update-mode (buffer status revision)
   "Turn p4-mode on or off in `buffer' according to Perforce status.
