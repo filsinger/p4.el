@@ -288,10 +288,10 @@ window, or NIL to display it in the echo area.")
 (defvar p4-form-commit-fail-callback nil
   "Function run if commit fails.")
 (defvar p4-form-head-text
-  (format "# Created using %s.
+  (format "# Created using Perforce-Emacs Integration version %s.
 # Type C-c C-c to send the form to the server.
 # Type C-x k to cancel the operation.
-#\n" (p4-version))
+#\n" p4-version)
     "Head text which outputs on top of p4 form.")
 
 ;; Local variables in P4 depot buffers.
