@@ -1247,36 +1247,42 @@ revision number is not known or not applicable."
   (let ((buffer (process-buffer process)))
     (when (buffer-live-p buffer)
       (with-current-buffer buffer
-        (let (have-buffers)
-          (goto-char (point-min))
-          (while (not (eobp))
-            (let ((b (pop p4-process-buffers)))
-              (cond ((looking-at "^info: //[^#\n]+#\\([1-9][0-9]*\\) - \\(add\\|branch\\|delete\\|edit\\) ")
-                     (p4-update-mode b (intern (match-string 2))
-                                     (string-to-number (match-string 1))))
-                    ((looking-at "^error: .* - file(s) not opened on this client")
-                     (push b have-buffers))
-                    ;; Just in case p4-executable is bogus.
-                    ((not (looking-at "^\\(?:error\\|warning\\|info\\|text\\|exit\\):"))
-                     (error "Unexpected output from p4 -s -x - opened: maybe p4-executable is wrong?")))
-              (setf (third p4-process-pending)
-                    (remove b (third p4-process-pending))))
-            (forward-line 1))
-          (erase-buffer)
-          (if (and p4-executable have-buffers)
-              (let ((process (start-process "P4" (current-buffer)
-                                            p4-executable
-                                            "-s" "-x" "-" "have")))
-                (setq p4-process-buffers have-buffers)
-                (set-process-query-on-exit-flag process nil)
-                (set-process-sentinel process 'p4-update-status-sentinel-2)
-                (p4-set-process-coding-system process)
-                (loop for b in have-buffers
-                      do (process-send-string process (p4-buffer-file-name b))
-                      do (process-send-string process "\n"))
-                (process-send-eof process))
+        ;; If user is logged out, or p4-executable wrongly configured,
+        ;; don't spam user with errors, just quietly ignore. When they
+        ;; log in or fix the configuration, the update process will
+        ;; restart.
+        (if (not (string-equal message "finished\n"))
             (kill-buffer (current-buffer))
-            (p4-maybe-start-update-statuses)))))))
+          (let (have-buffers)
+            (goto-char (point-min))
+            (while (not (eobp))
+              (let ((b (pop p4-process-buffers)))
+                (cond ((looking-at "^info: //[^#\n]+#\\([1-9][0-9]*\\) - \\(add\\|branch\\|delete\\|edit\\) ")
+                       (p4-update-mode b (intern (match-string 2))
+                                       (string-to-number (match-string 1))))
+                      ((looking-at "^error: .* - file(s) not opened on this client")
+                       (push b have-buffers))
+                      ;; Just in case p4-executable is bogus.
+                      ((not (looking-at "^\\(?:error\\|warning\\|info\\|text\\|exit\\):"))
+                       (error "Unexpected output from p4 -s -x - opened: maybe p4-executable is wrong?")))
+                (setf (third p4-process-pending)
+                      (remove b (third p4-process-pending))))
+              (forward-line 1))
+            (erase-buffer)
+            (if (and p4-executable have-buffers)
+                (let ((process (start-process "P4" (current-buffer)
+                                              p4-executable
+                                              "-s" "-x" "-" "have")))
+                  (setq p4-process-buffers have-buffers)
+                  (set-process-query-on-exit-flag process nil)
+                  (set-process-sentinel process 'p4-update-status-sentinel-2)
+                  (p4-set-process-coding-system process)
+                  (loop for b in have-buffers
+                        do (process-send-string process (p4-buffer-file-name b))
+                        do (process-send-string process "\n"))
+                  (process-send-eof process))
+              (kill-buffer (current-buffer))
+              (p4-maybe-start-update-statuses))))))))
 
 (defvar p4-update-status-process-buffer " *P4 update status*"
   "Name of the buffer in which the status update may be running.")
