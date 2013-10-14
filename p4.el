@@ -1765,7 +1765,8 @@ continuation lines); show it in a pop-up window otherwise."
           (if (looking-at "Password invalid")
               (setq prompt "Password invalid. Enter password for %s: ")
             (setq logged-in t)
-            (message "%s" (buffer-substring (point-min) (1- (point-max))))))))))
+            (message "%s" (buffer-substring (point-min) (1- (point-max))))))))
+    (p4-maybe-start-update-statuses)))
 
 (defp4cmd* logout
   "Log out from Perforce by removing or invalidating a ticket."
