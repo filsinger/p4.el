@@ -1766,6 +1766,9 @@ continuation lines); show it in a pop-up window otherwise."
               (setq prompt "Password invalid. Enter password for %s: ")
             (setq logged-in t)
             (message "%s" (buffer-substring (point-min) (1- (point-max))))))))
+    ;; There might have been failed status updates while the user was
+    ;; logged out, so try re-running them now that the user is logged
+    ;; in.
     (p4-maybe-start-update-statuses)))
 
 (defp4cmd* logout
