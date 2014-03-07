@@ -137,6 +137,11 @@ when they change on disk."
   :type 'hook
   :group 'p4)
 
+(defcustom p4-form-mode-hook nil
+  "Hook run by `p4-form-mode'."
+  :type 'hook
+  :group 'p4)
+
 (defcustom p4-edit-hook nil
   "Hook run after opening a file for edit."
   :type 'hook
