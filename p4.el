@@ -1910,16 +1910,15 @@ changelist."
 
 (defp4cmd p4-shelve (&optional args)
   "shelve"
-  "Submit open files to the depot."
+  "Store files from a pending changelist into the depot."
   (interactive
    (cond ((integerp current-prefix-arg)
           (list (format "%d" current-prefix-arg)))
          (current-prefix-arg
           (list (p4-read-args "p4 change: " "" 'change)))))
   (save-some-buffers nil (lambda () (or (not p4-do-find-file) p4-vc-status)))
-  (let ((empty-buf (and p4-check-empty-diffs (p4-empty-diff-buffer))))
-    (p4-form-command "change" args :move-to "Description:\n\t"
-                     :commit-cmd "shelve")))
+  (p4-form-command "change" args :move-to "Description:\n\t"
+                   :commit-cmd "shelve"))
 
 (defp4cmd* status
   "Identify differences between the workspace with the depot."
