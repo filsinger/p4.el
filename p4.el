@@ -5,7 +5,7 @@
 ;; Copyright (c) 2005      Peter Osterlund
 ;; Copyright (c) 2009      Fujii Hironori
 ;; Copyright (c) 2012      Jason Filsinger
-;; Copyright (c) 2013      Gareth Rees <gdr@garethrees.org>
+;; Copyright (c) 2013-2014 Gareth Rees <gdr@garethrees.org>
 
 ;; Author: Gareth Rees <gdr@garethrees.org>
 ;; URL: https://github.com/gareth-rees/p4.el
