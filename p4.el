@@ -1156,10 +1156,12 @@ standard input\). If not supplied, cmd is reused.
            (p4-iterate-with-login
             (lambda ()
               (with-current-buffer form-buf
-                (p4-with-coding-system
-                  (apply 'call-process-region (point-min)
-                         (point-max) (p4-executable)
-                         nil buffer nil cmd args)))))))
+                (save-restriction
+                  (widen)
+                  (p4-with-coding-system
+                    (apply 'call-process-region (point-min)
+                           (point-max) (p4-executable)
+                           nil buffer nil cmd args))))))))
         (progn
           (set-buffer-modified-p nil)
           (setq p4-form-committed t
