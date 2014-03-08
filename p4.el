@@ -1319,7 +1319,7 @@ an update is running already."
             (set-process-query-on-exit-flag process nil)
             (set-process-sentinel process 'p4-update-status-sentinel-1)
             (p4-set-process-coding-system process)
-            (setq p4-process-buffers (copy-list buffers))
+            (setq p4-process-buffers (copy-sequence buffers))
             (setq p4-process-pending pending)
             (loop for b in buffers
                   do (process-send-string process (p4-buffer-file-name b))
