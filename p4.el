@@ -1695,7 +1695,13 @@ continuation lines); show it in a pop-up window otherwise."
   "help"
   "Print help message."
   (interactive (p4-read-args "p4 help: " "" 'help))
-  (p4-call-command "help" args))
+  (p4-call-command "help" args
+   :callback (lambda ()
+               (let ((case-fold-search))
+                 (loop for re in '("\\<p4 help \\([a-z][a-z0-9]*\\)\\>"
+                                   "'p4\\(?: -[a-z]+\\)* \\([a-z][a-z0-9]*\\)\\>"
+                                   "^\t\\([a-z][a-z0-9]*\\)  *[A-Z]")
+                       do (p4-regexp-create-links re 'help))))))
 
 (defp4cmd p4-info ()
   "info"
@@ -2797,6 +2803,7 @@ NIL if there is no such completion type."
         (client (get-char-property pnt 'client))
         (filename (p4-context-single-filename))
         (group (get-char-property pnt 'group))
+        (help (get-char-property pnt 'help))
         (job (get-char-property pnt 'job))
         (label (get-char-property pnt 'label))
         (user (get-char-property pnt 'user))
@@ -2817,6 +2824,7 @@ NIL if there is no such completion type."
           (label (p4-label (list label)))
           (branch (p4-branch (list branch)))
           (job (p4-job job))
+          (help (p4-help help))
           ((and (not active) (eq major-mode 'p4-diff-mode))
            (p4-diff-goto-source arg))
 
