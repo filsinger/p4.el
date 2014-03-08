@@ -1488,7 +1488,9 @@ changelevel."
 (defp4cmd* change
   "Create or edit a changelist description."
   nil
-  (p4-form-command cmd args :move-to "Description:\n\t"))
+  (if (member "-d" args)
+      (p4-call-command cmd args)
+    (p4-form-command cmd args :move-to "Description:\n\t")))
 
 (defp4cmd* changes
   "Display list of pending and submitted changelists."
