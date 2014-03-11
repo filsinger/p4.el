@@ -1124,31 +1124,37 @@ opposed to showing it in the echo area)."
 
 (defun* p4-form-command (cmd &optional args &key move-to commit-cmd
                              success-callback failure-callback)
-  "Start a form-editing session.
+  "Maybe start a form-editing session.
 cmd is the p4 command to run \(it must take -o and output a form\).
 args is a list of arguments to pass to the p4 command.
-Remaining arguments are keyword arguments:
+If args contains -d, then the command is run as-is.
+Otherwise, -o is prepended to the arguments and the command
+outputs a form which is presented to the user for editing.
+The remaining arguments are keyword arguments:
 :move-to is an optional regular expression to set the cursor on.
 :commit-cmd is the command that will be called when
 `p4-form-commit' is called \(it must take -i and a form on
 standard input\). If not supplied, cmd is reused.
 :success-callback is a function that is called if the commit succeeds.
 :failure-callback is a function that is called if the commit fails."
-  (setq args (remove "-i" (remove "-o" args)))
-  ;; Is there already a form with the same name? If so, just switch to
-  ;; it.
-  (lexical-let* ((args (cons "-o" args))
-                 (move-to move-to)
-                 (commit-cmd (or commit-cmd cmd))
-                 (success-callback success-callback)
-                 (failure-callback failure-callback)
-                 (buf (get-buffer (p4-process-buffer-name (cons cmd args)))))
-    (if buf
-        (select-window (display-buffer buf))
-      (p4-call-command cmd args
-       :callback (lambda ()
-                   (p4-form-callback move-to commit-cmd success-callback
-                                     failure-callback))))))
+  (when (member "-i" args)
+    (error "'%s -i' is not supported here." cmd))
+  (if (member "-d" args)
+      (p4-call-command cmd args)
+    (let* ((args (cons "-o" (remove "-o" args)))
+           (buf (get-buffer (p4-process-buffer-name (cons cmd args)))))
+      ;; Is there already a form with the same name? If so, just
+      ;; switch to it.
+      (if buf
+          (select-window (display-buffer buf))
+        (lexical-let* ((move-to move-to)
+                       (commit-cmd (or commit-cmd cmd))
+                       (success-callback success-callback)
+                       (failure-callback failure-callback))
+          (p4-call-command cmd args
+           :callback (lambda ()
+                       (p4-form-callback move-to commit-cmd success-callback
+                                         failure-callback))))))))
 
 (defun p4-form-commit ()
   "Commit the form in the current buffer to the server."
@@ -1497,9 +1503,7 @@ changelevel."
 (defp4cmd* change
   "Create or edit a changelist description."
   nil
-  (if (member "-d" args)
-      (p4-call-command cmd args)
-    (p4-form-command cmd args :move-to "Description:\n\t")))
+  (p4-form-command cmd args :move-to "Description:\n\t"))
 
 (defp4cmd* changes
   "Display list of pending and submitted changelists."
