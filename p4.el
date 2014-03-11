@@ -970,6 +970,7 @@ non-NIL, run that hook."
   "Show the current buffer to the user and maybe kill it."
   (let ((lines (count-lines (point-min) (point-max))))
     (if (or p4-process-after-show
+            (get-buffer-window (current-buffer)) ; already visible
             (if p4-process-pop-up-output
                 (funcall p4-process-pop-up-output)
               (> lines 1)))
