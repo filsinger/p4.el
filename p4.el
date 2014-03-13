@@ -290,11 +290,13 @@ window, or NIL to display it in the echo area.")
 (defvar p4-form-commit-command nil
   "p4 command to run when committing this form.")
 (defvar p4-form-commit-success-callback nil
-  "Function run if commit succeeds. It receives one argument, the
-buffer containing the output from the commit command.")
+  "Function run if commit succeeds. It receives two arguments:
+the commit command and the buffer containing the output from the
+commit command.")
 (defvar p4-form-commit-failure-callback nil
-  "Function run if commit fails. It receives one argument, the
-buffer containing the output from the commit command.")
+  "Function run if commit fails. It receives two arguments:
+the commit command and the buffer containing the output from the
+commit command.")
 (defvar p4-form-head-text
   (format "# Created using Perforce-Emacs Integration version %s.
 # Type C-c C-c to send the form to the server.
@@ -1001,7 +1003,8 @@ If there's no content in the buffer, pass `args' to error instead."
            (error message)))
         (t
          (let ((set (p4-with-set-output
-                      (buffer-substring (point-min) (point-max)))))
+                      (buffer-substring (point-min) (point-max))))
+               (inhibit-read-only t))
            (with-selected-window (display-buffer (current-buffer))
              (goto-char (point-max))
              (if (string-match "\\S-" set)
@@ -1123,7 +1126,9 @@ opposed to showing it in the echo area)."
   (message "C-c C-c to finish editing and exit buffer."))
 
 (defun* p4-form-command (cmd &optional args &key move-to commit-cmd
-                             success-callback failure-callback)
+                             success-callback
+                             (failure-callback
+                              'p4-form-commit-failure-callback-default))
   "Maybe start a form-editing session.
 cmd is the p4 command to run \(it must take -o and output a form\).
 args is a list of arguments to pass to the p4 command.
@@ -1140,7 +1145,7 @@ standard input\). If not supplied, cmd is reused.
   (when (member "-i" args)
     (error "'%s -i' is not supported here." cmd))
   (if (member "-d" args)
-      (p4-call-command cmd args)
+      (p4-call-command (or commit-cmd cmd) args)
     (let* ((args (cons "-o" (remove "-o" args)))
            (buf (get-buffer (p4-process-buffer-name (cons cmd args)))))
       ;; Is there already a form with the same name? If so, just
@@ -1156,6 +1161,10 @@ standard input\). If not supplied, cmd is reused.
                        (p4-form-callback move-to commit-cmd success-callback
                                          failure-callback))))))))
 
+(defun p4-form-commit-failure-callback-default (cmd buffer)
+  (with-current-buffer buffer
+    (p4-process-show-error "%s -i failed to complete successfully." cmd)))
+
 (defun p4-form-commit ()
   "Commit the form in the current buffer to the server."
   (interactive)
@@ -1164,32 +1173,26 @@ standard input\). If not supplied, cmd is reused.
                  (args '("-i"))
                  (buffer (p4-make-output-buffer (p4-process-buffer-name
                                                  (cons cmd args)))))
-    (if (with-current-buffer buffer
-          (zerop
-           (p4-iterate-with-login
-            (lambda ()
-              (with-current-buffer form-buf
-                (save-restriction
-                  (widen)
-                  (p4-with-coding-system
-                    (apply 'call-process-region (point-min)
-                           (point-max) (p4-executable)
-                           nil buffer nil cmd args))))))))
-        (progn
-          (setq mode-name "P4 Form Committed")
-          (when p4-form-commit-success-callback
-            (funcall p4-form-commit-success-callback buffer))
-          (set-buffer-modified-p nil)
-          (with-current-buffer buffer
-            (p4-process-show-output)
-            (p4-partial-cache-cleanup (intern cmd))
-            (when (string= cmd "submit")
-              (p4-refresh-buffers))))
-      (if p4-form-commit-failure-callback
-          (funcall p4-form-commit-failure-callback buffer)
-        (with-current-buffer buffer
-          (p4-process-show-error
-           "%s -i failed to complete successfully." cmd))))))
+    (cond ((with-current-buffer buffer
+             (zerop
+              (p4-iterate-with-login
+               (lambda ()
+                 (with-current-buffer form-buf
+                   (save-restriction
+                     (widen)
+                     (p4-with-coding-system
+                       (apply 'call-process-region (point-min)
+                              (point-max) (p4-executable)
+                              nil buffer nil cmd args))))))))
+           (setq mode-name "P4 Form Committed")
+           (when p4-form-commit-success-callback
+             (funcall p4-form-commit-success-callback cmd buffer))
+           (set-buffer-modified-p nil)
+           (with-current-buffer buffer
+             (p4-process-show-output)
+             (p4-partial-cache-cleanup (intern cmd))))
+          (p4-form-commit-failure-callback
+           (funcall p4-form-commit-failure-callback cmd buffer)))))
 
 
 ;;; P4 mode:
@@ -1500,10 +1503,33 @@ changelevel."
                (p4-regexp-create-links "^Branch \\([^ ]+\\).*\n" 'branch
                                        "Describe branch"))))
 
+(defun p4-change-update-form (buffer new-status re)
+  (let ((change
+         (with-current-buffer buffer
+           (goto-char (point-min))
+           (when (re-search-forward re nil t)
+             (match-string 1)))))
+    (when change
+      (rename-buffer (p4-process-buffer-name (list "change" "-o" change)))
+      (save-excursion
+        (save-restriction
+          (widen)
+          (goto-char (point-min))
+          (when (re-search-forward "^Change:\\s-+\\(new\\)$" nil t)
+            (replace-match change t t nil 1))
+          (goto-char (point-min))
+          (when (re-search-forward "^Status:\\s-+\\(new\\)$" nil t)
+            (replace-match new-status t t nil 1))))
+      (set-buffer-modified-p nil))))
+
+(defun p4-change-success (cmd buffer)
+  (p4-change-update-form buffer "pending" "^Change \\([0-9]+\\) created\\.$"))
+
 (defp4cmd* change
   "Create or edit a changelist description."
   nil
-  (p4-form-command cmd args :move-to "Description:\n\t"))
+  (p4-form-command cmd args :move-to "Description:\n\t"
+                   :success-callback 'p4-change-success))
 
 (defp4cmd* changes
   "Display list of pending and submitted changelists."
@@ -1726,7 +1752,7 @@ continuation lines); show it in a pop-up window otherwise."
   (interactive (p4-read-args "p4 integ: " "-b "))
   (p4-call-command "integ" args :mode 'p4-basic-list-mode))
 
-(defun p4-job-success (buffer)
+(defun p4-job-success (cmd buffer)
   (let ((job (with-current-buffer buffer
                (save-excursion
                  (goto-char (point-min))
@@ -1936,6 +1962,15 @@ changelist."
   (interactive)
   (p4-call-command "set"))
 
+(defun p4-shelve-failure (cmd buffer)
+  ;; The failure might be because no files were shelved. But the
+  ;; change was created, so this counts as a success for us.
+  (if (with-current-buffer buffer
+        (goto-char (point-min))
+        (looking-at "^Change \\([0-9]+\\) created\\.\nShelving files for change \\1\\.\nNo files to shelve\\.$"))
+      (p4-change-success cmd buffer)
+    (p4-form-commit-failure-callback-default cmd buffer)))
+
 (defp4cmd p4-shelve (&optional args)
   "shelve"
   "Store files from a pending changelist into the depot."
@@ -1943,10 +1978,12 @@ changelist."
    (cond ((integerp current-prefix-arg)
           (list (format "%d" current-prefix-arg)))
          (current-prefix-arg
-          (list (p4-read-args "p4 change: " "" 'change)))))
+          (list (p4-read-args "p4 shelve: " "" 'change)))))
   (save-some-buffers nil (lambda () (or (not p4-do-find-file) p4-vc-status)))
   (p4-form-command "change" args :move-to "Description:\n\t"
-                   :commit-cmd "shelve"))
+                   :commit-cmd "shelve"
+                   :success-callback 'p4-change-success
+                   :failure-callback 'p4-shelve-failure))
 
 (defp4cmd* status
   "Identify differences between the workspace with the depot."
@@ -1968,30 +2005,12 @@ return a buffer listing those files. Otherwise, return NIL."
             (progn (kill-buffer (current-buffer)) nil)
           (current-buffer))))))
 
-(defun p4-submit-update-form (buffer new-status re)
-  (let ((change
-         (with-current-buffer buffer
-           (goto-char (point-min))
-           (when (re-search-forward re nil t)
-             (match-string 1)))))
-    (when change
-      (rename-buffer (p4-process-buffer-name (list "change" "-o" change)))
-      (save-excursion
-        (save-restriction
-          (widen)
-          (goto-char (point-min))
-          (when (re-search-forward "^Change:\\s-+\\(new\\)$" nil t)
-            (replace-match change t t nil 1))
-          (goto-char (point-min))
-          (when (re-search-forward "^Status:\\s-+\\(new\\)$" nil t)
-            (replace-match new-status t t nil 1)))))))
+(defun p4-submit-success (cmd buffer)
+  (p4-change-update-form buffer "submitted" "^Change \\([0-9]+\\) submitted\\.$")
+  (p4-refresh-buffers))
 
-(defun p4-submit-success (buffer)
-  (p4-submit-update-form buffer "submitted"
-                         "^Change \\([0-9]+\\) submitted\\.$"))
-
-(defun p4-submit-failure (buffer)
-  (p4-submit-update-form buffer "pending"
+(defun p4-submit-failure (cmd buffer)
+  (p4-change-update-form buffer "pending"
                          "^Submit failed -- fix problems above then use 'p4 submit -c \\([0-9]+\\)'\\.$")
   (with-current-buffer buffer
     (p4-process-show-error "submit -i failed to complete successfully.")))
