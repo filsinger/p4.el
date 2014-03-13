@@ -432,6 +432,8 @@ functions are called.")
     ["Reconcile Files with Depot" p4-reconcile t]
     ["--" nil nil]
     ["Show Opened Files" p4-opened t]
+    ["File info" p4-fstat
+     (and buffer-file-name (or (not p4-do-find-file) p4-vc-status))]
     ["Filelog" p4-filelog
      (and buffer-file-name (or (not p4-do-find-file) p4-vc-status))]
     ["Changes" p4-changes t]
@@ -1701,6 +1703,11 @@ continuation lines); show it in a pop-up window otherwise."
   nil
   (p4-call-command cmd args :mode 'p4-basic-list-mode
                    :callback 'p4-refresh-buffers))
+
+(defp4cmd* fstat
+  "Dump file info."
+  (p4-context-filenames-list)
+  (p4-call-command cmd args))
 
 (defp4cmd p4-grep (args)
   "grep"
