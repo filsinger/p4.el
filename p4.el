@@ -1592,42 +1592,38 @@ twice in the expansion."
   (interactive)
   (p4-diff (list p4-default-diff-options)))
 
-(defun p4-get-file-rev (default-name rev)
-  (if (string-match "^\\([1-9][0-9]*\\|none\\|head\\|have\\)$" rev)
-      (setq rev (concat "#" rev)))
-  (cond ((string-match "^[#@]" rev)
-         (concat default-name rev))
-        ((string= "" rev)
-         default-name)
+(defun p4-get-file-rev (rev)
+  "Return the full filespec corresponding to revision rev, using
+the context to determine the filename if necessary."
+  (cond ((integerp rev)
+         (format "%s#%d" (p4-context-single-filename) rev))
+        ((string-match "^\\([1-9][0-9]*\\|none\\|head\\|have\\)$" rev)
+         (format "%s#%s" (p4-context-single-filename) rev))
+        ((string-match "^\\(?:[#@]\\|$\\)" rev)
+         (format "%s%s" (p4-context-single-filename) rev))
         (t
          rev)))
 
-(defp4cmd p4-diff2 (prefix version1 version2)
+(defp4cmd p4-diff2 (&rest args)
   "diff2"
   "Compare one set of depot files to another."
   (interactive
-   (let ((rev (or (get-char-property (point) 'rev) p4-vc-revision 0)))
-     (list current-prefix-arg
-           (p4-read-arg-string "First filespec/revision to diff: "
-                               (when (> rev 1) (format "%d" (1- rev))))
-           (p4-read-arg-string "Second filespec/revision to diff: "
-                               (when (> rev 1) (format "%d" rev))))))
-  (let (diff-version1
-        diff-version2
-        (diff-options (p4-make-list-from-string p4-default-diff-options)))
-    (when prefix
-      (setq diff-options (p4-make-list-from-string
-                          (p4-read-arg-string
-                           "Optional argument: "
-                           (concat p4-default-diff-options " ")))))
-    ;; try to find out if this is a revision number, or a depot file
-    (setq diff-version1 (p4-get-file-rev (p4-context-single-filename) version1))
-    (setq diff-version2 (p4-get-file-rev (p4-context-single-filename) version2))
-
-    (p4-call-command "diff2" (append diff-options
-                                     (list diff-version1
-                                           diff-version2))
-                     :mode 'p4-diff-mode :callback 'p4-activate-diff-buffer)))
+   (if current-prefix-arg
+       (p4-read-args* "p4 diff2: " (concat p4-default-diff-options " ") 'branch)
+     (let* ((rev (or (get-char-property (point) 'rev) p4-vc-revision 0))
+            (rev1 (p4-read-arg-string
+                   "First filespec/revision to diff: "
+                   (when (> rev 1) (number-to-string (1- rev)))))
+            (rev2 (p4-read-arg-string
+                   "Second filespec/revision to diff: "
+                   (when (> rev 1) (number-to-string rev))))
+            (opts (p4-read-arg-string
+                   "Optional arguments: "
+                   (concat p4-default-diff-options " "))))
+       (append (p4-make-list-from-string opts)
+               (mapcar 'p4-get-file-rev (list rev1 rev2))))))
+  (p4-call-command "diff2" args
+                   :mode 'p4-diff-mode :callback 'p4-activate-diff-buffer))
 
 (defun p4-activate-ediff-callback (&optional pop-count)
   "Return a callback function that runs ediff on the current
@@ -1657,23 +1653,17 @@ buffer and other-file."
       (p4-call-command "print" (list other-file)
                        :after-show (p4-activate-ediff-callback 2)))))
 
-(defun p4-ediff2 (version1 version2)
+(defun p4-ediff2 (rev1 rev2)
   "Use ediff to compare two versions of a depot file.
 When visiting a depot file, type \\[p4-ediff2] and enter the versions."
   (interactive
    (let ((rev (or (get-char-property (point) 'rev) p4-vc-revision 0)))
      (list (p4-read-arg-string "First filespec/revision to diff: "
-                               (when (> rev 1) (format "%d" (1- rev))))
+                               (when (> rev 1) (number-to-string (1- rev))))
            (p4-read-arg-string "Second filespec/revision to diff: "
-                               (when (> rev 1) (format "%d" rev))))))
-  (let* ((file-name (p4-context-single-filename))
-         (basename (file-name-nondirectory file-name))
-         (bufname1 (concat "*P4 ediff " basename "#" version1  "*"))
-         (bufname2 (concat "*P4 ediff " basename "#" version2  "*"))
-         (diff-version1 (p4-get-file-rev file-name version1))
-         (diff-version2 (p4-get-file-rev file-name version2)))
-    (p4-call-command "print" (list diff-version1)
-                     :after-show (p4-activate-ediff2-callback diff-version2))))
+                               (when (> rev 1) (number-to-string rev))))))
+  (p4-call-command "print" (list (p4-get-file-rev rev1))
+   :after-show (p4-activate-ediff2-callback (p4-get-file-rev rev2))))
 
 (defun p4-edit-pop-up-output-p ()
   "Show the output of p4 edit in the echo area if it concerns a
@@ -2888,9 +2878,12 @@ NIL if there is no such completion type."
            (p4-call-command "print" (list (format "%s#%d" filename rev))
                             :callback 'p4-activate-print-buffer))
           (action
-           (if (<= rev 1)
-               (error "There is no earlier revision to diff.")
-             (p4-diff2 nil (format "%d" (1- rev)) (format "%d" rev))))
+           (when (<= rev 1)
+             (error "There is no earlier revision to diff."))
+           (p4-call-command "diff2"
+            (append (p4-make-list-from-string p4-default-diff-options)
+                    (mapcar 'p4-get-file-rev (list (1- rev) rev)))
+            :mode 'p4-diff-mode :callback 'p4-activate-diff-buffer))
           (change (p4-describe-internal
                    (append (p4-make-list-from-string p4-default-diff-options)
                            (list (format "%d" change)))))
