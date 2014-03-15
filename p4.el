@@ -1194,12 +1194,16 @@ updating.")
 (defvar p4-update-status-timeout 600
   "Retry a status update on a Perforce server after this many seconds.")
 
-(defun p4-update-status-pending-add (set buffer)
-  "Add BUFFER to the set of pending updates for the Perforce settings SET."
+(defun p4-update-status-pending-add (set buffer &optional force)
+  "Add BUFFER to the set of pending updates for the Perforce settings SET.
+If optional argument FORCE is non-NIL, reset the update timeout
+for those settings."
   (let ((pending (assoc set p4-update-status-pending-alist)))
     (unless pending
       (setq pending (list set (seconds-to-time 0) nil))
       (push pending p4-update-status-pending-alist))
+    (when force
+      (setf (second pending) (seconds-to-time 0)))
     (pushnew buffer (third pending))))
 
 (defun p4-update-status-pending-sort ()
@@ -1332,12 +1336,14 @@ an update is running already."
                   do (process-send-string process "\n"))
             (process-send-eof process)))))))
 
-(defun p4-update-status ()
+(defun p4-update-status (&optional force)
   "Start an asynchronous update of the Perforce status of the
 current buffer. If the asynchronous update completes
 successfully, then `p4-vc-revision' and `p4-vc-status' will be
 set in this buffer, `p4-mode' will be set appropriately, and if
-`p4-mode' is turned on, then `p4-mode-hook' will be run."
+`p4-mode' is turned on, then `p4-mode-hook' will be run.
+If optional argument FORCE is non-NIL, reset the update timeout
+for the current Perforce settings."
   (let ((b (current-buffer)))
     (when (and p4-executable p4-do-find-file buffer-file-name
                (not p4-default-directory)
@@ -1345,8 +1351,8 @@ set in this buffer, `p4-mode' will be set appropriately, and if
       (p4-with-set-output
         (when (save-excursion (re-search-forward "^P4PORT=" nil t))
           (let ((set (buffer-substring-no-properties (point-min) (point-max))))
-            (p4-update-status-pending-add set b))))
-      (p4-maybe-start-update-statuses))))
+            (p4-update-status-pending-add set b force)))
+      (p4-maybe-start-update-statuses)))))
 
 (defun p4-refresh-buffer (&optional force verify-modtime)
   "Refresh the current buffer if it is under Perforce control and
@@ -1359,7 +1365,7 @@ first."
        buffer-file-name
        (file-readable-p buffer-file-name)
        (revert-buffer t (not (buffer-modified-p))))
-  (p4-update-status))
+  (p4-update-status force))
 
 (defun p4-refresh-buffers ()
   "Refresh all buffers that are known to be under Perforce
