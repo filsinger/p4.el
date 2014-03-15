@@ -931,6 +931,10 @@ and repeat."
                  (p4-request-trust))))))
     status))
 
+(defun p4-ensure-logged-in ()
+  "Ensure that user is logged in, prompting for password if necessary."
+  (p4-with-temp-buffer '("login" "-s")))
+
 (defun p4-run (args)
   "Run p4 ARGS in the current buffer, with output after point.
 Return the status of the command. If the command cannot be run
@@ -1940,6 +1944,7 @@ changelist."
             (insert "\n--------\n\n"))))
     (setq args (cons cmd args))
     (let ((process-environment (cons "P4PAGER=" process-environment)))
+      (p4-ensure-logged-in)
       (setq buffer (apply 'make-comint "P4 resolve" (p4-executable) nil args)))
     (with-selected-window (display-buffer buffer)
       (goto-char (point-max)))))
