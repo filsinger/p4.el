@@ -817,31 +817,6 @@ characters."
   ;; the current line, so we suppress the error here.
   (ignore-errors (dired-get-marked-files nil)))
 
-(defun p4-context-single-filename ()
-  "Return a single filename based on the current context, or NIL
-if no filename can be found in the current context. Try the
-following, in order, until one succeeds:
-1. the file that the current buffer is visiting;
-2. the link at point;
-3. the marked file in a Dired buffer;
-4. the file at point in a Dired buffer;
-5. the file on the current line in a P4 Basic List buffer."
-  (cond ((p4-buffer-file-name))
-        ((get-char-property (point) 'link-client-name))
-        ((get-char-property (point) 'link-depot-name))
-        ((get-char-property (point) 'block-client-name))
-        ((get-char-property (point) 'block-depot-name))
-        ((let ((f (p4-dired-get-marked-files)))
-           (and f (p4-follow-link-name (first f)))))
-        ((p4-basic-list-get-filename))))
-
-(defun p4-context-filenames-list ()
-  "Return a list of filenames based on the current context."
-  (let ((f (p4-dired-get-marked-files)))
-    (if f (mapcar 'p4-follow-link-name f)
-      (let ((f (p4-context-single-filename)))
-        (when f (list f))))))
-
 (defun p4-follow-link-name (name)
   (p4-cygpath
    (if p4-follow-symlinks
@@ -1408,6 +1383,54 @@ off-line, toggle the status check on/off when opening files."
     (sync (p4-edit))))
 
 
+;;; Context-aware arguments:
+
+(defun p4-context-single-filename ()
+  "Return a single filename based on the current context, or NIL
+if no filename can be found in the current context. Try the
+following, in order, until one succeeds:
+1. the file that the current buffer is visiting;
+2. the link at point;
+3. the marked file in a Dired buffer;
+4. the file at point in a Dired buffer;
+5. the file on the current line in a P4 Basic List buffer."
+  (cond ((p4-buffer-file-name))
+        ((get-char-property (point) 'link-client-name))
+        ((get-char-property (point) 'link-depot-name))
+        ((get-char-property (point) 'block-client-name))
+        ((get-char-property (point) 'block-depot-name))
+        ((let ((f (p4-dired-get-marked-files)))
+           (and f (p4-follow-link-name (first f)))))
+        ((p4-basic-list-get-filename))))
+
+(defun p4-context-filenames-list ()
+  "Return a list of filenames based on the current context."
+  (let ((f (p4-dired-get-marked-files)))
+    (if f (mapcar 'p4-follow-link-name f)
+      (let ((f (p4-context-single-filename)))
+        (when f (list f))))))
+
+(defun p4-context-single-filename-args ()
+  "Return an argument list consisting of a single filename based
+on the current context, or NIL if no filename can be found in the
+current context."
+  (let ((f (p4-context-single-filename)))
+    (when f (list f))))
+
+(defun p4-context-single-filename-revision-args ()
+  "Return an argument list consisting of a single filename with a
+revision or changelevel, based on the current context, or NIL if
+the current context doesn't contain a filename with a revision or
+changelevel."
+  (let ((f (p4-context-single-filename)))
+    (when f
+      (let ((rev (get-char-property (point) 'rev)))
+        (if rev (list (format "%s#%d" f rev))
+          (let ((change (get-char-property (point) 'change)))
+            (if change (list (format "%s@%d" f change))
+              (list f))))))))
+
+
 ;;; Defining Perforce command interfaces:
 
 (eval-and-compile
@@ -1455,26 +1478,6 @@ twice in the expansion."
      (let ((cmd (format "%s" ',name))
            (args (or args-orig ,args-default)))
        ,@body)))
-
-(defun p4-context-single-filename-args ()
-  "Return an argument list consisting of a single filename based
-on the current context, or NIL if no filename can be found in the
-current context."
-  (let ((f (p4-context-single-filename)))
-    (when f (list f))))
-
-(defun p4-context-single-filename-revision-args ()
-  "Return an argument list consisting of a single filename with a
-revision or changelevel, based on the current context, or NIL if
-the current context doesn't contain a filename with a revision or
-changelevel."
-  (let ((f (p4-context-single-filename)))
-    (when f
-      (let ((rev (get-char-property (point) 'rev)))
-        (if rev (list (format "%s#%d" f rev))
-          (let ((change (get-char-property (point) 'change)))
-            (if change (list (format "%s@%d" f change))
-              (list f))))))))
 
 
 ;;; Perforce command interfaces:
