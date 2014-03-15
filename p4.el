@@ -336,8 +336,8 @@ commit command.")
 (defvar p4-prefix-map
   (let ((map (make-sparse-keymap)))
     (define-key map "a" 'p4-add)
-    (define-key map "B" 'p4-branches)
     (define-key map "b" 'p4-branch)
+    (define-key map "B" 'p4-branches)
     (define-key map "c" 'p4-client)
     (define-key map "C" 'p4-changes)
     (define-key map "d" 'p4-diff2)
@@ -1590,7 +1590,7 @@ twice in the expansion."
   (p4-diff (list p4-default-diff-options)))
 
 (defun p4-get-file-rev (rev)
-  "Return the full filespec corresponding to revision rev, using
+  "Return the full filespec corresponding to revision REV, using
 the context to determine the filename if necessary."
   (cond ((integerp rev)
          (format "%s#%d" (p4-context-single-filename) rev))
