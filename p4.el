@@ -1710,11 +1710,15 @@ continuation lines); show it in a pop-up window otherwise."
   (p4-context-filenames-list)
   (p4-call-command cmd args))
 
-(defp4cmd p4-grep (args)
+(defp4cmd p4-grep (&rest args)
   "grep"
   "Print lines matching a pattern."
-  (interactive (list (p4-read-arg-string "p4 grep: " '("-e  ..." . 3))))
-  (compilation-start (concat "p4 grep -n " args) 'p4-grep-mode))
+  (interactive (p4-read-args "p4 grep: " '("-e  ..." . 3)))
+  (p4-ensure-logged-in)
+  (compilation-start
+   (mapconcat 'shell-quote-argument 
+              (append (list (p4-executable) "grep" "-n") args) " ")
+   'p4-grep-mode))
 
 (defp4cmd p4-group (&rest args)
   "group"
