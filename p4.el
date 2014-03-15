@@ -125,7 +125,7 @@ when they change on disk."
   "List of Perforce commands that are run synchronously."
   :type (let ((cmds '(add branch branches change changes client clients delete
                       describe diff diff2 edit filelog files fix fixes flush
-                      group groups have info integ job jobs jobspec label
+                      fstat group groups have info integ job jobs jobspec label
                       labels labelsync lock logout move opened passwd print
                       reconcile reopen revert set shelve status submit sync
                       tickets unlock unshelve update user users where)))
