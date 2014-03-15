@@ -854,11 +854,17 @@ respecting the `p4-follow-symlinks' setting."
   (let ((f (buffer-file-name buffer)))
     (when f (p4-follow-link-name f))))
 
+(defun p4-process-output (cmd &rest args)
+  "Run cmd (with the given args) and return the output as a string,
+except for the final newlines."
+  (with-temp-buffer
+    (apply 'call-process cmd nil t nil args)
+    (skip-chars-backward "\n")
+    (buffer-substring (point-min) (point))))
+
 (defun p4-cygpath (name)
   (if (memq system-type '(cygwin32 cygwin))
-      (if (featurep 'xemacs)
-          (replace-in-string (exec-to-string (format "%s -w %s" p4-cygpath-exec name)) "\n" "")
-        (replace-regexp-in-string "\n" "" (shell-command-to-string (format "%s -w %s" p4-cygpath-exec name))))
+      (p4-process-output p4-cygpath-exec "-w" name)
     name))
 
 (defun p4-startswith (string prefix)
@@ -2824,10 +2830,7 @@ NIL if there is no such completion type."
 
 (defvar p4-basic-mode-map
   (let ((map (make-sparse-keymap)))
-    (if (featurep 'xemacs)
-        (progn
-          (define-key map [button1] 'p4-buffer-mouse-clicked))
-      (define-key map [mouse-1] 'p4-buffer-mouse-clicked))
+    (define-key map (if (featurep 'xemacs) [button1] [mouse-1]) 'p4-buffer-mouse-clicked)
     (define-key map "\t" 'p4-forward-active-link)
     (define-key map "\e\t" 'p4-backward-active-link)
     (define-key map [(shift tab)] 'p4-backward-active-link)
