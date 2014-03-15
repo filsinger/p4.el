@@ -1500,15 +1500,13 @@ twice in the expansion."
     (p4-annotate-internal f (and (string-equal f (p4-buffer-file-name))
                                  (line-number-at-pos (point))))))
 
-(defp4cmd p4-branch (args)
+(defp4cmd p4-branch (&rest args)
   "branch"
   "Create, modify, or delete a branch view specification."
-  (interactive (list
-                (p4-make-list-from-string
-                 (p4-read-arg-string "p4 branch: " "" 'branch))))
-  (if (or (null args) (equal args (list "")))
-      (error "Branch must be specified!")
-    (p4-form-command "branch" args :move-to "Description:\n\t")))
+  (interactive (p4-read-args "p4 branch: " "" 'branch))
+  (unless args
+    (error "Branch must be specified!"))
+  (p4-form-command "branch" args :move-to "Description:\n\t"))
 
 (defp4cmd* branches
   "Display list of branch specifications."
