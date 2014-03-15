@@ -328,9 +328,7 @@ commit command.")
 (add-to-list 'minor-mode-map-alist '(p4-mode . p4-minor-map))
 
 (defvar p4-set-client-hooks nil
-  "List of functions to be called after a p4 client is changed.
-The buffer's local variables (if any) will have been processed before the
-functions are called.")
+  "List of functions to be called after a p4 client is changed.")
 
 
 ;;; Keymap:
@@ -466,7 +464,7 @@ functions are called.")
     ["Disable Status Check" p4-toggle-vc-mode-off p4-do-find-file]
     ["Enable Status Check" p4-toggle-vc-mode-on (not p4-do-find-file)]
     ["--" nil nil]
-    ["Set P4CONFIG" p4-set-client-config t]
+    ["Set P4CONFIG" p4-set-p4-config t]
     ["Set P4CLIENT" p4-set-client-name t]
     ["Set P4PORT" p4-set-p4-port t]
     ["Show client info" p4-set t]
@@ -599,8 +597,8 @@ if there is no setting."
               (push (cons p4-port version) p4-server-version-cache)
               version))))))
 
-(defun p4-set-client-name (p4client)
-  "Set or unset the P4CLIENT environment variable.
+(defun p4-set-client-name (value)
+  "Set the P4CLIENT environment variable to VALUE.
 If the setting `p4-set-my-clients' is non-NIL, complete on those
 clients only. If `p4-strict-complete' is non-NIL, require an
 exact match."
@@ -611,28 +609,18 @@ exact match."
      (or p4-my-clients
          (p4-completion-arg-completion-fn (p4-get-completion 'client)))
      nil p4-strict-complete (p4-current-client) 'p4-client-history)))
-  (if (or (null p4client) (string-equal p4client ""))
-      (setenv "P4CLIENT" nil)
-    (setenv "P4CLIENT" p4client)
-    (message "P4CLIENT changed to %s" p4client)
-    (run-hooks 'p4-set-client-hooks)))
+  (setenv "P4CONFIG" (unless (string-equal value "") value))
+  (run-hooks 'p4-set-client-hooks))
 
-(defun p4-set-client-config (p4config)
-  "Set the P4CONFIG environment variable."
-  (interactive "sP4CONFIG=")
-  (if (or (null p4config) (string-equal p4config ""))
-      (message "P4CONFIG not changed.")
-    (setenv "P4CONFIG" p4config)
-    (message "P4CONFIG changed to %s" p4config)))
+(defun p4-set-p4-config (value)
+  "Set the P4CONFIG environment variable to VALUE."
+  (interactive (list (read-string "P4CONFIG=" (p4-current-setting "P4CONFIG"))))
+  (setenv "P4CONFIG" (unless (string-equal value "") value)))
 
-(defun p4-set-p4-port (p4port)
-  "Set the P4PORT environment variable."
-  (interactive
-   (list
-    (read-string "P4PORT=" (getenv "P4PORT"))))
-  (if (or (null p4port) (string-equal p4port ""))
-      (setenv "P4PORT" nil)
-    (setenv "P4PORT" p4port)))
+(defun p4-set-p4-port (value)
+  "Set the P4PORT environment variable to VALUE."
+  (interactive (list (read-string "P4PORT=" (p4-current-setting "P4PORT"))))
+  (setenv "P4PORT" (unless (string-equal value "") value)))
 
 
 ;;; File handler:
@@ -795,7 +783,7 @@ characters."
 (defun p4-join-list (list) (mapconcat 'identity list " "))
 
 ;; Break up a string into a list of words
-;; (p4-make-list-from-string "ab c de  f") -> ("ab" "c" "de" "f")
+;; (p4-make-list-from-string "ab 'c de'  \"'f'\"") -> ("ab" "c de" "'f'")
 (defun p4-make-list-from-string (str)
   (let (lst)
     (while (or (string-match "^ *\"\\([^\"]*\\)\"" str)
@@ -806,7 +794,7 @@ characters."
     lst))
 
 (defun p4-force-mode-line-update ()
-  "Force the mode line update for different flavors of Emacs."
+  "Force the mode line update."
   (if (featurep 'xemacs)
       (redraw-modeline)
     (force-mode-line-update)))
@@ -830,7 +818,7 @@ respecting the `p4-follow-symlinks' setting."
     (when f (p4-follow-link-name f))))
 
 (defun p4-process-output (cmd &rest args)
-  "Run cmd (with the given args) and return the output as a string,
+  "Run CMD (with the given ARGS) and return the output as a string,
 except for the final newlines."
   (with-temp-buffer
     (apply 'call-process cmd nil t nil args)
@@ -866,7 +854,8 @@ To set the executable for future sessions, customize
       (error "%s is not an executable file." filename)))
 
 (defun p4-make-output-buffer (buffer-name &optional mode)
-  "Make read only buffer and return the buffer."
+  "Make a read-only buffer named BUFFER-NAME and return it.
+Run the function MODE if non-NIL, otherwise `p4-basic-mode'."
   (let ((dir (or p4-default-directory default-directory))
         (inhibit-read-only t))
     (with-current-buffer (get-buffer-create buffer-name)
@@ -933,7 +922,9 @@ and repeat."
 
 (defun p4-ensure-logged-in ()
   "Ensure that user is logged in, prompting for password if necessary."
-  (p4-with-temp-buffer '("login" "-s") 'logged-in))
+  (p4-with-temp-buffer '("login" "-s")
+    ;; Dummy body avoids byte-compilation warning.
+    'logged-in))
 
 (defun p4-run (args)
   "Run p4 ARGS in the current buffer, with output after point.
@@ -1057,7 +1048,7 @@ and arguments taken from the local variable `p4-process-args'."
   (p4-process-restart))
 
 (defun p4-process-buffer-name (args)
-  "Return a suitable buffer name for the p4 command."
+  "Return a suitable buffer name for the p4 ARGS command."
   (format "*P4 %s*" (p4-join-list args)))
 
 (defun* p4-call-command (cmd &optional args &key mode callback after-show
@@ -1631,11 +1622,10 @@ the context to determine the filename if necessary."
   (p4-call-command "diff2" args
                    :mode 'p4-diff-mode :callback 'p4-activate-diff-buffer))
 
-(defun p4-activate-ediff-callback (&optional pop-count)
+(defun p4-activate-ediff-callback ()
   "Return a callback function that runs ediff on the current
 buffer and the P4 output buffer."
-  (lexical-let ((orig-buffer (current-buffer))
-                (pop-count (or pop-count 1)))
+  (lexical-let ((orig-buffer (current-buffer)))
     (lambda ()
       (when (buffer-live-p orig-buffer)
         (p4-fontify-print-buffer t)
@@ -1652,12 +1642,12 @@ buffer and the P4 output buffer."
 
 (defun p4-activate-ediff2-callback (other-file)
   "Return a callback function that runs ediff on the P4 output
-buffer and other-file."
+buffer and OTHER-FILE."
   (lexical-let ((other-file other-file))
     (lambda ()
       (p4-fontify-print-buffer t)
       (p4-call-command "print" (list other-file)
-                       :after-show (p4-activate-ediff-callback 2)))))
+                       :after-show (p4-activate-ediff-callback)))))
 
 (defun p4-ediff2 (rev1 rev2)
   "Use ediff to compare two versions of a depot file.
@@ -2220,7 +2210,7 @@ change numbers, and make the change numbers clickable."
 (defun p4-fontify-print-buffer (&optional delete-filespec)
   "Fontify a p4-print buffer according to the filename in the
 first line of outputput from \"p4 print\". If the optional
-argument delete-filespec is non-NIL, remove the first line."
+argument DELETE-FILESPEC is non-NIL, remove the first line."
   (save-excursion
     (goto-char (point-min))
     (when (looking-at "^//[^#@]+/\\([^/#@]+\\).*\n")
@@ -2606,9 +2596,9 @@ return them as a list."
                 collect c))))
 
 (defun p4-complete (completion string)
-  "Return list of items that are possible completions for STRING.
-Use the cache if available, otherwise fetch them from the depot and
-update the cache accordingly."
+  "Return list of items of type COMPLETION that are possible
+completions for STRING. Use the cache if available, otherwise
+fetch them from the depot and update the cache accordingly."
   (p4-purge-completion-cache completion)
   (let* ((cache (p4-completion-cache completion))
          (cached (assoc string cache)))
