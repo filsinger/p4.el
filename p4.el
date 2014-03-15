@@ -1254,45 +1254,46 @@ revision number is not known or not applicable."
         (p4-maybe-start-update-statuses)))))
 
 (defun p4-update-status-sentinel-1 (process message)
-  (let ((buffer (process-buffer process)))
+  ;; Don't check (string= message "finished\n"): "p4 opened" exits
+  ;; with status 1 if asked to determine the status of a file outside
+  ;; the workspace root, but we still want to process the output in
+  ;; that case.
+  ;;
+  ;; If user is logged out, or p4-executable wrongly configured, don't
+  ;; spam user with errors, just quietly ignore. When they log in or
+  ;; fix the configuration, the update process will restart.
+  (let (have-buffers (buffer (process-buffer process)))
     (when (buffer-live-p buffer)
       (with-current-buffer buffer
-        ;; If user is logged out, or p4-executable wrongly configured,
-        ;; don't spam user with errors, just quietly ignore. When they
-        ;; log in or fix the configuration, the update process will
-        ;; restart.
-        (if (not (string-equal message "finished\n"))
-            (kill-buffer (current-buffer))
-          (let (have-buffers)
-            (goto-char (point-min))
-            (while (not (eobp))
-              (let ((b (pop p4-process-buffers)))
-                (cond ((looking-at "^info: //[^#\n]+#\\([1-9][0-9]*\\) - \\(add\\|branch\\|delete\\|edit\\) ")
-                       (p4-update-mode b (intern (match-string 2))
-                                       (string-to-number (match-string 1))))
-                      ((looking-at "^error: .* - file(s) not opened on this client")
-                       (push b have-buffers))
-                      ;; Just in case p4-executable is bogus.
-                      ((not (looking-at "^\\(?:error\\|warning\\|info\\|text\\|exit\\):"))
-                       (error "Unexpected output from p4 -s -x - opened: maybe p4-executable is wrong?")))
-                (setf (third p4-process-pending)
-                      (remove b (third p4-process-pending))))
-              (forward-line 1))
-            (erase-buffer)
-            (if (and p4-executable have-buffers)
-                (let ((process (start-process "P4" (current-buffer)
-                                              p4-executable
-                                              "-s" "-x" "-" "have")))
-                  (setq p4-process-buffers have-buffers)
-                  (set-process-query-on-exit-flag process nil)
-                  (set-process-sentinel process 'p4-update-status-sentinel-2)
-                  (p4-set-process-coding-system process)
-                  (loop for b in have-buffers
-                        do (process-send-string process (p4-buffer-file-name b))
-                        do (process-send-string process "\n"))
-                  (process-send-eof process))
-              (kill-buffer (current-buffer))
-              (p4-maybe-start-update-statuses))))))))
+        (goto-char (point-min))
+        (while (not (eobp))
+          (let ((b (pop p4-process-buffers))
+                (processed t))
+            (cond ((looking-at "^info: //[^#\n]+#\\([1-9][0-9]*\\) - \\(\\(?:move/\\)?add\\|branch\\|\\(?:move/\\)?delete\\|edit\\) ")
+                   (p4-update-mode b (intern (match-string 2))
+                                   (string-to-number (match-string 1))))
+                  ((looking-at "^error: .* - file(s) not opened on this client")
+                   (push b have-buffers))
+                  (t (setq processed nil)))
+            (when processed
+              (setf (third p4-process-pending)
+                    (remove b (third p4-process-pending)))))
+          (forward-line 1))
+        (erase-buffer)
+        (if (and p4-executable have-buffers)
+            (let ((process (start-process "P4" (current-buffer)
+                                          p4-executable
+                                          "-s" "-x" "-" "have")))
+              (setq p4-process-buffers have-buffers)
+              (set-process-query-on-exit-flag process nil)
+              (set-process-sentinel process 'p4-update-status-sentinel-2)
+              (p4-set-process-coding-system process)
+              (loop for b in have-buffers
+                    do (process-send-string process (p4-buffer-file-name b))
+                    do (process-send-string process "\n"))
+              (process-send-eof process))
+          (kill-buffer (current-buffer))
+          (p4-maybe-start-update-statuses))))))
 
 (defvar p4-update-status-process-buffer " *P4 update status*"
   "Name of the buffer in which the status update may be running.")
@@ -1716,7 +1717,7 @@ continuation lines); show it in a pop-up window otherwise."
   (interactive (p4-read-args "p4 grep: " '("-e  ..." . 3)))
   (p4-ensure-logged-in)
   (compilation-start
-   (mapconcat 'shell-quote-argument 
+   (mapconcat 'shell-quote-argument
               (append (list (p4-executable) "grep" "-n") args) " ")
    'p4-grep-mode))
 
