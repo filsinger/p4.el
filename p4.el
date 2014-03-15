@@ -933,7 +933,7 @@ and repeat."
 
 (defun p4-ensure-logged-in ()
   "Ensure that user is logged in, prompting for password if necessary."
-  (p4-with-temp-buffer '("login" "-s")))
+  (p4-with-temp-buffer '("login" "-s") 'logged-in))
 
 (defun p4-run (args)
   "Run p4 ARGS in the current buffer, with output after point.
