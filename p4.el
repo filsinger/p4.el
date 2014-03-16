@@ -826,7 +826,8 @@ except for the final newlines."
     (buffer-substring (point-min) (point))))
 
 (defun p4-cygpath (name)
-  (if (memq system-type '(cygwin32 cygwin))
+  (if (and (memq system-type '(cygwin32 cygwin))
+           (not (p4-with-temp-buffer '("-V") (search-forward "CYGWIN" nil t))))
       (p4-process-output p4-cygpath-exec "-w" name)
     name))
 
