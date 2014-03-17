@@ -147,6 +147,11 @@ when they change on disk."
   :type 'hook
   :group 'p4)
 
+(defcustom p4-set-client-hooks nil
+  "Hook run after client is changed."
+  :type 'hook
+  :group 'p4)
+
 (defcustom p4-strict-complete t
   "If non-NIL, `p4-set-my-client' requires an exact match."
   :type 'boolean
@@ -302,7 +307,7 @@ commit command.")
 # Type C-c C-c to send the form to the server.
 # Type C-x k to cancel the operation.
 #\n" p4-version)
-    "Head text which outputs on top of p4 form.")
+  "Text added to top of form.")
 
 ;; Local variables in P4 depot buffers.
 (defvar p4-default-directory nil "Original value of default-directory.")
@@ -318,17 +323,17 @@ commit command.")
   (make-variable-buffer-local var)
   (put var 'permanent-local t))
 
+
+;;; P4 minor mode:
+
 (defvar p4-minor-map
   (let ((map (make-sparse-keymap)))
     (define-key map "\C-x\C-q" 'p4-toggle-read-only)
     map)
-  "Keymap for p4 minor mode")
+  "Keymap for P4 minor mode")
 (fset 'p4-minor-map p4-minor-map)
 (add-to-list 'minor-mode-alist '(p4-mode p4-mode))
 (add-to-list 'minor-mode-map-alist '(p4-mode . p4-minor-map))
-
-(defvar p4-set-client-hooks nil
-  "List of functions to be called after a p4 client is changed.")
 
 
 ;;; Keymap:
@@ -609,7 +614,7 @@ exact match."
      (or p4-my-clients
          (p4-completion-arg-completion-fn (p4-get-completion 'client)))
      nil p4-strict-complete (p4-current-client) 'p4-client-history)))
-  (setenv "P4CONFIG" (unless (string-equal value "") value))
+  (setenv "P4CLIENT" (unless (string-equal value "") value))
   (run-hooks 'p4-set-client-hooks))
 
 (defun p4-set-p4-config (value)
@@ -849,10 +854,10 @@ for a valid `p4-executable'."
   "Set `p4-executable' to the argument FILENAME.
 To set the executable for future sessions, customize
 `p4-executable' instead."
-    (interactive "fFull path to your p4 executable: ")
-    (if (and (file-executable-p filename) (not (file-directory-p filename)))
-        (setq p4-executable filename)
-      (error "%s is not an executable file." filename)))
+  (interactive "fFull path to your p4 executable: ")
+  (if (and (file-executable-p filename) (not (file-directory-p filename)))
+      (setq p4-executable filename)
+    (error "%s is not an executable file." filename)))
 
 (defun p4-make-output-buffer (buffer-name &optional mode)
   "Make a read-only buffer named BUFFER-NAME and return it.
@@ -1519,11 +1524,9 @@ twice in the expansion."
                                        "Describe branch"))))
 
 (defun p4-change-update-form (buffer new-status re)
-  (let ((change
-         (with-current-buffer buffer
-           (goto-char (point-min))
-           (when (re-search-forward re nil t)
-             (match-string 1)))))
+  (let ((change (with-current-buffer buffer
+                  (when (re-search-forward re nil t)
+                    (match-string 1)))))
     (when change
       (rename-buffer (p4-process-buffer-name (list "change" "-o" change)))
       (save-excursion
@@ -1767,10 +1770,8 @@ continuation lines); show it in a pop-up window otherwise."
 
 (defun p4-job-success (cmd buffer)
   (let ((job (with-current-buffer buffer
-               (save-excursion
-                 (goto-char (point-min))
-                 (when (looking-at "Job \\(.+\\) saved\\.$")
-                   (match-string 1))))))
+               (when (looking-at "Job \\(.+\\) saved\\.$")
+                 (match-string 1)))))
     (when job
       (save-excursion
         (save-restriction
@@ -1980,7 +1981,6 @@ changelist."
   ;; The failure might be because no files were shelved. But the
   ;; change was created, so this counts as a success for us.
   (if (with-current-buffer buffer
-        (goto-char (point-min))
         (looking-at "^Change \\([0-9]+\\) created\\.\nShelving files for change \\1\\.\nNo files to shelve\\.$"))
       (p4-change-success cmd buffer)
     (p4-form-commit-failure-callback-default cmd buffer)))
@@ -3005,7 +3005,6 @@ is NIL, otherwise return NIL."
     ("^\\(//.*#[1-9][0-9]*\\) - \\(?:unshelved, opened for \\)?\\(?:edit\\|updating\\)" 1 'p4-depot-edit-face)))
 
 (define-derived-mode p4-basic-list-mode p4-basic-mode "P4 Basic List"
-  (setq p4-process-after-show 'p4-display-one-line)
   (setq font-lock-defaults '(p4-basic-list-font-lock-keywords t)))
 
 (defun p4-basic-list-get-filename ()
