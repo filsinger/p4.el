@@ -1444,18 +1444,19 @@ changelevel."
 
 ;;; Defining Perforce command interfaces:
 
-(eval-and-compile
-  (defvar p4-include-help-to-command-docstring (eval-when (compile) t))
-
+(eval-when (compile)
+  ;; When byte-compiling, get help text by running "p4 help cmd".
   (defun p4-help-text (cmd text)
-    (concat
-     text
-     (with-temp-buffer
-       (when (and p4-include-help-to-command-docstring
-                  (stringp p4-executable)
-                  (file-executable-p p4-executable)
-                  (zerop (call-process p4-executable nil t nil "help" cmd)))
-         (buffer-substring (point-min) (point-max)))))))
+    (with-temp-buffer
+      (if (and (stringp p4-executable)
+               (file-executable-p p4-executable)
+               (zerop (call-process p4-executable nil t nil "help" cmd)))
+          (buffer-substring (point-min) (point-max))
+        text))))
+
+(eval-when (eval)
+  ;; When interpreting, don't run "p4 help cmd" (takes too long).
+  (defun p4-help-text (cmd text) text))
 
 (defmacro defp4cmd (name arglist help-cmd help-text &rest body)
   "Define a function, running p4 help HELP-CMD at compile time to
