@@ -3062,6 +3062,7 @@ is NIL, otherwise return NIL."
 
 (defvar p4-form-mode-map
   (let ((map (make-sparse-keymap)))
+    (define-key map "\C-x\C-s" 'p4-form-commit)
     (define-key map "\C-c\C-c" 'p4-form-commit)
     map)
   "Keymap for P4 form mode.")
