@@ -2686,7 +2686,7 @@ fetch them from the depot and update the cache accordingly."
                     :fetch-completions-fn 'p4-fetch-help-completions
                     :history 'p4-help-history))
    (cons 'job      (p4-make-completion
-                    :query-cmd "jobs" :query-prefix "job="
+                    :query-cmd "jobs" :query-arg "-e" :query-prefix "job="
                     :regexp "\\([^ \n]*\\) on [0-9]+/"
                     :history 'p4-job-history))
    (cons 'label    (p4-make-completion
