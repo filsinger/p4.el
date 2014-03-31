@@ -1971,7 +1971,8 @@ changelist."
                  (p4-activate-diff-buffer)
                  (display-buffer (current-buffer)))))))
     (when (or (not prompt) (yes-or-no-p "Really revert? "))
-      (p4-call-command cmd args :callback (p4-refresh-callback)))))
+      (p4-call-command cmd args :mode 'p4-basic-list-mode
+                       :callback (p4-refresh-callback)))))
 
 (defp4cmd p4-set ()
   "set"
