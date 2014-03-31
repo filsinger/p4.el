@@ -267,9 +267,10 @@ complete on all clients."
   "Perforce status for this buffer. A symbol:
 NIL if file is not known to be under control of Perforce.
 `add' if file is opened for add.
-`branch' if file opened for integration.
+`branch' if file opened for branch.
 `delete' if file is opened for delete.
 `edit' if file is opened for edit.
+`integrate' if file is opened for integrate.
 `sync' if file is synced but not opened.
 `depot' if the file is from the depot.")
 
@@ -423,7 +424,7 @@ commit command.")
     ["Reopen" p4-reopen
      (and buffer-file-name (or (not p4-do-find-file) (eq p4-vc-status 'edit)))]
     ["Revert" p4-revert
-     (and buffer-file-name (or (not p4-do-find-file) (memq p4-vc-status '(add branch edit delete))))]
+     (and buffer-file-name (or (not p4-do-find-file) (memq p4-vc-status '(add branch edit delete integrate))))]
     ["Open for Delete" p4-delete
      (and buffer-file-name (or (not p4-do-find-file) (eq p4-vc-status 'sync)))]
     ["Move Open File" p4-move
@@ -1235,7 +1236,7 @@ number is not known or not applicable."
       (let ((new-mode (case status
                         (sync (format " P4:%d" revision))
                         (depot (format " P4:%s" status))
-                        ((add branch edit) (format " P4:%s" status))
+                        ((add branch edit integrate) (format " P4:%s" status))
                         (t nil))))
         (when (and new-mode (not p4-mode))
           (run-hooks 'p4-mode-hook))
@@ -1273,7 +1274,7 @@ number is not known or not applicable."
         (while (not (eobp))
           (let ((b (pop p4-process-buffers))
                 (processed t))
-            (cond ((looking-at "^info: //[^#\n]+#\\([1-9][0-9]*\\) - \\(\\(?:move/\\)?add\\|branch\\|\\(?:move/\\)?delete\\|edit\\) ")
+            (cond ((looking-at "^info: //[^#\n]+#\\([1-9][0-9]*\\) - \\(\\(?:move/\\)?add\\|branch\\|\\(?:move/\\)?delete\\|edit\\|integrate\\) ")
                    (p4-update-mode b (intern (match-string 2))
                                    (string-to-number (match-string 1))))
                   ((looking-at "^error: .* - file(s) not opened on this client")
@@ -1360,7 +1361,7 @@ the file on disk has changed. If it has unsaved changes, prompt
 first."
   (and (or force
            (not p4-do-find-file)
-           (memq p4-vc-status '(add branch delete edit sync)))
+           (memq p4-vc-status '(add branch delete edit integrate sync)))
        (not (and verify-modtime (verify-visited-file-modtime (current-buffer))))
        buffer-file-name
        (file-readable-p buffer-file-name)
@@ -3001,7 +3002,7 @@ is NIL, otherwise return NIL."
 
 (defvar p4-basic-list-font-lock-keywords
   '(("^\\(//.*#[1-9][0-9]*\\) - \\(?:unshelved, opened for \\)?\\(?:move/\\)?add" 1 'p4-depot-add-face)
-    ("^\\(//.*#[1-9][0-9]*\\) - \\(?:unshelved, opened for \\)?branch" 1 'p4-depot-branch-face)
+    ("^\\(//.*#[1-9][0-9]*\\) - \\(?:unshelved, opened for \\)?\\(?:branch\\|integrate\\)" 1 'p4-depot-branch-face)
     ("^\\(//.*#[1-9][0-9]*\\) - \\(?:unshelved, opened for \\)?\\(?:move/\\)?delete" 1 'p4-depot-delete-face)
     ("^\\(//.*#[1-9][0-9]*\\) - \\(?:unshelved, opened for \\)?\\(?:edit\\|updating\\)" 1 'p4-depot-edit-face)))
 
