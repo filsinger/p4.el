@@ -1454,7 +1454,7 @@ changelevel."
           (buffer-substring (point-min) (point-max))
         text))))
 
-(eval-when (eval)
+(eval-when (eval load)
   ;; When interpreting, don't run "p4 help cmd" (takes too long).
   (defun p4-help-text (cmd text) text))
 
@@ -2075,7 +2075,7 @@ return a buffer listing those files. Otherwise, return NIL."
   "unshelve"
   "Restore shelved files from a pending change into a workspace."
   (interactive (p4-read-args "p4 unshelve: " ""))
-  (p4-call-command "unshelve" args))
+  (p4-call-command "unshelve" args :mode 'p4-basic-list-mode))
 
 (defp4cmd* update
   "Synchronize the client with its view of the depot (with safety check)."
