@@ -1154,33 +1154,31 @@ standard input\). If not supplied, cmd is reused.
 (defun p4-form-commit ()
   "Commit the form in the current buffer to the server."
   (interactive)
-  (if (buffer-modified-p)
-      (lexical-let* ((form-buf (current-buffer))
-                     (cmd p4-form-commit-command)
-                     (args '("-i"))
-                     (buffer (p4-make-output-buffer (p4-process-buffer-name
-                                                     (cons cmd args)))))
-        (cond ((with-current-buffer buffer
-                 (zerop
-                  (p4-iterate-with-login
-                   (lambda ()
-                     (with-current-buffer form-buf
-                       (save-restriction
-                         (widen)
-                         (p4-with-coding-system
-                           (apply 'call-process-region (point-min)
-                                  (point-max) (p4-executable)
-                                  nil buffer nil cmd args))))))))
-               (setq mode-name "P4 Form Committed")
-               (when p4-form-commit-success-callback
-                 (funcall p4-form-commit-success-callback cmd buffer))
-               (set-buffer-modified-p nil)
-               (with-current-buffer buffer
-                 (p4-process-show-output)
-                 (p4-partial-cache-cleanup (intern cmd))))
-              (p4-form-commit-failure-callback
-               (funcall p4-form-commit-failure-callback cmd buffer))))
-    (message "(No changes need to be committed)")))
+  (lexical-let* ((form-buf (current-buffer))
+                 (cmd p4-form-commit-command)
+                 (args '("-i"))
+                 (buffer (p4-make-output-buffer (p4-process-buffer-name
+                                                 (cons cmd args)))))
+    (cond ((with-current-buffer buffer
+             (zerop
+              (p4-iterate-with-login
+               (lambda ()
+                 (with-current-buffer form-buf
+                   (save-restriction
+                     (widen)
+                     (p4-with-coding-system
+                       (apply 'call-process-region (point-min)
+                              (point-max) (p4-executable)
+                              nil buffer nil cmd args))))))))
+           (setq mode-name "P4 Form Committed")
+           (when p4-form-commit-success-callback
+             (funcall p4-form-commit-success-callback cmd buffer))
+           (set-buffer-modified-p nil)
+           (with-current-buffer buffer
+             (p4-process-show-output)
+             (p4-partial-cache-cleanup (intern cmd))))
+          (p4-form-commit-failure-callback
+           (funcall p4-form-commit-failure-callback cmd buffer)))))
 
 
 ;;; P4 mode:
