@@ -1498,7 +1498,8 @@ twice in the expansion."
 (defp4cmd* add
   "Open a new file to add it to the depot."
   (p4-context-filenames-list)
-  (p4-call-command cmd args :callback (p4-refresh-callback)))
+  (p4-call-command cmd args :mode 'p4-basic-list-mode
+                   :callback (p4-refresh-callback)))
 
 (defp4cmd* annotate
   "Print file lines and their revisions."
@@ -1574,7 +1575,8 @@ twice in the expansion."
   "Open an existing file for deletion from the depot."
   (p4-context-filenames-list)
   (when (yes-or-no-p "Really delete from depot? ")
-    (p4-call-command cmd args :callback (p4-refresh-callback))))
+    (p4-call-command cmd args :mode 'p4-basic-list-mode
+                     :callback (p4-refresh-callback))))
 
 (defun p4-describe-internal (args)
   (p4-call-command "describe" args :mode 'p4-diff-mode
@@ -1681,6 +1683,7 @@ continuation lines); show it in a pop-up window otherwise."
   "Open an existing file for edit."
   (p4-context-filenames-list)
   (p4-call-command cmd args
+                   :mode 'p4-basic-list-mode
                    :pop-up-output 'p4-edit-pop-up-output-p
                    :callback (p4-refresh-callback 'p4-edit-hook)))
 
@@ -1882,6 +1885,7 @@ followed by \"delete\"."
       (p4-call-command "integ" (list from-file to-file)
        :callback (lambda () (p4-call-command "delete" (list from-file))))
     (p4-call-command "move" (list from-file to-file)
+     :mode 'p4-basic-list-mode
      :callback (p4-move-complete-callback from-file to-file))))
 
 (defalias 'p4-rename 'p4-move)
@@ -1923,7 +1927,8 @@ with workspace changes made outside of Perforce."
   "Change the filetype of an open file or move it to another
 changelist."
   (p4-context-filenames-list)
-  (p4-call-command cmd args :callback (p4-refresh-callback)))
+  (p4-call-command cmd args :mode 'p4-basic-list-mode
+                   :callback (p4-refresh-callback)))
 
 (defp4cmd* resolve
   "Resolve integrations and updates to workspace files."
@@ -3002,10 +3007,10 @@ is NIL, otherwise return NIL."
   "The keymap to use in P4 Basic List Mode.")
 
 (defvar p4-basic-list-font-lock-keywords
-  '(("^\\(//.*#[1-9][0-9]*\\) - \\(?:unshelved, opened for \\)?\\(?:move/\\)?add" 1 'p4-depot-add-face)
-    ("^\\(//.*#[1-9][0-9]*\\) - \\(?:unshelved, opened for \\)?\\(?:branch\\|integrate\\)" 1 'p4-depot-branch-face)
-    ("^\\(//.*#[1-9][0-9]*\\) - \\(?:unshelved, opened for \\)?\\(?:move/\\)?delete" 1 'p4-depot-delete-face)
-    ("^\\(//.*#[1-9][0-9]*\\) - \\(?:unshelved, opened for \\)?\\(?:edit\\|updating\\)" 1 'p4-depot-edit-face)))
+  '(("^\\(//.*#[1-9][0-9]*\\) - \\(?:\\(?:unshelved, \\)?opened for \\)?\\(?:move/\\)?add" 1 'p4-depot-add-face)
+    ("^\\(//.*#[1-9][0-9]*\\) - \\(?:\\(?:unshelved, \\)?opened for \\)?\\(?:branch\\|integrate\\)" 1 'p4-depot-branch-face)
+    ("^\\(//.*#[1-9][0-9]*\\) - \\(?:\\(?:unshelved, \\)?opened for \\)?\\(?:move/\\)?delete" 1 'p4-depot-delete-face)
+    ("^\\(//.*#[1-9][0-9]*\\) - \\(?:\\(?:unshelved, \\)?opened for \\)?\\(?:edit\\|updating\\)" 1 'p4-depot-edit-face)))
 
 (define-derived-mode p4-basic-list-mode p4-basic-mode "P4 Basic List"
   (setq font-lock-defaults '(p4-basic-list-font-lock-keywords t)))
