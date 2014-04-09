@@ -96,6 +96,17 @@ Perforce client executable, in case it can't be found on your
 key bindings, in case the default ``C-x p`` is unsuitable).
 
 
+Keychain access
+---------------
+
+On OS X, ``p4.el`` can automatically fetch your Perforce passwords
+from the login keychain. For each Perforce account, use Keychain
+Access to create an application password where the "Account" is the
+Perforce user name (``P4USER``) and "Where" is the Perforce server
+setting (``P4PORT``). Then in Emacs, customize the user setting
+``p4-password-source`` and select "Fetch password from OS X Keychain".
+
+
 What's new
 ----------
 
@@ -110,8 +121,8 @@ are the significant new and improved features in this version:
   which commands get run in the background and which get run in the
   foreground by customizing the setting ``p4-synchronous-commands``.
 - You no longer lose unsaved changes in a buffer when you run the
-  p4-edit command. Instead, you are prompted as to whether you want to
-  revert the buffer.
+  ``p4-edit`` command. Instead, you are prompted as to whether you
+  want to revert the buffer.
 - If you are logged out of Perforce, running any Perforce command
   prompts you to log in.
 - If your Perforce server is untrusted, running any Perforce command

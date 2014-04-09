@@ -132,6 +132,16 @@ when they change on disk."
           (cons 'set (loop for cmd in cmds collect (list 'const cmd))))
   :group 'p4)
 
+(defcustom p4-password-source nil
+  "Command and arguments that will print your Perforce login
+password to standard output. $P4PORT and $P4USER will be
+substituted from the Perforce settings."
+  :type '(radio (const :tag "Prompt me for password" nil)
+                (const :tag "Fetch password from OS X Keychain" 
+                       "security find-generic-password -s $P4PORT -a $P4USER -w")
+                (string :tag "Run custom command"))
+  :group 'p4)
+
 (defcustom p4-mode-hook nil
   "Hook run by `p4-mode'."
   :type 'hook
@@ -535,6 +545,15 @@ if there is no setting."
           (when (re-search-forward re nil t)
             (match-string 1))))
       default))
+
+(defun p4-current-environment ()
+  "Return `process-environment' updated with the current Perforce
+client settings."
+  (append
+   (p4-with-set-output
+     (loop while (re-search-forward "^P4[A-Z]+=\\S-+" nil t)
+           collect (match-string 0)))
+   process-environment))
 
 (defvar p4-coding-system-alist
   ;; I've preferred the IANA name, where possible. See
@@ -1834,13 +1853,19 @@ continuation lines); show it in a pop-up window otherwise."
 (defp4cmd* login
   "Log in to Perforce by obtaining a session ticket."
   nil
-  (let ((logged-in nil)
-        (prompt "Enter password for %s: "))
-    (while (not logged-in)
-      (let ((pw (if (member "-s" args) ""
-                  (read-passwd (format prompt (p4-current-server-port))))))
-        (with-temp-buffer
-          (insert pw "\n")
+  (if (member "-s" args)
+      (p4-call-command cmd args)
+    (let ((first-iteration t)
+          (logged-in nil)
+          (prompt "Enter password for %s: "))
+      (while (not logged-in)
+        (with-current-buffer (get-buffer-create "*foo*")
+          (or (and first-iteration (stringp p4-password-source)
+                   (let ((process-environment (p4-current-environment)))
+                     (zerop (call-process-shell-command p4-password-source
+                                                        nil '(t nil)))))
+              (insert (read-passwd (format prompt (p4-current-server-port))) "\n"))
+          (setq first-iteration nil)
           (p4-with-coding-system
             (apply 'call-process-region (point-min) (point-max)
                    (p4-executable) t t nil cmd "-a" args))
