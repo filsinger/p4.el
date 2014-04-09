@@ -1859,7 +1859,7 @@ continuation lines); show it in a pop-up window otherwise."
           (logged-in nil)
           (prompt "Enter password for %s: "))
       (while (not logged-in)
-        (with-current-buffer (get-buffer-create "*foo*")
+        (with-temp-buffer
           (or (and first-iteration (stringp p4-password-source)
                    (let ((process-environment (p4-current-environment)))
                      (zerop (call-process-shell-command p4-password-source
