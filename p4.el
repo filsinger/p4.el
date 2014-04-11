@@ -900,7 +900,8 @@ Run the function MODE if non-NIL, otherwise `p4-basic-mode'."
 
 (defvar p4-untrusted-regexp
   (concat "\\(?:error: \\)?"
-          "The authenticity of '.*' can't be established")
+          "\\(?:The authenticity of '.*' can't be established"
+          "\\|\\** WARNING P4PORT IDENTIFICATION HAS CHANGED! \\**\\)")
   "Regular expression matching output from an untrusted Perforce server.")
 
 (defvar p4-connect-failed-regexp
@@ -919,7 +920,7 @@ connect to the server.")
     (insert "yes\n")
     (p4-with-coding-system
       (call-process-region (point-min) (point-max)
-                           (p4-executable) t t nil "trust"))))
+                           (p4-executable) t t nil "trust" "-f"))))
 
 (defun p4-iterate-with-login (fun)
   "Call FUN in the current buffer and return its result.
