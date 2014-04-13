@@ -133,11 +133,13 @@ when they change on disk."
   :group 'p4)
 
 (defcustom p4-password-source nil
-  "Command and arguments that will print your Perforce login
-password to standard output. $P4PORT and $P4USER will be
-substituted from the Perforce settings."
-  :type '(radio (const :tag "Prompt me for password" nil)
-                (const :tag "Fetch password from OS X Keychain" 
+  "Action to take when Perforce needs a password.
+If NIL, prompt the user to enter password.
+Otherwise, this is a string containing a shell command that
+prints the password. This command is run in an environment where
+P4PORT and P4USER and set from the current Perforce settings."
+  :type '(radio (const :tag "Prompt user to enter password" nil)
+                (const :tag "Fetch password from OS X Keychain.\n\tFor each Perforce account, use Keychain Access to create an\n\tapplication password with \"Account\" the Perforce user name (P4USER)\n\tand \"Where\" the Perforce server setting (P4PORT)." 
                        "security find-generic-password -s $P4PORT -a $P4USER -w")
                 (string :tag "Run custom command"))
   :group 'p4)
