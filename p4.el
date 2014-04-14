@@ -915,7 +915,8 @@ connect to the server.")
 
 (defun p4-request-trust ()
   "Ask the user for permission to trust the Perforce server."
-  (display-buffer (current-buffer))
+  (with-selected-window (display-buffer (current-buffer))
+    (goto-char (point-min)))
   (unless (yes-or-no-p "Trust server?")
     (error "Server not trusted."))
   (with-temp-buffer
