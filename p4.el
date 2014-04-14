@@ -917,7 +917,7 @@ connect to the server.")
   "Ask the user for permission to trust the Perforce server."
   (with-selected-window (display-buffer (current-buffer))
     (goto-char (point-min)))
-  (unless (yes-or-no-p "Trust server?")
+  (unless (yes-or-no-p "Trust server? ")
     (error "Server not trusted."))
   (with-temp-buffer
     (insert "yes\n")
