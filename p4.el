@@ -138,9 +138,11 @@ If NIL, prompt the user to enter password.
 Otherwise, this is a string containing a shell command that
 prints the password. This command is run in an environment where
 P4PORT and P4USER and set from the current Perforce settings."
-  :type '(radio (const :tag "Prompt user to enter password" nil)
-                (const :tag "Fetch password from OS X Keychain.\n\tFor each Perforce account, use Keychain Access to create an\n\tapplication password with \"Account\" the Perforce user name (P4USER)\n\tand \"Where\" the Perforce server setting (P4PORT)." 
+  :type '(radio (const :tag "Prompt user to enter password." nil)
+                (const :tag "Fetch password from OS X Keychain.\n\n\tFor each Perforce account, use Keychain Access to create an\n\tapplication password with \"Account\" the Perforce user name\n\t(P4USER) and \"Where\" the Perforce server setting (P4PORT).\n"
                        "security find-generic-password -s $P4PORT -a $P4USER -w")
+                (const :tag "Fetch password from Python keyring.\n\n\tFor each Perforce account, run:\n\t    python -c \"import keyring,sys;keying.set_password(*sys.argv[1:])\" \\\n\t        P4PORT P4USER PASSWORD\n\treplacing P4PORT with the Perforce server setting, P4PORT with the\n\tPerforce user name, and PASSWORD with the password.\n"
+                       "python -c \"import keyring, sys; print(keyring.get_password(*sys.argv[1:3]))\" \"$P4PORT\" \"$P4USER\"")
                 (string :tag "Run custom command"))
   :group 'p4)
 

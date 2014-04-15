@@ -99,12 +99,32 @@ key bindings, in case the default ``C-x p`` is unsuitable).
 Keychain access
 ---------------
 
-On OS X, ``p4.el`` can automatically fetch your Perforce passwords
-from the login keychain. For each Perforce account, use Keychain
-Access to create an application password where the "Account" is the
-Perforce user name (``P4USER``) and "Where" is the Perforce server
-setting (``P4PORT``). Then in Emacs, customize the user setting
-``p4-password-source`` and select "Fetch password from OS X Keychain".
+The user setting ``p4-password-source`` tells ``p4.el`` what to do
+when Perforce requires a password. By default it prompts you for a
+password, but it can be configured to fetch your password from your
+system's password manager.
+
+#. On OS X, ``p4.el`` can automatically fetch your Perforce passwords
+   from the login keychain. For each Perforce account, use Keychain
+   Access to create an application password where the "Account" is the
+   Perforce user name (``P4USER``) and "Where" is the Perforce server
+   setting (``P4PORT``). Then in Emacs, customize the user setting
+   ``p4-password-source`` and select "Fetch password from OS X
+   Keychain."
+
+#. If your system is supported by the keyring_ Python module, then
+   install that module (it is installed by default on Ubuntu) and for
+   each Perforce account, run::
+
+       python -c "import keyring,sys;keying.set_password(*sys.argv[1:])" \
+           P4PORT P4USER PASSWORD
+
+   replacing ``P4PORT`` with the Perforce server setting, ``P4PORT``
+   with the Perforce user name, and ``PASSWORD`` with the password.
+   Then in Emacs, customize the user setting ``p4-password-source``
+   and select "Fetch password from Python keying."
+
+.. _keyring: https://pypi.python.org/pypi/keyring
 
 
 What's new
