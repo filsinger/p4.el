@@ -116,13 +116,13 @@ system's password manager.
    install that module (it is installed by default on Ubuntu) and for
    each Perforce account, run::
 
-       python -c "import keyring,sys;keying.set_password(*sys.argv[1:])" \
+       python -c "import keyring,sys;keyring.set_password(*sys.argv[1:])" \
            P4PORT P4USER PASSWORD
 
    replacing ``P4PORT`` with the Perforce server setting, ``P4PORT``
    with the Perforce user name, and ``PASSWORD`` with the password.
    Then in Emacs, customize the user setting ``p4-password-source``
-   and select "Fetch password from Python keying."
+   and select "Fetch password from Python keyring."
 
 .. _keyring: https://pypi.python.org/pypi/keyring
 
