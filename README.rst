@@ -119,7 +119,7 @@ system's password manager.
        python -c "import keyring,sys;keyring.set_password(*sys.argv[1:])" \
            P4PORT P4USER PASSWORD
 
-   replacing ``P4PORT`` with the Perforce server setting, ``P4PORT``
+   replacing ``P4PORT`` with the Perforce server setting, ``P4USER``
    with the Perforce user name, and ``PASSWORD`` with the password.
    Then in Emacs, customize the user setting ``p4-password-source``
    and select "Fetch password from Python keyring."
