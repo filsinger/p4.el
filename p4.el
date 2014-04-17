@@ -1922,7 +1922,8 @@ followed by \"delete\"."
 (defp4cmd* opened
   "List open files and display file status."
   nil
-  (p4-call-command cmd args :mode 'p4-basic-list-mode))
+  (p4-call-command cmd args :mode 'p4-basic-list-mode
+                   :pop-up-output (lambda () t)))
 
 (defp4cmd* print
   "Write a depot file to a buffer."
