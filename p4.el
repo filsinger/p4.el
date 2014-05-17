@@ -1779,9 +1779,9 @@ continuation lines); show it in a pop-up window otherwise."
   (p4-call-command "help" args
    :callback (lambda ()
                (let ((case-fold-search))
-                 (loop for re in '("\\<p4 help \\([a-z][a-z0-9]*\\)\\>"
-                                   "'p4\\(?: -[a-z]+\\)* \\([a-z][a-z0-9]*\\)\\>"
-                                   "^\t\\([a-z][a-z0-9]*\\)  *[A-Z]")
+                 (loop for re in '("\\<p4\\s-+help\\s-+\\([a-z][a-z0-9]*\\)\\>"
+                                   "'p4\\(?:\\s-+-[a-z]+\\)*\\s-+\\([a-z][a-z0-9]*\\)\\>"
+                                   "^\t\\([a-z][a-z0-9]*\\) +[A-Z]")
                        do (p4-regexp-create-links re 'help))))))
 
 (defp4cmd p4-info ()
