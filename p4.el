@@ -832,7 +832,10 @@ characters."
   ;; Wrapper for `dired-get-marked-files'. In Emacs 24.2 (and earlier)
   ;; this raises an error if there are no marked files and no file on
   ;; the current line, so we suppress the error here.
-  (ignore-errors (dired-get-marked-files nil)))
+  ;;
+  ;; The (delq nil ...) works around a bug in Dired+. See issue #172
+  ;; <https://github.com/gareth-rees/p4.el/issues/172>
+  (ignore-errors (delq nil (dired-get-marked-files nil))))
 
 (defun p4-follow-link-name (name)
   (p4-cygpath
